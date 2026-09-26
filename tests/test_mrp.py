@@ -43,5 +43,15 @@ class MrpServiceTests(unittest.TestCase):
 
         self.assertEqual(
             result["materials"],
-            [{"material": "传感器", "required": 150, "available": 130, "shortage": 20, "is_ready": False}],
+            [
+                {
+                    "material": "传感器",
+                    "required": 150,
+                    "inventory_status": "known",
+                    "stock": 100,
+                    "available": 130,
+                    "shortage": 20,
+                    "is_ready": False,
+                }
+            ],
         )

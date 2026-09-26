@@ -3,6 +3,10 @@
 from collections.abc import Mapping
 
 
+def _is_nonnegative_number(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0
+
+
 def assess_purchase_risks(
     shortages: Mapping[str, int],
     purchase_data: Mapping[str, Mapping[str, int]],
@@ -73,3 +77,64 @@ def purchase_recommendation(
         }
 
     return result
+
+
+def analyze_real_purchase(
+    mrp_materials: list[Mapping[str, object]],
+    purchase_parameters: Mapping[str, Mapping[str, object]],
+) -> dict[str, list[dict[str, object]]]:
+    """仅对库存已知且缺料的物料生成采购分析，不补造采购参数。"""
+    recommendations: list[dict[str, object]] = []
+    parameter_pending: list[dict[str, object]] = []
+    required_fields = ("supplier_code", "safety_stock", "lead_time_days")
+
+    for item in mrp_materials:
+        if item.get("inventory_status") != "known" or not _is_nonnegative_number(item.get("shortage")):
+            continue
+        shortage = item["shortage"]
+        if shortage == 0:
+            continue
+        material = item.get("material")
+        if not isinstance(material, str):
+            raise ValueError("MRP 物料格式无效")
+
+        parameter = purchase_parameters.get(material)
+        missing_fields = list(parameter.get("missing_fields", [])) if parameter else list(required_fields)
+        if parameter is None or missing_fields:
+            parameter_pending.append(
+                {
+                    "material": material,
+                    "shortage": shortage,
+                    "data_status": "采购参数待补充",
+                    "missing_fields": missing_fields,
+                }
+            )
+            continue
+
+        supplier_code = parameter.get("supplier_code")
+        safety_stock = parameter.get("safety_stock")
+        lead_time_days = parameter.get("lead_time_days")
+        if (
+            not isinstance(supplier_code, str)
+            or not supplier_code.strip()
+            or not _is_nonnegative_number(safety_stock)
+            or not isinstance(lead_time_days, int)
+            or isinstance(lead_time_days, bool)
+            or lead_time_days < 0
+        ):
+            raise ValueError(f"物料 {material} 的采购参数无效")
+
+        risk_level = "一般风险" if lead_time_days <= 7 else "高风险"
+        recommendations.append(
+            {
+                "material": material,
+                "shortage": shortage,
+                "safety_stock": safety_stock,
+                "suggested_purchase_qty": shortage + safety_stock,
+                "supplier_code": supplier_code,
+                "lead_time_days": lead_time_days,
+                "risk_level": risk_level,
+                "data_status": "采购参数完整",
+            }
+        )
+    return {"recommendations": recommendations, "parameter_pending": parameter_pending}
