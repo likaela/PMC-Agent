@@ -20,6 +20,6 @@ def inventory_check(materials: dict[str, int]) -> dict[str, dict[str, int]]:
 
 
 @tool
-def purchase_check(shortages: dict[str, int]) -> dict[str, dict[str, int]]:
+def purchase_check(shortages: dict[str, int]) -> dict[str, dict[str, int | str]]:
     """根据 {物料: 缺口} 生成采购数量、安全库存和采购周期建议。"""
     return purchase_recommendation(shortages)

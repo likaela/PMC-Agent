@@ -8,7 +8,8 @@ from repositories.purchase_repository import load_purchase_data
 class ExcelRepositoryTests(unittest.TestCase):
     def test_excel_bom_data_is_loaded(self) -> None:
         bom_data = load_bom_data()
-        self.assertEqual(bom_data["ABC-1000"], {"主板": 1, "电机": 2, "螺丝": 8})
+        self.assertEqual(bom_data["ABC-1000"], {"控制模块": 1, "电机": 2, "螺丝": 8})
+        self.assertEqual(bom_data["控制模块"], {"主板": 1, "芯片": 4})
 
     def test_excel_inventory_data_is_loaded(self) -> None:
         inventory_data = load_inventory_data()

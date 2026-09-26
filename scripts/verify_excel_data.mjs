@@ -8,9 +8,9 @@ const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const dataDirectory = path.resolve(scriptDirectory, "..", "data");
 const previewDirectory = path.join(os.tmpdir(), "pmc-agent-excel-previews");
 const files = [
-  ["bom.xlsx", "BOM", "A1:C4"],
-  ["inventory.xlsx", "Inventory", "A1:E5"],
-  ["purchase.xlsx", "Purchase", "A1:C5"],
+  ["bom.xlsx", "BOM", "A1:C6"],
+  ["inventory.xlsx", "Inventory", "A1:E6"],
+  ["purchase.xlsx", "Purchase", "A1:C6"],
 ];
 
 await fs.mkdir(previewDirectory, { recursive: true });

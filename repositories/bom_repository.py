@@ -10,7 +10,7 @@ REQUIRED_COLUMNS = ("parent_material", "child_material", "qty_per")
 
 
 def load_bom_data(file_path: Path = DATA_FILE) -> dict[str, dict[str, int]]:
-    """读取一级 BOM，返回 ``{parent_material: {child_material: qty_per}}``。"""
+    """读取 BOM 父子关系，返回 ``{parent_material: {child_material: qty_per}}``。"""
     workbook = load_workbook(file_path, read_only=True, data_only=True)
     try:
         sheet = workbook.active
