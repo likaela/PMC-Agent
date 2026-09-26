@@ -1,0 +1,7 @@
+# 直接运行依赖；版本从现有 venv 的已安装包记录。
+# DeepSeek 通过其 OpenAI-compatible API 由 langchain-openai 调用，
+# 项目未直接使用独立的 DeepSeek SDK。
+langchain==1.4.2
+langchain-openai==1.6.5
+openai==3.19.2
+python-dotenv==1.2.3
