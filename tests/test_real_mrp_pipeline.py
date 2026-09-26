@@ -1,7 +1,10 @@
 import unittest
 
+from repositories.inventory_disposition_repository import load_inventory_dispositions
 from repositories.purchase_parameter_repository import load_purchase_parameters
 from scripts.generate_kq_z112_real_mrp_report import build_kq_z112_report
+from services.bom_service import explode_bom
+from services.inventory_disposition_service import apply_inventory_dispositions
 from services.mrp_service import analyze_mrp
 from services.purchase_service import analyze_real_purchase
 from services.report_service import build_pmc_report
@@ -100,6 +103,63 @@ class RealMrpPipelineTests(unittest.TestCase):
         self.assertEqual(report["inventory_data_integrity"]["pending_confirmation_count"], 17)
         self.assertIsNone(report["production_feasibility"]["can_produce"])
         self.assertIn("一期可用库存仅来自主库存表", report["data_limitations_and_assumptions"][0])
+
+    def test_missing_inventory_is_not_automatically_converted_to_zero(self) -> None:
+        scope = apply_inventory_dispositions(
+            {"M-003": {"inventory_status": "missing", "stock": None}},
+            {},
+        )
+        self.assertEqual(scope["M-003"]["inventory_status"], "missing")
+        self.assertIsNone(scope["M-003"]["stock"])
+
+    def test_confirmed_stock_zero_becomes_known_zero_inventory(self) -> None:
+        scope = apply_inventory_dispositions(
+            {"M-004": {"inventory_status": "missing", "stock": None}},
+            {
+                "M-004": {
+                    "disposition": "stock_zero",
+                    "confirmed_stock": 0,
+                    "include_in_mrp": True,
+                    "reason": "盘点确认",
+                    "confirmed_by": "业务人员",
+                }
+            },
+        )
+        result = analyze_mrp({"M-004": 2}, scope)
+        self.assertEqual(scope["M-004"]["inventory_status"], "known")
+        self.assertEqual(result["materials"][0]["stock"], 0)
+        self.assertEqual(result["materials"][0]["shortage"], 2)
+
+    def test_purchase_to_order_keeps_bom_material_and_blocks_definitive_conclusion(self) -> None:
+        requirements = explode_bom("P-001", 1, {"P-001": {"M-005": 1}})
+        scope = apply_inventory_dispositions(
+            {"M-005": {"inventory_status": "missing", "stock": None}},
+            {"M-005": {"disposition": "purchase_to_order", "include_in_mrp": True}},
+        )
+        result = analyze_mrp(requirements, scope)
+        self.assertEqual(requirements, {"M-005": 1})
+        self.assertEqual(result["materials"][0]["business_disposition"], "purchase_to_order")
+        self.assertIsNone(result["can_produce"])
+
+    def test_bom_obsolete_only_raises_business_warning_without_deleting_bom(self) -> None:
+        requirements = explode_bom("P-002", 1, {"P-002": {"M-006": 1}})
+        scope = apply_inventory_dispositions(
+            {"M-006": {"inventory_status": "missing", "stock": None}},
+            {"M-006": {"disposition": "bom_obsolete", "include_in_mrp": False}},
+        )
+        result = analyze_mrp(requirements, scope)
+        self.assertEqual(requirements, {"M-006": 1})
+        self.assertEqual(result["materials"][0]["inventory_status"], "business_disposition")
+        self.assertEqual(result["materials"][0]["business_disposition"], "bom_obsolete")
+
+    def test_unconfirmed_template_keeps_pending_status_non_definitive(self) -> None:
+        self.assertEqual(load_inventory_dispositions(), {})
+        result = analyze_mrp(
+            {"M-007": 1},
+            {"M-007": {"inventory_status": "excluded_pending_confirmation"}},
+        )
+        self.assertIsNone(result["can_produce"])
+        self.assertEqual(result["production_status"], "库存数据不完整")
 
 
 if __name__ == "__main__":

@@ -11,10 +11,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from repositories.inventory_disposition_repository import load_inventory_dispositions
 from repositories.purchase_parameter_repository import load_purchase_parameters
 from repositories.real_bom_repository import load_real_bom_data, load_real_bom_relationships
 from repositories.real_inventory_repository import build_real_inventory_scope
 from services.bom_service import explode_bom
+from services.inventory_disposition_service import apply_inventory_dispositions
 from services.mrp_service import analyze_mrp
 from services.purchase_service import analyze_real_purchase
 from services.report_service import build_pmc_report, render_pmc_report_markdown
@@ -34,7 +36,10 @@ def build_kq_z112_report(production_quantity: int = PRODUCTION_QUANTITY) -> dict
         expected_version=BOM_VERSION,
     )
     bom_requirements = explode_bom(PRODUCT, production_quantity, load_real_bom_data())
-    inventory_scope = build_real_inventory_scope(bom_requirements)
+    inventory_scope = apply_inventory_dispositions(
+        build_real_inventory_scope(bom_requirements),
+        load_inventory_dispositions(),
+    )
     mrp_result = analyze_mrp(bom_requirements, inventory_scope)
     purchase_analysis = analyze_real_purchase(mrp_result["materials"], load_purchase_parameters())
     return build_pmc_report(

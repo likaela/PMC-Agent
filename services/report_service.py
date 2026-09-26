@@ -23,6 +23,9 @@ def build_pmc_report(
     pending_confirmation = [
         item for item in materials if item["inventory_status"] == "excluded_pending_confirmation"
     ]
+    business_disposition_items = [
+        item for item in materials if item["inventory_status"] == "business_disposition"
+    ]
     limitations = [
         "一期可用库存仅来自主库存表；电阻电容现库位未纳入可用库存。",
         "reserved 与 incoming 在当前真实来源中按阶段性假设为 0。",
@@ -31,6 +34,8 @@ def build_pmc_report(
         limitations.append("存在所有审计库存来源均未记录的 BOM 料号，生产可行性不能给出确定结论。")
     if pending_confirmation:
         limitations.append("存在待确认库存来源料号，需完成来源归属、时点与去重对账。")
+    if business_disposition_items:
+        limitations.append("存在已确认但尚未建模的业务处理口径，当前不折算为普通库存或删除 BOM。")
     if purchase_analysis["parameter_pending"]:
         limitations.append("采购补数表缺少部分已知缺料物料的必要字段，未生成虚假采购建议。")
 
@@ -43,6 +48,7 @@ def build_pmc_report(
             "unknown_inventory_count": mrp_result["unknown_inventory_count"],
             "missing_inventory_count": mrp_result["missing_inventory_count"],
             "pending_confirmation_count": mrp_result["pending_confirmation_count"],
+            "business_disposition_count": mrp_result["business_disposition_count"],
             "source_policy": data_quality_status["source_policy"],
         },
         "known_inventory_kit_analysis": {
@@ -53,6 +59,7 @@ def build_pmc_report(
         "shortage_list": known_shortages,
         "unknown_inventory_list": unknown_inventory,
         "pending_confirmation_inventory_list": pending_confirmation,
+        "business_disposition_list": business_disposition_items,
         "purchase_recommendations": purchase_analysis["recommendations"],
         "purchase_parameter_missing_items": purchase_analysis["parameter_pending"],
         "production_feasibility": {
@@ -106,6 +113,14 @@ def render_pmc_report_markdown(report: Mapping[str, object]) -> str:
     lines.extend(["", "## 待确认库存来源清单", ""])
     lines.extend(
         [f"- {item['material']}：需求 {item['required']}" for item in report["pending_confirmation_inventory_list"]]
+        or ["- 无"]
+    )
+    lines.extend(["", "## 已确认业务处理口径", ""])
+    lines.extend(
+        [
+            f"- {item['material']}：{item['business_disposition']}（include_in_mrp={item['include_in_mrp']}）"
+            for item in report["business_disposition_list"]
+        ]
         or ["- 无"]
     )
     lines.extend(["", "## 采购建议", ""])

@@ -33,13 +33,13 @@ def analyze_mrp(
 
         item = inventory_data.get(material, {"inventory_status": "missing"})
         inventory_status = item.get("inventory_status", "known")
-        if inventory_status not in {"known", "missing", "excluded_pending_confirmation"}:
+        if inventory_status not in {"known", "missing", "excluded_pending_confirmation", "business_disposition"}:
             raise ValueError(f"物料 {material} 的库存状态无效")
 
         if inventory_status != "known":
             if inventory_status == "missing":
                 missing_inventory_count += 1
-            else:
+            elif inventory_status == "excluded_pending_confirmation":
                 pending_confirmation_count += 1
             materials.append(
                 {
@@ -50,6 +50,14 @@ def analyze_mrp(
                     "available": None,
                     "shortage": None,
                     "is_ready": None,
+                    **(
+                        {
+                            "business_disposition": item.get("business_disposition"),
+                            "include_in_mrp": item.get("include_in_mrp"),
+                        }
+                        if inventory_status == "business_disposition"
+                        else {}
+                    ),
                 }
             )
             continue
@@ -80,7 +88,12 @@ def analyze_mrp(
             }
         )
 
-    unknown_inventory_count = missing_inventory_count + pending_confirmation_count
+    business_disposition_count = sum(
+        item["inventory_status"] == "business_disposition" for item in materials
+    )
+    unknown_inventory_count = (
+        missing_inventory_count + pending_confirmation_count + business_disposition_count
+    )
     known_material_readiness_rate = (
         ready_material_count / known_material_count if known_material_count else None
     )
@@ -114,6 +127,7 @@ def analyze_mrp(
         "unknown_inventory_count": unknown_inventory_count,
         "missing_inventory_count": missing_inventory_count,
         "pending_confirmation_count": pending_confirmation_count,
+        "business_disposition_count": business_disposition_count,
         "can_produce": can_produce,
         "production_status": production_status,
         "known_production_status": known_production_status,
