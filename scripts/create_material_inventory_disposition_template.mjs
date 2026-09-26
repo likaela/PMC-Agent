@@ -39,6 +39,7 @@ const pendingRows = [
   null,
   null,
 ]);
+const dataRowCount = pendingRows.length;
 
 const workbook = Workbook.create();
 const sheet = workbook.worksheets.add("Dispositions");
@@ -52,14 +53,16 @@ sheet.getRangeByIndexes(0, 0, 1, headers.length).format = {
   verticalAlignment: "center",
   wrapText: true,
 };
-sheet.getRangeByIndexes(1, 0, pendingRows.length, headers.length).format = {
+if (dataRowCount) {
+sheet.getRangeByIndexes(1, 0, dataRowCount, headers.length).format = {
   font: { name: "Arial", size: 10, color: "#1F1F1F" },
   verticalAlignment: "center",
   borders: { preset: "all", style: "thin", color: "#D9E2F3" },
 };
-sheet.getRange("B2:D23").format.fill = "#FFF2CC";
-sheet.getRange("B2:D23").format.horizontalAlignment = "center";
-sheet.getRange("C2:C23").format.numberFormat = "#,##0.##";
+sheet.getRangeByIndexes(1, 1, dataRowCount, 3).format.fill = "#FFF2CC";
+sheet.getRangeByIndexes(1, 1, dataRowCount, 3).format.horizontalAlignment = "center";
+sheet.getRangeByIndexes(1, 2, dataRowCount, 1).format.numberFormat = "#,##0.##";
+}
 sheet.getRange("A:A").format.columnWidth = 18;
 sheet.getRange("B:B").format.columnWidth = 24;
 sheet.getRange("C:C").format.columnWidth = 18;
@@ -68,12 +71,16 @@ sheet.getRange("E:E").format.columnWidth = 34;
 sheet.getRange("F:F").format.columnWidth = 20;
 sheet.getRange("G:G").format.columnWidth = 34;
 sheet.getRangeByIndexes(0, 0, 1, headers.length).format.rowHeight = 28;
-sheet.getRangeByIndexes(1, 0, pendingRows.length, headers.length).format.rowHeight = 22;
+if (dataRowCount) {
+  sheet.getRangeByIndexes(1, 0, dataRowCount, headers.length).format.rowHeight = 22;
+}
 sheet.freezePanes.freezeRows(1);
 sheet.freezePanes.freezeColumns(1);
-sheet.tables.add(`A1:G${values.length}`, true, "MaterialInventoryDisposition");
-sheet.getRange("B2:B23").dataValidation = { rule: { type: "list", values: dispositions } };
-sheet.getRange("D2:D23").dataValidation = { rule: { type: "list", values: ["TRUE", "FALSE"] } };
+if (dataRowCount) {
+  sheet.tables.add(`A1:G${values.length}`, true, "MaterialInventoryDisposition");
+  sheet.getRangeByIndexes(1, 1, dataRowCount, 1).dataValidation = { rule: { type: "list", values: dispositions } };
+  sheet.getRangeByIndexes(1, 3, dataRowCount, 1).dataValidation = { rule: { type: "list", values: ["TRUE", "FALSE"] } };
+}
 
 const rulesSheet = workbook.worksheets.add("Rules");
 rulesSheet.showGridLines = false;

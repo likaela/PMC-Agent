@@ -11,12 +11,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from repositories.inventory_disposition_repository import load_inventory_dispositions
-from repositories.purchase_parameter_repository import load_purchase_parameters
 from repositories.real_bom_repository import load_real_bom_data, load_real_bom_relationships
-from repositories.real_inventory_repository import build_real_inventory_scope
+from repositories.real_inventory_repository import (
+    build_real_inventory_scope,
+    exclude_inventory_data_errors,
+)
 from services.bom_service import explode_bom
-from services.inventory_disposition_service import apply_inventory_dispositions
 from services.mrp_service import analyze_mrp
 from services.purchase_service import analyze_real_purchase
 from services.report_service import build_pmc_report, render_pmc_report_markdown
@@ -36,12 +36,10 @@ def build_kq_z112_report(production_quantity: int = PRODUCTION_QUANTITY) -> dict
         expected_version=BOM_VERSION,
     )
     bom_requirements = explode_bom(PRODUCT, production_quantity, load_real_bom_data())
-    inventory_scope = apply_inventory_dispositions(
-        build_real_inventory_scope(bom_requirements),
-        load_inventory_dispositions(),
-    )
-    mrp_result = analyze_mrp(bom_requirements, inventory_scope)
-    purchase_analysis = analyze_real_purchase(mrp_result["materials"], load_purchase_parameters())
+    mrp_requirements, excluded_materials = exclude_inventory_data_errors(bom_requirements)
+    inventory_scope = build_real_inventory_scope(mrp_requirements)
+    mrp_result = analyze_mrp(mrp_requirements, inventory_scope)
+    purchase_analysis = analyze_real_purchase(mrp_result["materials"])
     return build_pmc_report(
         product=PRODUCT,
         bom_version=str(bom_payload["version"]),
@@ -50,10 +48,10 @@ def build_kq_z112_report(production_quantity: int = PRODUCTION_QUANTITY) -> dict
         mrp_result=mrp_result,
         purchase_analysis=purchase_analysis,
         data_quality_status={
-            "source_policy": "一期可用库存仅使用主库存表；电阻电容现库位仅标记待确认",
+            "source_policy": "一期可用库存仅使用已清洗的主库存表。",
             "reserved": 0,
             "incoming": 0,
-            "purchase_parameter_source": "material_purchase_parameters.xlsx",
+            "inventory_data_error_exclusions": excluded_materials,
         },
     )
 

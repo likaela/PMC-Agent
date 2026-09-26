@@ -27,7 +27,7 @@ def build_pmc_report(
         item for item in materials if item["inventory_status"] == "business_disposition"
     ]
     limitations = [
-        "一期可用库存仅来自主库存表；电阻电容现库位未纳入可用库存。",
+        "一期可用库存仅来自已清洗的主库存表。",
         "reserved 与 incoming 在当前真实来源中按阶段性假设为 0。",
     ]
     if unknown_inventory:
@@ -37,12 +37,13 @@ def build_pmc_report(
     if business_disposition_items:
         limitations.append("存在已确认但尚未建模的业务处理口径，当前不折算为普通库存或删除 BOM。")
     if purchase_analysis["parameter_pending"]:
-        limitations.append("采购补数表缺少部分已知缺料物料的必要字段，未生成虚假采购建议。")
+        limitations.append("已知缺料物料的采购参数需在业务交互中逐项补充，未生成虚假采购建议。")
 
     return {
         "product_information": {"product": product, "production_quantity": production_quantity},
         "bom_version": bom_version,
         "bom_material_count": len(bom_requirements),
+        "mrp_material_count": len(materials),
         "inventory_data_integrity": {
             "known_material_count": mrp_result["known_material_count"],
             "unknown_inventory_count": mrp_result["unknown_inventory_count"],
@@ -50,6 +51,9 @@ def build_pmc_report(
             "pending_confirmation_count": mrp_result["pending_confirmation_count"],
             "business_disposition_count": mrp_result["business_disposition_count"],
             "source_policy": data_quality_status["source_policy"],
+            "excluded_inventory_data_error_count": len(
+                data_quality_status.get("inventory_data_error_exclusions", [])
+            ),
         },
         "known_inventory_kit_analysis": {
             "material_readiness_rate": mrp_result["known_material_readiness_rate"],
@@ -85,12 +89,14 @@ def render_pmc_report_markdown(report: Mapping[str, object]) -> str:
         f"- BOM 版本：{report['bom_version']}",
         f"- 生产数量：{product['production_quantity']}",
         f"- BOM 物料数量：{report['bom_material_count']}",
+        f"- 纳入 MRP 的物料数量：{report['mrp_material_count']}",
         "",
         "## 库存数据完整性",
         "",
         f"- 已知库存物料：{integrity['known_material_count']}",
         f"- 库存未知：{integrity['unknown_inventory_count']}",
         f"- 待确认库存来源：{integrity['pending_confirmation_count']}",
+        f"- 已排除的库存错误记录：{integrity['excluded_inventory_data_error_count']}",
         f"- 当前生产可行性：{feasibility['production_status']}（can_produce={feasibility['can_produce']}）",
         "",
         "## 已知库存范围内的齐套分析",

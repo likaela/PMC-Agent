@@ -60,8 +60,8 @@
 
 供应商文件只作为 supplier master。没有可靠的料号—供应商对应关系，因此一期不生成 `material_supplier_map`、`lead_time_days`、`safety_stock` 或 `incoming`，也不根据供应商主数据猜测这些字段。
 
-## 采购补数表
+## 已确认的库存错误记录与采购参数
 
-采购参数只从 `data/templates/material_purchase_parameters.xlsx` 人工补充。当前一期读取字段限定为 `material_code`、`supplier_code`、`safety_stock`、`lead_time_days`；其他模板列仅为后续扩展预留。
+业务确认的 22 个库存异常料号不再进入当前 MRP 输入；该清理只影响库存/MRP 范围，不删除或改写 BOM 关系。清单由 `repositories.real_inventory_repository.INVENTORY_DATA_ERROR_MATERIAL_CODES` 维护，并在报告中审计输出。
 
-当前业务假设：在采购参数得到人工维护前，供应商主数据不产生任何料号—供应商关系、在途、提前期或安全库存；因此不能据此生成真实采购建议。
+采购参数不维护统一 Excel。对已知缺料物料，流程逐项询问并补充 `supplier_code`、`safety_stock`、`lead_time_days`；在这些值提供前，供应商主数据不产生任何料号—供应商关系、在途、提前期或安全库存，也不生成真实采购建议。
