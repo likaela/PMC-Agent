@@ -3,14 +3,10 @@
 from collections.abc import Mapping
 
 
-MATERIAL_INFO: dict[str, dict[str, int]] = {
-    "主板": {"lead_time_days": 20, "safety_stock": 100},
-    "电机": {"lead_time_days": 15, "safety_stock": 200},
-    "螺丝": {"lead_time_days": 7, "safety_stock": 1000},
-}
-
-
-def purchase_recommendation(shortages: Mapping[str, int]) -> dict[str, dict[str, int]]:
+def purchase_recommendation(
+    shortages: Mapping[str, int],
+    purchase_data: Mapping[str, Mapping[str, int]],
+) -> dict[str, dict[str, int]]:
     """根据 ``{material: shortage}`` 生成采购建议。"""
     result: dict[str, dict[str, int]] = {}
 
@@ -25,9 +21,16 @@ def purchase_recommendation(shortages: Mapping[str, int]) -> dict[str, dict[str,
         if shortage == 0:
             continue
 
-        material_info = MATERIAL_INFO.get(material, {})
-        safety_stock = material_info.get("safety_stock", 0)
-        lead_time_days = material_info.get("lead_time_days", 0)
+        if material not in purchase_data:
+            raise ValueError(f"采购数据中不存在物料：{material}")
+        material_info = purchase_data[material]
+        safety_stock = material_info.get("safety_stock")
+        lead_time_days = material_info.get("lead_time_days")
+        if any(
+            not isinstance(value, int) or isinstance(value, bool) or value < 0
+            for value in (safety_stock, lead_time_days)
+        ):
+            raise ValueError(f"物料 {material} 的采购参数无效")
         result[material] = {
             "shortage": shortage,
             "safety_stock": safety_stock,

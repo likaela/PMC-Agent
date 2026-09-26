@@ -12,3 +12,6 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local runtime link used by Excel data generation scripts
+scripts/node_modules/

@@ -1,6 +1,12 @@
+import sys
+
 from config import get_llm
 
 from langchain.agents import create_agent
+
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 
 # 获取DeepSeek

@@ -10,6 +10,14 @@ class BomToolTests(unittest.TestCase):
             {"主板": 1000, "电机": 2000, "螺丝": 8000},
         )
 
+    def test_unknown_product_raises_clear_error(self) -> None:
+        with self.assertRaisesRegex(ValueError, "没有找到产品"):
+            explode_bom("UNKNOWN-1000", 1000)
+
+    def test_negative_quantity_is_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "生产数量必须是正整数"):
+            explode_bom("ABC-1000", -1)
+
 
 if __name__ == "__main__":
     unittest.main()
