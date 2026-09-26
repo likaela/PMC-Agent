@@ -1,28 +1,6 @@
-def explode_bom(product, quantity):
+"""供 Agent 调用的 BOM 工具适配层。"""
 
-    bom_database = {
-
-        "ABC-1000": {
-
-            "主板":1,
-            "电机":2,
-            "螺丝":8
-
-        }
-
-    }
+from services.bom_service import explode_bom
 
 
-    if product not in bom_database:
-        return "没有找到该产品BOM"
-
-
-    result={}
-
-
-    for material, qty in bom_database[product].items():
-
-        result[material]=qty*quantity
-
-
-    return result
+__all__ = ["explode_bom"]

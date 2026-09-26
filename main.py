@@ -1,7 +1,5 @@
 from config import get_llm
 
-from tools.agent_tools import bom_check
-
 from langchain.agents import create_agent
 
 
@@ -21,7 +19,9 @@ tools=[
 
     bom_check,
 
-    inventory_check
+    inventory_check,
+
+    purchase_check
 
 ]
 
