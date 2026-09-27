@@ -33,7 +33,23 @@ def analyze_real_purchase_for_mrp(mrp_result: Mapping[str, object]) -> dict[str,
     materials = mrp_result.get("materials")
     if not isinstance(materials, list):
         raise ValueError("MRP 结果缺少 materials 列表")
-    return analyze_real_purchase(materials)
+    shortages: dict[str, int] = {}
+    for item in materials:
+        if not isinstance(item, Mapping):
+            raise ValueError("MRP 物料格式无效")
+        material = item.get("material")
+        shortage = item.get("shortage")
+        if (
+            item.get("inventory_status") == "known"
+            and isinstance(material, str)
+            and isinstance(shortage, int)
+            and not isinstance(shortage, bool)
+            and shortage > 0
+        ):
+            shortages[material] = shortage
+    _session_shortages.clear()
+    _session_shortages.update(shortages)
+    return analyze_real_purchase(materials, _session_purchase_parameters)
 
 
 def supplement_real_purchase_parameter(

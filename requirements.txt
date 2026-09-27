@@ -2,6 +2,7 @@
 # DeepSeek 通过其 OpenAI-compatible API 由 langchain-openai 调用，
 # 项目未直接使用独立的 DeepSeek SDK。
 langchain==1.4.2
+langgraph==1.2.12
 langchain-openai==1.6.5
 openai==3.19.2
 python-dotenv==1.2.3
