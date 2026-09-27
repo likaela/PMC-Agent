@@ -19,9 +19,10 @@ h2 { font-size: 1.2rem; margin-bottom: 16px; }
 .analysis-form { align-items: end; display: grid; gap: 16px; grid-template-columns: 1fr 1fr 180px auto; }
 label { color: #526572; display: grid; font-size: .85rem; font-weight: 700; gap: 7px; }
 .status-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); margin-bottom: 20px; }
-.status-card { display: grid; gap: 7px; min-height: 128px; padding: 19px; }
+.status-card { display: grid; gap: 7px; min-height: 128px; min-width: 0; padding: 19px; }
 .status-card span, .status-card small { color: #60737d; }
-.status-card strong { font-size: 1.26rem; }
+.status-card strong { font-size: clamp(1rem, 1.8vw, 1.26rem); overflow-wrap: anywhere; }
+.status-card small { overflow-wrap: anywhere; }
 .status-card[data-status="ready"] { border-top: 4px solid #1d8b6e; }
 .status-card[data-status="blocked"] { border-top: 4px solid #c44b3d; }
 .status-card[data-status="procurement_pending"] { border-top: 4px solid #d4881e; }

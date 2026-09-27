@@ -14,7 +14,11 @@ async function request(path, options = {}) {
   })
   const body = await response.json().catch(() => ({}))
   if (!response.ok) {
-    const message = typeof body.detail === 'string' ? body.detail : '请求 PMC API 失败'
+    const message = typeof body.detail === 'string'
+      ? body.detail
+      : response.status === 422
+        ? '请求参数不合法，请检查产品、BOM 版本、生产数量或采购参数。'
+        : '请求 PMC API 失败'
     throw new ApiError(message, response.status)
   }
   return body

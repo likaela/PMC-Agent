@@ -30,6 +30,9 @@ function resetParameterForms(missingItems) {
 function applyWorkflow(nextWorkflow) {
   workflow.value = nextWorkflow
   resetParameterForms(nextWorkflow.missing_purchase_parameters || [])
+  if (nextWorkflow.errors?.length) {
+    errorMessage.value = nextWorkflow.errors.join('；')
+  }
 }
 
 async function submitAnalysis() {
@@ -100,7 +103,7 @@ watch(() => workflow.value?.missing_purchase_parameters, (items) => {
         <label>产品<input v-model.trim="analysisForm.product" required /></label>
         <label>BOM 版本<input v-model.trim="analysisForm.bom_version" required /></label>
         <label>生产数量<input v-model.number="analysisForm.quantity" type="number" min="1" required /></label>
-        <button :disabled="isAnalyzing" type="submit">{{ isAnalyzing ? '正在分析…' : '开始分析' }}</button>
+        <button :disabled="isAnalyzing" type="submit" @click.prevent="submitAnalysis">{{ isAnalyzing ? '正在分析…' : '开始分析' }}</button>
       </form>
     </section>
 
@@ -117,6 +120,10 @@ watch(() => workflow.value?.missing_purchase_parameters, (items) => {
         <article class="status-card"><span>待补采购参数</span><strong>{{ workflow.missing_purchase_parameters.length }}</strong><small>来自 API 返回清单</small></article>
         <article class="status-card"><span>物料齐套率</span><strong>{{ workflow.report.known_inventory_kit_analysis?.material_readiness_rate ?? '—' }}</strong><small>来自确定性报告</small></article>
         <article class="status-card"><span>数量满足率</span><strong>{{ workflow.report.known_inventory_kit_analysis?.quantity_fulfillment_rate ?? '—' }}</strong><small>来自确定性报告</small></article>
+      </section>
+
+      <section v-if="workflow.errors.length" class="message error">
+        <strong>工作流未完成：</strong>{{ workflow.errors.join('；') }}
       </section>
 
       <section class="panel">
