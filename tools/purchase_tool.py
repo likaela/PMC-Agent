@@ -4,6 +4,7 @@ from collections.abc import Mapping
 
 from repositories.purchase_repository import load_purchase_data
 from services.purchase_service import (
+    analyze_real_purchase,
     analyze_interactive_purchase,
     purchase_recommendation as calculate_purchase,
     validate_purchase_parameter_update,
@@ -25,6 +26,14 @@ def check_real_purchase_parameters(shortages: Mapping[str, int]) -> list[dict[st
     _session_shortages.clear()
     _session_shortages.update(shortages)
     return analyze_interactive_purchase(shortages, _session_purchase_parameters)
+
+
+def analyze_real_purchase_for_mrp(mrp_result: Mapping[str, object]) -> dict[str, list[dict[str, object]]]:
+    """将 MRP 的结构化物料结果交给采购服务，不解析文字或猜测参数。"""
+    materials = mrp_result.get("materials")
+    if not isinstance(materials, list):
+        raise ValueError("MRP 结果缺少 materials 列表")
+    return analyze_real_purchase(materials)
 
 
 def supplement_real_purchase_parameter(
@@ -65,6 +74,7 @@ def clear_real_purchase_parameter_session() -> None:
 __all__ = [
     "purchase_recommendation",
     "check_real_purchase_parameters",
+    "analyze_real_purchase_for_mrp",
     "supplement_real_purchase_parameter",
     "clear_real_purchase_parameter_session",
 ]

@@ -1,86 +1,56 @@
-import sys
+"""PMC Agent 入口：业务数值必须来自已注册的确定性工具。"""
 
-from config import get_llm
+from __future__ import annotations
+
+import sys
 
 from langchain.agents import create_agent
 
-
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8")
-
-
-# 获取DeepSeek
-llm = get_llm()
+from config import get_llm
+from tools.agent_tools import ALL_AGENT_TOOLS
 
 
-# 注册工具
-from tools.agent_tools import (
-    bom_check,
-    inventory_check,
-    purchase_check
-)
+SYSTEM_PROMPT = """
+你是制造业 PMC 智能助手。所有业务数值和生产结论必须以 Tool 的结构化返回为准。
 
+真实数据标准流程：real_bom_check → real_mrp_check → real_purchase_analysis_check
+→ production_decision_check → real_pmc_report_check。
 
-tools=[
-
-    bom_check,
-
-    inventory_check,
-
-    purchase_check
-
-]
-
-# 创建Agent
-
-agent = create_agent(
-    model=llm,
-    tools=tools,
-    system_prompt="""
-
-你是制造业PMC智能助手。
-
-你的工作流程：
-
-1. 用户提出生产需求
-2. 必须先调用BOM工具计算物料需求
-3. 调用库存工具检查库存
-4. 如果存在缺料：
-   必须调用采购建议工具
-5. 输出完整PMC分析报告
-
-
-注意：
-
-- 所有数量计算必须调用工具
-- 不允许自行估算
-
-
+规则：
+- 不得自行计算 BOM、库存可用量、齐套率、缺料、采购量、风险等级或生产结论。
+- 数据不足时必须调用相应 Tool；若 Tool 无法提供所需采购参数，应向用户逐项询问。
+- 不得编造库存、供应商、安全库存、采购提前期、风险或到货状态。
+- 最终报告只能解释 Tool 已返回的结果，不能新增业务事实。
 """
-)
 
 
-
-result = agent.invoke(
-    {
-        "messages": [
-            {
-                "role": "user",
-                "content": "我要生产1000台ABC-1000，现在库存够不够？如果缺料，请给出采购建议。"
-            }
-        ]
-    }
-)
+def build_agent():
+    """构建保留既有工具并加入真实业务工具链的 Agent。"""
+    return create_agent(model=get_llm(), tools=ALL_AGENT_TOOLS, system_prompt=SYSTEM_PROMPT)
 
 
-answer = result["messages"][-1].content
+def run_demo() -> None:
+    """保留原 Demo 启动方式，仅在直接运行文件时才调用模型。"""
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    agent = build_agent()
+    result = agent.invoke(
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "我要生产1000台ABC-1000，现在库存够不够？如果缺料，请给出采购建议。",
+                }
+            ]
+        }
+    )
+    answer = result["messages"][-1].content
+    print("\n" + "=" * 60)
+    print("        PMC智能生产分析报告")
+    print("=" * 60)
+    print(answer)
+    print("=" * 60)
 
 
-print("\n")
-print("="*60)
-print("        PMC智能生产分析报告")
-print("="*60)
-
-print(answer)
-
-print("="*60)
+if __name__ == "__main__":
+    run_demo()
