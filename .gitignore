@@ -12,3 +12,14 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# Real enterprise private data
+data/raw/
+data/normalized/
+
+# Generated enterprise reports
+docs/inventory_source_audit.md
+docs/kq_z112_real_mrp_report.md
+
+# Workbook inspection artifacts
+*.inspect.ndjson
