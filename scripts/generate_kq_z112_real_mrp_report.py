@@ -19,6 +19,7 @@ from repositories.real_inventory_repository import (
 from services.bom_service import explode_bom
 from services.mrp_service import analyze_mrp
 from services.purchase_service import analyze_real_purchase
+from services.production_service import build_production_decision
 from services.report_service import build_pmc_report, render_pmc_report_markdown
 
 
@@ -40,6 +41,12 @@ def build_kq_z112_report(production_quantity: int = PRODUCTION_QUANTITY) -> dict
     inventory_scope = build_real_inventory_scope(mrp_requirements)
     mrp_result = analyze_mrp(mrp_requirements, inventory_scope)
     purchase_analysis = analyze_real_purchase(mrp_result["materials"])
+    production_decision = build_production_decision(
+        product=PRODUCT,
+        quantity=production_quantity,
+        mrp_result=mrp_result,
+        purchase_analysis=purchase_analysis,
+    )
     return build_pmc_report(
         product=PRODUCT,
         bom_version=str(bom_payload["version"]),
@@ -47,6 +54,7 @@ def build_kq_z112_report(production_quantity: int = PRODUCTION_QUANTITY) -> dict
         bom_requirements=bom_requirements,
         mrp_result=mrp_result,
         purchase_analysis=purchase_analysis,
+        production_decision=production_decision,
         data_quality_status={
             "source_policy": "一期可用库存仅使用已清洗的主库存表。",
             "reserved": 0,

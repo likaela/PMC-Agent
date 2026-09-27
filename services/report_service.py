@@ -11,6 +11,7 @@ def build_pmc_report(
     mrp_result: Mapping[str, object],
     purchase_analysis: Mapping[str, list[dict[str, object]]],
     data_quality_status: Mapping[str, object],
+    production_decision: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """汇总 BOM、MRP 与采购分析，不依赖 LLM 计算核心结论。"""
     materials = list(mrp_result["materials"])
@@ -70,6 +71,7 @@ def build_pmc_report(
             "can_produce": mrp_result["can_produce"],
             "production_status": mrp_result["production_status"],
         },
+        "production_decision": dict(production_decision) if production_decision is not None else None,
         "data_limitations_and_assumptions": limitations,
         "data_quality_status": dict(data_quality_status),
     }
@@ -80,6 +82,7 @@ def render_pmc_report_markdown(report: Mapping[str, object]) -> str:
     product = report["product_information"]
     integrity = report["inventory_data_integrity"]
     feasibility = report["production_feasibility"]
+    decision = report.get("production_decision")
     lines = [
         "# KQ-Z112 真实 PMC 报告",
         "",
@@ -111,6 +114,35 @@ def render_pmc_report_markdown(report: Mapping[str, object]) -> str:
         [f"- {item['material']}：缺料 {item['shortage']}" for item in report["shortage_list"]]
         or ["- 无已知库存范围内的缺料记录"]
     )
+    if isinstance(decision, Mapping):
+        lines.extend(["", "## 生产决策", ""])
+        lines.extend(
+            [
+                f"- 决策状态：{decision['decision_status']}",
+                f"- 是否可开工：{decision['can_start_production']}",
+                f"- 决策依据：{'；'.join(decision['decision_reasons'])}",
+                f"- 缺料优先级规则：{decision['priority_rule']}",
+                "",
+                "### 阻塞物料与优先级",
+                "",
+            ]
+        )
+        lines.extend(
+            [
+                f"- P{item['priority']} {item['material']}：缺料 {item['shortage']}，"
+                f"缺料比例 {item['shortage_ratio']}，采购状态 {item['purchase_status']}"
+                for item in decision["blocking_materials"]
+            ]
+            or ["- 无"]
+        )
+        lines.extend(["", "### 建议行动", ""])
+        lines.extend(
+            [
+                f"- P{item['priority']} {item['material'] or '全部相关物料'}：{item['action']}"
+                for item in decision["recommended_actions"]
+            ]
+            or ["- 无"]
+        )
     lines.extend(["", "## 库存未知清单", ""])
     lines.extend(
         [f"- {item['material']}：需求 {item['required']}" for item in report["unknown_inventory_list"]]
