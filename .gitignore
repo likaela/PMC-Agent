@@ -13,8 +13,13 @@ venv/
 .DS_Store
 Thumbs.db
 
-# Real enterprise private data
+# Local runtime link used by Excel data generation scripts
+scripts/node_modules/
+
+# Private enterprise source data: local only, never commit
 data/raw/
+
+# Real enterprise private data
 data/normalized/
 
 # Generated enterprise reports
@@ -22,4 +27,4 @@ docs/inventory_source_audit.md
 docs/kq_z112_real_mrp_report.md
 
 # Workbook inspection artifacts
-*.inspect.ndjson
+*.inspect.json

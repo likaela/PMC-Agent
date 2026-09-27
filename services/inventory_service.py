@@ -3,16 +3,17 @@
 from collections.abc import Mapping
 
 
-INVENTORY_DATABASE: dict[str, int] = {
-    "主板": 800,
-    "电机": 3000,
-    "螺丝": 20000,
-}
+def _is_nonnegative_number(value: object) -> bool:
+    """验证库存数值；真实库存允许按件数之外的半成品小数库存。"""
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0
 
 
-def check_inventory(materials: Mapping[str, int]) -> dict[str, dict[str, int]]:
+def check_inventory(
+    materials: Mapping[str, int],
+    inventory_data: Mapping[str, Mapping[str, int | float]],
+) -> dict[str, dict[str, int | float]]:
     """计算库存可用量和缺口，返回 ``{material: {stock, available, shortage}}``。"""
-    result: dict[str, dict[str, int]] = {}
+    result: dict[str, dict[str, int | float]] = {}
 
     for material, required_quantity in materials.items():
         if (
@@ -23,9 +24,20 @@ def check_inventory(materials: Mapping[str, int]) -> dict[str, dict[str, int]]:
         ):
             raise ValueError("物料需求必须为 {物料名称: 非负整数} 格式")
 
-        stock = INVENTORY_DATABASE.get(material, 0)
-        # 当前演示数据没有占用量或在途量，因此 available 等于 stock。
-        available = stock
+        if material not in inventory_data:
+            raise ValueError(f"库存数据中不存在物料：{material}")
+
+        item = inventory_data[material]
+        stock = item.get("stock")
+        reserved = item.get("reserved")
+        incoming = item.get("incoming")
+        if any(
+            not _is_nonnegative_number(value)
+            for value in (stock, reserved, incoming)
+        ):
+            raise ValueError(f"物料 {material} 的库存数据无效")
+
+        available = stock - reserved + incoming
         result[material] = {
             "stock": stock,
             "available": available,
