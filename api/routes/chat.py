@@ -30,7 +30,7 @@ from services.scenario_service import simulate_reduced_quantity
 router = APIRouter(prefix="/api/v1", tags=["Chat"])
 _WHY_PATTERN = re.compile(r"为什么|为何|原因")
 _REDUCE_PATTERN = re.compile(r"(?:减少到|改为|调整为)\s*(\d+)\s*(?:台|套|件|个|只)?")
-_IMPACT_PATTERN = re.compile(r"哪些物料最影响生产|最影响生产")
+_IMPACT_PATTERN = re.compile(r"哪些物料最影响生产|哪些物料影响最大|哪些物料影响生产|哪些物料最关键|哪些材料影响最大|最影响生产")
 
 
 def _follow_up_questions(missing_items: list[object]) -> list[str]:

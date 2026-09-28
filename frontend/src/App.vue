@@ -11,7 +11,7 @@ const isAnalyzing = ref(false)
 const isResuming = ref(false)
 const errorMessage = ref('')
 const lastAction = ref('')
-const activeView = ref('dashboard')
+const activeView = ref('chat')
 
 const statusLabel = computed(() => ({
   ready: '可开工',
@@ -96,9 +96,9 @@ watch(() => workflow.value?.missing_purchase_parameters, (items) => {
   <main class="page-shell">
     <header class="page-header">
       <div>
-        <p class="eyebrow">PMC-AGENT / V1.1</p>
-        <h1>生产决策 Dashboard</h1>
-        <p class="subtitle">展示后端确定性工作流结果；页面不执行 BOM、MRP、风险或生产决策计算。</p>
+        <p class="eyebrow">PMC-AGENT / COMPETITION DEMO</p>
+        <h1>智造 PMC Agent</h1>
+        <p class="subtitle">基于大语言模型与智能工作流的制造生产决策系统。</p>
       </div>
       <span class="api-badge">API: {{ apiBaseUrl }}</span>
     </header>
