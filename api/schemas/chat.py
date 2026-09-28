@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from api.schemas.pmc import PmcWorkflowResponse
@@ -11,6 +13,7 @@ class ChatRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     message: str = Field(min_length=1, examples=["我要生产100台KQ-Z112，帮我看看能不能开工"])
+    workflow_id: str | None = Field(default=None, min_length=1)
 
 
 class ParsedTaskResponse(BaseModel):
@@ -19,9 +22,39 @@ class ParsedTaskResponse(BaseModel):
     quantity: int
 
 
+class ChatTraceStep(BaseModel):
+    step: str
+    status: Literal["completed", "running", "waiting", "error"]
+    summary: str
+
+
+class ChatScenarioResponse(BaseModel):
+    name: str
+    quantity: int
+    original_result: PmcWorkflowResponse
+    workflow_result: PmcWorkflowResponse
+    improvement: str
+
+
+class ChatHistoryItemResponse(BaseModel):
+    role: Literal["user", "agent"]
+    content: str
+    turn_type: Literal["analysis", "explanation", "scenario"]
+    workflow_id: str
+
+
+class ChatHistoryResponse(BaseModel):
+    workflow_id: str
+    history: list[ChatHistoryItemResponse] = Field(default_factory=list)
+
+
 class ChatResponse(PmcWorkflowResponse):
     """解析结果加上既有 PMC 工作流的受控公开响应。"""
 
     parsed_task: ParsedTaskResponse
     agent_message: str
     follow_up_questions: list[str] = Field(default_factory=list)
+    conversation_workflow_id: str
+    turn_type: Literal["analysis", "explanation", "scenario"] = "analysis"
+    agent_trace: list[ChatTraceStep] = Field(default_factory=list)
+    scenario: ChatScenarioResponse | None = None

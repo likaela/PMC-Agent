@@ -42,9 +42,12 @@ td { font-size: .9rem; }
 .chat-history { display: grid; gap: 12px; margin: 20px 0; }
 .chat-bubble { border-radius: 10px; max-width: 82%; padding: 12px 14px; }
 .chat-bubble p { margin: 5px 0 0; white-space: pre-wrap; }
-.chat-bubble.agent { background: #e3f4ed; justify-self: start; }
-.chat-bubble.user { background: #e7edf2; justify-self: end; }
+.chat-bubble.agent { background: #eef1f4; justify-self: start; }
+.chat-bubble.user { background: #dceeff; color: #163b63; justify-self: end; }
 .chat-composer { align-items: end; display: grid; gap: 14px; grid-template-columns: 1fr auto; }
+.agent-status { background: #f4f8fb; border-left: 4px solid #4c87c6; display: grid; gap: 6px; margin-top: 16px; padding: 12px 14px; }
+.agent-status span { color: #526572; font-size: .9rem; }
+.session-hint { color: #60737d; font-size: .78rem; margin: 12px 0 0; overflow-wrap: anywhere; }
 .demo-cases { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .demo-cases span { color: #60737d; font-size: .85rem; font-weight: 700; margin-right: 4px; }
 .demo-cases button { background: #e3f4ed; color: #126a57; padding: 7px 11px; }
@@ -55,6 +58,12 @@ td { font-size: .9rem; }
 .execution-trace li[data-status="waiting"] { border-left-color: #d4881e; background: #fff7e8; }
 .execution-trace li[data-status="error"] { border-left-color: #c44b3d; background: #fff0ed; }
 .execution-trace code { color: #126a57; font-size: .82rem; }
+.scenario-panel { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.scenario-panel h2 { grid-column: 1 / -1; margin-bottom: 0; }
+.scenario-card { background: #eef6f3; border-left: 4px solid #1d8b6e; border-radius: 8px; display: grid; gap: 7px; padding: 14px; }
+.scenario-card span, .scenario-card small { color: #526572; }
+.scenario-card strong { font-size: 1.05rem; }
+.original-scenario { background: #f4f6f7; border-left-color: #64748b; }
 .message { border-radius: 8px; margin: 0 0 18px; padding: 12px 14px; }
 .error { background: #ffe9e6; color: #9d3025; }
 .success { background: #e3f4ed; color: #126a57; }

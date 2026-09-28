@@ -27,11 +27,15 @@ export function analyzePmc(payload) {
   })
 }
 
-export function chatPmc(message) {
+export function chatPmc(message, workflowId = null) {
   return request('/api/v1/chat', {
     method: 'POST',
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, ...(workflowId ? { workflow_id: workflowId } : {}) }),
   })
+}
+
+export function getChatHistory(workflowId) {
+  return request(`/api/v1/chat/${encodeURIComponent(workflowId)}/history`)
 }
 
 export function resumePurchaseParameters(workflowId, updates) {

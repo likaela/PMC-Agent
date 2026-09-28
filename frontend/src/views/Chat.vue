@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { ApiError, chatPmc } from '../api/pmc'
+import { ApiError, chatPmc, getChatHistory } from '../api/pmc'
 
 const message = ref('我要生产100台KQ-Z112，帮我看看能不能开工')
 const messages = ref([
@@ -9,6 +9,9 @@ const messages = ref([
 const result = ref(null)
 const errorMessage = ref('')
 const isSending = ref(false)
+const conversationWorkflowId = ref(null)
+const sessionHistory = ref([])
+const pendingStatuses = ['正在解析任务...', '正在分析 BOM...', '正在计算库存...', '正在检查采购...', '正在生成生产方案...']
 const demoCases = [
   { label: '单台开工分析', message: '我要生产1台KQ-Z112，帮我看看能不能开工' },
   { label: '100台批量评估', message: '我要生产100台KQ-Z112，帮我看看能不能开工' },
@@ -28,18 +31,28 @@ async function sendMessage(candidateMessage = message.value) {
   errorMessage.value = ''
   result.value = null
   messages.value.push({ role: 'user', content: userMessage })
-  messages.value.push({ role: 'agent', content: '正在理解生产任务，并调用确定性 PMC 工作流。' })
+  const pendingMessage = { role: 'agent', content: '正在理解当前任务并准备执行 PMC 工作流。', pending: true }
+  messages.value.push(pendingMessage)
   isSending.value = true
   try {
-    const response = await chatPmc(userMessage)
-    messages.value.push({
-      role: 'agent',
-      content: `已理解生产任务：产品 ${response.parsed_task.product}，BOM ${response.parsed_task.bom_version}，数量 ${response.parsed_task.quantity}。`,
-    })
+    const response = await chatPmc(userMessage, conversationWorkflowId.value)
+    conversationWorkflowId.value = response.conversation_workflow_id
+    sessionHistory.value = (await getChatHistory(response.conversation_workflow_id)).history
+    if (response.turn_type === 'analysis') {
+      messages.value.push({
+        role: 'agent',
+        content: `已理解生产任务：产品 ${response.parsed_task.product}，BOM ${response.parsed_task.bom_version}，数量 ${response.parsed_task.quantity}。`,
+      })
+    } else if (response.turn_type === 'scenario') {
+      messages.value.push({
+        role: 'agent',
+        content: `已复用当前会话，将备选生产数量调整为 ${response.parsed_task.quantity} 台。`,
+      })
+    }
     result.value = response
     messages.value.push({
       role: 'agent',
-      content: `分析完成：${decisionLabel.value}（${response.workflow_status}）。${response.agent_message}`,
+      content: `${response.turn_type === 'explanation' ? '说明完成' : '处理完成'}：${decisionLabel.value}（${response.workflow_status}）。${response.agent_message}`,
     })
     response.follow_up_questions.forEach((question) => messages.value.push({ role: 'agent', content: question }))
   } catch (error) {
@@ -49,6 +62,7 @@ async function sendMessage(candidateMessage = message.value) {
       : '请检查输入或稍后重试。'
     messages.value.push({ role: 'agent', content: `无法执行分析：${errorMessage.value}\n${followUp}` })
   } finally {
+    messages.value = messages.value.filter((item) => item !== pendingMessage)
     isSending.value = false
   }
 }
@@ -71,6 +85,11 @@ async function sendMessage(candidateMessage = message.value) {
         </button>
       </div>
 
+      <div v-if="isSending" class="agent-status" aria-live="polite">
+        <strong>Agent 执行状态</strong>
+        <span v-for="item in pendingStatuses" :key="item">{{ item }}</span>
+      </div>
+
       <div class="chat-history" aria-live="polite">
         <article v-for="(item, index) in messages" :key="index" class="chat-bubble" :class="item.role">
           <strong>{{ item.role === 'user' ? '用户' : 'Agent' }}</strong>
@@ -83,6 +102,7 @@ async function sendMessage(candidateMessage = message.value) {
         <button type="submit" :disabled="isSending">{{ isSending ? '正在分析…' : '发送并分析' }}</button>
       </form>
       <p v-if="errorMessage" class="message error">{{ errorMessage }}</p>
+      <p v-if="conversationWorkflowId" class="session-hint">当前会话：{{ conversationWorkflowId }} · 已同步 {{ sessionHistory.length }} 条会话记录</p>
     </section>
 
     <template v-if="result">
@@ -99,8 +119,8 @@ async function sendMessage(candidateMessage = message.value) {
         <h2>Agent 执行过程</h2>
         <p class="trace-note">展示的是工具调用状态，不展示模型思维链、提示词或内部工作流 State。</p>
         <ol class="execution-trace">
-          <li v-for="step in result.execution_steps" :key="`${step.tool}-${step.status}`" :data-status="step.status">
-            <strong>{{ step.step }}</strong><code>{{ step.tool }}</code><span>{{ step.summary }}</span>
+          <li v-for="step in result.agent_trace" :key="`${step.step}-${step.status}`" :data-status="step.status">
+            <strong>{{ step.step }}</strong><code>{{ step.status }}</code><span>{{ step.summary }}</span>
           </li>
         </ol>
       </section>
@@ -127,6 +147,20 @@ async function sendMessage(candidateMessage = message.value) {
             P{{ action.priority }} {{ action.material || '全部相关物料' }}：{{ action.action }}
           </li>
         </ul>
+      </section>
+
+      <section v-if="result.scenario" class="panel scenario-panel">
+        <h2>方案比较</h2>
+        <article class="scenario-card original-scenario">
+          <span>原方案 · {{ result.scenario.original_result.report.product_information?.production_quantity }} 台</span>
+          <strong>{{ result.scenario.original_result.decision_status }}</strong>
+          <small>工作流：{{ result.scenario.original_result.workflow_status }}</small>
+        </article>
+        <article class="scenario-card">
+          <span>备选方案 · {{ result.scenario.quantity }} 台</span>
+          <strong>{{ result.scenario.workflow_result.decision_status }}</strong>
+          <small>{{ result.scenario.improvement }}</small>
+        </article>
       </section>
 
       <section v-if="result.follow_up_questions.length" class="panel follow-up-panel">
