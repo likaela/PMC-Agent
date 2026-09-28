@@ -17,10 +17,12 @@ from api.schemas.chat import (
     ChatTraceStep,
     ParsedTaskResponse,
 )
+from api.schemas.explanation import ExplanationResponse
 from api.schemas.llm_task import ProductionTaskIntent
 from api.schemas.pmc import PmcWorkflowResponse
 from services.chat_session_service import append_chat_history, get_chat_history
 from services.demo_experience_service import record_demo_analysis, record_demo_scenario
+from services.explanation_service import ExplanationTopic, explain_pmc_result
 from services.llm_task_parser_service import parse_production_task_with_llm
 from services.scenario_service import simulate_reduced_quantity
 
@@ -88,22 +90,23 @@ def _trace_from_workflow(
     return trace
 
 
-def _explanation_message(response: PmcWorkflowResponse) -> str:
-    blockers = "、".join(item.material for item in response.blocking_materials) or "无确定阻塞物料"
-    missing = "、".join(item.material for item in response.missing_purchase_parameters) or "无待补采购参数"
-    return f"当前生产结论为 {response.decision_status}。阻塞物料：{blockers}。待补采购参数物料：{missing}。"
-
-
-def _impact_message(response: PmcWorkflowResponse) -> str:
-    """复述既有 Production Decision 的优先级，不新增影响度算法。"""
-    blockers = response.blocking_materials[:3]
-    if not blockers:
-        return "当前结构化生产决策未识别确定阻塞物料。"
-    items = "；".join(
-        f"P{item.priority} {item.material}（缺料 {item.shortage}，采购状态：{item.purchase_status}）"
-        for item in blockers
+def _explain_from_workflow_response(
+    response: PmcWorkflowResponse,
+    *,
+    question: str,
+    topic: ExplanationTopic,
+) -> ExplanationResponse:
+    """只将既有公开报告与阻塞物料交给 Explanation Service。"""
+    report = response.report
+    report_decision = report.get("production_decision", {}) if isinstance(report, Mapping) else {}
+    decision = report_decision if isinstance(report_decision, Mapping) else {}
+    return explain_pmc_result(
+        question=question,
+        topic=topic,
+        production_report=report,
+        production_decision=decision,
+        missing_materials=[item.model_dump() for item in response.blocking_materials],
     )
-    return f"以下物料按既有生产决策的优先级最需要处理：{items}。完整清单请查看阻塞物料表。"
 
 
 def _save_turn(
@@ -140,6 +143,7 @@ def _chat_response(
     agent_trace: list[ChatTraceStep],
     scenario: ChatScenarioResponse | None = None,
     task_intent: ProductionTaskIntent | None = None,
+    explanation: ExplanationResponse | None = None,
 ) -> ChatResponse:
     follow_up_questions = _follow_up_questions(workflow_response.missing_purchase_parameters)
     return ChatResponse(
@@ -151,6 +155,7 @@ def _chat_response(
         agent_trace=agent_trace,
         scenario=scenario,
         task_intent=task_intent,
+        explanation=explanation,
         **workflow_response.model_dump(),
     )
 
@@ -174,7 +179,13 @@ def chat(request: ChatRequest) -> ChatResponse | ChatClarificationResponse:
     if request.workflow_id:
         parsed_task, original_response = _task_from_workflow_context(request.workflow_id)
         if _WHY_PATTERN.search(request.message):
-            agent_message = _explanation_message(original_response)
+            topic = "ready" if original_response.decision_status == "ready" else "blocked"
+            explanation = _explain_from_workflow_response(
+                original_response,
+                question=request.message,
+                topic=topic,
+            )
+            agent_message = explanation.answer
             response = _chat_response(
                 parsed_task=parsed_task,
                 workflow_response=original_response,
@@ -183,8 +194,9 @@ def chat(request: ChatRequest) -> ChatResponse | ChatClarificationResponse:
                 agent_message=agent_message,
                 agent_trace=[
                     ChatTraceStep(step="会话上下文复用", status="completed", summary="已读取当前 workflow 的结构化报告。"),
-                    ChatTraceStep(step="生产原因解释", status="completed", summary="已基于报告整理阻塞物料与待补采购参数。"),
+                    ChatTraceStep(step="结果解释", status="completed", summary="已基于确定性报告生成自然语言解释。"),
                 ],
+                explanation=explanation,
             )
             _save_turn(
                 request.workflow_id,
@@ -196,7 +208,12 @@ def chat(request: ChatRequest) -> ChatResponse | ChatClarificationResponse:
             return response
 
         if _IMPACT_PATTERN.search(request.message):
-            agent_message = _impact_message(original_response)
+            explanation = _explain_from_workflow_response(
+                original_response,
+                question=request.message,
+                topic="impact",
+            )
+            agent_message = explanation.answer
             response = _chat_response(
                 parsed_task=parsed_task,
                 workflow_response=original_response,
@@ -205,8 +222,9 @@ def chat(request: ChatRequest) -> ChatResponse | ChatClarificationResponse:
                 agent_message=agent_message,
                 agent_trace=[
                     ChatTraceStep(step="会话上下文复用", status="completed", summary="已读取当前 workflow 的生产决策。"),
-                    ChatTraceStep(step="阻塞物料展示", status="completed", summary="已按既有决策优先级展示阻塞物料。"),
+                    ChatTraceStep(step="结果解释", status="completed", summary="已按既有优先级生成缺料解释。"),
                 ],
+                explanation=explanation,
             )
             _save_turn(
                 request.workflow_id,

@@ -6,6 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from api.schemas.explanation import ExplanationResponse
 from api.schemas.llm_task import ProductionTaskIntent
 from api.schemas.pmc import PmcWorkflowResponse
 
@@ -70,3 +71,4 @@ class ChatResponse(PmcWorkflowResponse):
     agent_trace: list[ChatTraceStep] = Field(default_factory=list)
     scenario: ChatScenarioResponse | None = None
     task_intent: ProductionTaskIntent | None = None
+    explanation: ExplanationResponse | None = None

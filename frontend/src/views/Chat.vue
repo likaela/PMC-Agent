@@ -232,6 +232,12 @@ onMounted(async () => {
         </ol>
       </section>
 
+      <section v-if="result.explanation" class="panel explanation-panel">
+        <h2>PMC 结果解释</h2>
+        <p>{{ result.explanation.answer }}</p>
+        <small>解释来源：{{ result.explanation.source === 'llm' ? 'DeepSeek' : '确定性模板' }}</small>
+      </section>
+
       <section class="panel">
         <h2>缺料与阻塞物料</h2>
         <div class="table-wrap">

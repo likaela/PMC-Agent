@@ -79,6 +79,8 @@ td { font-size: .9rem; }
 .task-details dt { color: #60737d; font-size: .78rem; font-weight: 700; }
 .task-details dd { margin: 4px 0 0; }
 .missing-task-fields { color: #9d3025 !important; font-weight: 700; }
+.explanation-panel p { line-height: 1.7; white-space: pre-wrap; }
+.explanation-panel small { color: #60737d; }
 .feedback-panel p { color: #526572; }
 .feedback-form { align-items: end; display: grid; gap: 14px; grid-template-columns: 1fr auto; }
 .message { border-radius: 8px; margin: 0 0 18px; padding: 12px 14px; }
