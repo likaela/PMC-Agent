@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { ApiError, chatPmc, getChatHistory, getDemoCases, getDemoStatistics, submitDemoFeedback } from '../api/pmc'
+import WorkflowTrace from '../components/WorkflowTrace.vue'
 
 const message = ref('我要生产100台KQ-Z112，帮我看看能不能开工')
 const messages = ref([
@@ -16,7 +17,6 @@ const feedback = ref('')
 const feedbackMessage = ref('')
 const isSubmittingFeedback = ref(false)
 const demoStatistics = ref(null)
-const pendingStatuses = ['正在解析任务...', '正在分析 BOM...', '正在计算库存...', '正在检查采购...', '正在生成生产方案...']
 const demoCases = ref([
   { id: 'analyze-100', label: '我要生产100台KQ-Z112', message: '我要生产100台KQ-Z112，帮我分析', requires_workflow: false },
   { id: 'why-blocked', label: '为什么不能生产？', message: '为什么不能生产？', requires_workflow: true },
@@ -43,6 +43,16 @@ function workflowStatusLabel(status) {
 }
 
 const decisionLabel = computed(() => decisionStatusLabel(result.value?.decision_status))
+
+const demoJourney = computed(() => {
+  const completedTurns = new Set(sessionHistory.value.map((item) => item.turn_type))
+  return [
+    { label: '首次生产分析', state: conversationWorkflowId.value ? 'completed' : 'pending' },
+    { label: '原因追问', state: completedTurns.has('explanation') ? 'completed' : 'pending' },
+    { label: '产量调整', state: completedTurns.has('scenario') ? 'completed' : 'pending' },
+    { label: '重新方案', state: result.value?.scenario ? 'completed' : 'pending' },
+  ]
+})
 
 function parserSourceLabel(source) {
   return source === 'llm' ? 'DeepSeek' : 'Rule fallback'
@@ -181,10 +191,7 @@ onMounted(async () => {
         <span>方案推演：{{ demoStatistics.scenario_count }} 次</span>
       </section>
 
-      <div v-if="isSending" class="agent-status" aria-live="polite">
-        <strong>Agent 执行状态</strong>
-        <span v-for="item in pendingStatuses" :key="item">{{ item }}</span>
-      </div>
+      <WorkflowTrace :steps="result?.agent_trace || []" :loading="isSending" />
 
       <div class="chat-history" aria-live="polite">
         <article v-for="(item, index) in messages" :key="index" class="chat-bubble" :class="item.role">
@@ -210,6 +217,15 @@ onMounted(async () => {
         </dl>
         <p v-if="taskUnderstanding.missing_fields.length" class="missing-task-fields">需要补充：{{ taskUnderstanding.missing_fields.join('、') }}</p>
       </section>
+
+      <section class="demo-journey" aria-label="完整 Demo 演示流程">
+        <span>推荐 Demo 流程</span>
+        <ol>
+          <li v-for="(step, index) in demoJourney" :key="step.label" :data-state="step.state">
+            <b>{{ index + 1 }}</b>{{ step.label }}
+          </li>
+        </ol>
+      </section>
     </section>
 
     <template v-if="result">
@@ -222,20 +238,34 @@ onMounted(async () => {
         <article class="status-card"><span>待补采购参数</span><strong>{{ result.missing_purchase_parameters.length }}</strong><small>来自 API 返回清单</small></article>
       </section>
 
-      <section class="panel">
-        <h2>Agent 执行过程</h2>
-        <p class="trace-note">展示的是工具调用状态，不展示模型思维链、提示词或内部工作流 State。</p>
-        <ol class="execution-trace">
-          <li v-for="step in result.agent_trace" :key="`${step.step}-${step.status}`" :data-status="step.status">
-            <strong>{{ step.step }}</strong><code>{{ step.status }}</code><span>{{ step.summary }}</span>
-          </li>
-        </ol>
-      </section>
-
       <section v-if="result.explanation" class="panel explanation-panel">
         <h2>PMC 结果解释</h2>
         <p>{{ result.explanation.answer }}</p>
         <small>解释来源：{{ result.explanation.source === 'llm' ? 'DeepSeek' : '确定性模板' }}</small>
+      </section>
+
+      <section class="decision-summary-grid">
+        <article class="panel decision-summary-card feasibility-card" :data-status="result.decision_status || 'unknown'">
+          <span>生产可行性</span>
+          <strong>{{ result.can_start_production === true ? '可以开工' : result.can_start_production === false ? '暂不可开工' : '待确认' }}</strong>
+          <p>{{ decisionLabel }} · {{ workflowStatusLabel(result.workflow_status) }}</p>
+        </article>
+        <article class="panel decision-summary-card risk-card">
+          <span>风险因素</span>
+          <ul v-if="result.report.production_decision?.decision_reasons?.length">
+            <li v-for="reason in result.report.production_decision.decision_reasons" :key="reason">{{ reason }}</li>
+          </ul>
+          <p v-else>当前报告未返回额外风险原因。</p>
+        </article>
+        <article class="panel decision-summary-card action-card">
+          <span>建议动作</span>
+          <ul v-if="result.report.production_decision?.recommended_actions?.length">
+            <li v-for="action in result.report.production_decision.recommended_actions" :key="`${action.priority}-${action.material}-${action.action}`">
+              {{ action.action }}
+            </li>
+          </ul>
+          <p v-else>当前报告未返回建议动作。</p>
+        </article>
       </section>
 
       <section class="panel">
