@@ -1,6 +1,7 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
 import { analyzePmc, ApiError, resumePurchaseParameters } from './api/pmc'
+import Chat from './views/Chat.vue'
 
 const analysisForm = reactive({ product: 'KQ-Z112', bom_version: 'V01', quantity: 1 })
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
@@ -10,6 +11,7 @@ const isAnalyzing = ref(false)
 const isResuming = ref(false)
 const errorMessage = ref('')
 const lastAction = ref('')
+const activeView = ref('dashboard')
 
 const statusLabel = computed(() => ({
   ready: '可开工',
@@ -87,12 +89,20 @@ watch(() => workflow.value?.missing_purchase_parameters, (items) => {
   <main class="page-shell">
     <header class="page-header">
       <div>
-        <p class="eyebrow">PMC-AGENT / V1.0 BETA</p>
+        <p class="eyebrow">PMC-AGENT / V1.1</p>
         <h1>生产决策 Dashboard</h1>
         <p class="subtitle">展示后端确定性工作流结果；页面不执行 BOM、MRP、风险或生产决策计算。</p>
       </div>
       <span class="api-badge">API: {{ apiBaseUrl }}</span>
     </header>
+
+    <nav class="view-tabs" aria-label="页面切换">
+      <button :class="{ active: activeView === 'dashboard' }" type="button" @click="activeView = 'dashboard'">PMC Dashboard</button>
+      <button :class="{ active: activeView === 'chat' }" type="button" @click="activeView = 'chat'">自然语言 Agent</button>
+    </nav>
+
+    <Chat v-if="activeView === 'chat'" />
+    <template v-else>
 
     <section class="panel analysis-panel">
       <h2>PMC 分析</h2>
@@ -165,6 +175,7 @@ watch(() => workflow.value?.missing_purchase_parameters, (items) => {
         <p>以下内容为 API 返回的报告原文，前端不修改其数值或结论。</p>
         <pre>{{ reportJson }}</pre>
       </section>
+    </template>
     </template>
   </main>
 </template>

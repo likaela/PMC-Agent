@@ -111,6 +111,34 @@ class PmcApiTests(unittest.TestCase):
             else:
                 os.environ["DEEPSEEK_API_KEY"] = previous
 
+    def test_chat_parses_chinese_task_and_reuses_pmc_workflow(self) -> None:
+        response = self.client.post(
+            "/api/v1/chat",
+            json={"message": "我要生产100台KQ-Z112，帮我看看能不能开工"},
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(
+            payload["parsed_task"],
+            {"product": "KQ-Z112", "bom_version": "V01", "quantity": 100},
+        )
+        direct_response = self.client.post(
+            "/api/v1/pmc/analyze",
+            json={"product": "KQ-Z112", "bom_version": "V01", "quantity": 100},
+        )
+        self.assertEqual(direct_response.status_code, 200)
+        direct_payload = direct_response.json()
+        self.assertEqual(payload["workflow_status"], "waiting_for_purchase_parameters")
+        self.assertEqual(payload["decision_status"], direct_payload["decision_status"])
+        self.assertEqual(payload["blocking_materials"], direct_payload["blocking_materials"])
+        self.assertEqual(payload["report"], direct_payload["report"])
+        self.assertNotIn("completed_nodes", payload)
+
+    def test_chat_returns_422_when_task_parameters_are_missing(self) -> None:
+        response = self.client.post("/api/v1/chat", json={"message": "帮我看看能不能开工"})
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("产品型号", response.json()["detail"])
+
 
 if __name__ == "__main__":
     unittest.main()
