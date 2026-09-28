@@ -38,6 +38,21 @@ export function getChatHistory(workflowId) {
   return request(`/api/v1/chat/${encodeURIComponent(workflowId)}/history`)
 }
 
+export function getDemoCases() {
+  return request('/api/v1/demo/cases')
+}
+
+export function getDemoStatistics() {
+  return request('/api/v1/demo/statistics')
+}
+
+export function submitDemoFeedback(workflowId, feedback) {
+  return request('/api/v1/demo/feedback', {
+    method: 'POST',
+    body: JSON.stringify({ workflow_id: workflowId, feedback }),
+  })
+}
+
 export function resumePurchaseParameters(workflowId, updates) {
   return request(`/api/v1/pmc/${encodeURIComponent(workflowId)}/purchase-parameters`, {
     method: 'POST',

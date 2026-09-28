@@ -39,7 +39,7 @@ class ChatScenarioResponse(BaseModel):
 class ChatHistoryItemResponse(BaseModel):
     role: Literal["user", "agent"]
     content: str
-    turn_type: Literal["analysis", "explanation", "scenario"]
+    turn_type: Literal["analysis", "explanation", "scenario", "impact"]
     workflow_id: str
 
 
@@ -55,6 +55,6 @@ class ChatResponse(PmcWorkflowResponse):
     agent_message: str
     follow_up_questions: list[str] = Field(default_factory=list)
     conversation_workflow_id: str
-    turn_type: Literal["analysis", "explanation", "scenario"] = "analysis"
+    turn_type: Literal["analysis", "explanation", "scenario", "impact"] = "analysis"
     agent_trace: list[ChatTraceStep] = Field(default_factory=list)
     scenario: ChatScenarioResponse | None = None

@@ -1,6 +1,6 @@
 <script setup>
-import { computed, ref } from 'vue'
-import { ApiError, chatPmc, getChatHistory } from '../api/pmc'
+import { computed, onMounted, ref } from 'vue'
+import { ApiError, chatPmc, getChatHistory, getDemoCases, getDemoStatistics, submitDemoFeedback } from '../api/pmc'
 
 const message = ref('我要生产100台KQ-Z112，帮我看看能不能开工')
 const messages = ref([
@@ -11,11 +11,17 @@ const errorMessage = ref('')
 const isSending = ref(false)
 const conversationWorkflowId = ref(null)
 const sessionHistory = ref([])
+const feedback = ref('')
+const feedbackMessage = ref('')
+const isSubmittingFeedback = ref(false)
+const demoStatistics = ref(null)
 const pendingStatuses = ['正在解析任务...', '正在分析 BOM...', '正在计算库存...', '正在检查采购...', '正在生成生产方案...']
-const demoCases = [
-  { label: '单台开工分析', message: '我要生产1台KQ-Z112，帮我看看能不能开工' },
-  { label: '100台批量评估', message: '我要生产100台KQ-Z112，帮我看看能不能开工' },
-]
+const demoCases = ref([
+  { id: 'analyze-100', label: '我要生产100台KQ-Z112', message: '我要生产100台KQ-Z112，帮我分析', requires_workflow: false },
+  { id: 'why-blocked', label: '为什么不能生产？', message: '为什么不能生产？', requires_workflow: true },
+  { id: 'reduce-50', label: '如果减少到50台呢？', message: '如果减少到50台呢？', requires_workflow: true },
+  { id: 'production-impact', label: '哪些物料最影响生产？', message: '哪些物料最影响生产？', requires_workflow: true },
+])
 
 const decisionLabel = computed(() => ({
   ready: '可开工',
@@ -23,6 +29,23 @@ const decisionLabel = computed(() => ({
   procurement_pending: '采购待到货',
   data_incomplete: '数据不完整',
 }[result.value?.decision_status] || '等待分析'))
+
+async function refreshDemoStatistics() {
+  try {
+    demoStatistics.value = await getDemoStatistics()
+  } catch {
+    // Demo 统计不可用不应阻塞生产分析。
+  }
+}
+
+function runDemoCase(item) {
+  if (item.requires_workflow && !conversationWorkflowId.value) {
+    errorMessage.value = '请先运行“我要生产100台KQ-Z112”，再进行原因、方案或阻塞物料追问。'
+    return
+  }
+  message.value = item.message
+  sendMessage(item.message)
+}
 
 async function sendMessage(candidateMessage = message.value) {
   const userMessage = candidateMessage.trim()
@@ -38,6 +61,7 @@ async function sendMessage(candidateMessage = message.value) {
     const response = await chatPmc(userMessage, conversationWorkflowId.value)
     conversationWorkflowId.value = response.conversation_workflow_id
     sessionHistory.value = (await getChatHistory(response.conversation_workflow_id)).history
+    await refreshDemoStatistics()
     if (response.turn_type === 'analysis') {
       messages.value.push({
         role: 'agent',
@@ -66,6 +90,33 @@ async function sendMessage(candidateMessage = message.value) {
     isSending.value = false
   }
 }
+
+async function submitFeedback() {
+  const content = feedback.value.trim()
+  if (!content || !conversationWorkflowId.value || isSubmittingFeedback.value) return
+
+  feedbackMessage.value = ''
+  isSubmittingFeedback.value = true
+  try {
+    const response = await submitDemoFeedback(conversationWorkflowId.value, content)
+    feedbackMessage.value = response.message
+    feedback.value = ''
+    await refreshDemoStatistics()
+  } catch (error) {
+    feedbackMessage.value = error instanceof ApiError ? error.message : '反馈提交失败，请稍后重试。'
+  } finally {
+    isSubmittingFeedback.value = false
+  }
+}
+
+onMounted(async () => {
+  try {
+    demoCases.value = (await getDemoCases()).cases
+  } catch {
+    // 保留本地默认案例，使 API 暂不可用时仍可阅读 Demo 引导。
+  }
+  await refreshDemoStatistics()
+})
 </script>
 
 <template>
@@ -78,12 +129,28 @@ async function sendMessage(candidateMessage = message.value) {
         </div>
       </div>
 
+      <section class="demo-onboarding">
+        <h3>欢迎体验 PMC-Agent Demo</h3>
+        <p>这是一个面向制造业 PMC 的生产决策助手：理解生产任务后，由后端确定性工作流完成 BOM、库存、缺料、采购与生产决策分析。</p>
+        <div class="guide-grid">
+          <article><strong>可以解决什么</strong><span>判断是否可开工、定位阻塞物料、提示待补采购参数、比较减量方案。</span></article>
+          <article><strong>当前支持能力</strong><span>KQ-Z112 / V01 演示、连续追问、公开节点 Trace 与当前进程内方案推演。</span></article>
+          <article><strong>推荐流程</strong><span>先分析 100 台 → 追问原因 → 查看关键物料 → 推演减少到 50 台。</span></article>
+        </div>
+      </section>
+
       <div class="demo-cases" aria-label="演示案例">
         <span>Demo 案例</span>
-        <button v-for="item in demoCases" :key="item.label" type="button" :disabled="isSending" @click="message = item.message; sendMessage(item.message)">
+        <button v-for="item in demoCases" :key="item.id" type="button" :disabled="isSending" @click="runDemoCase(item)">
           {{ item.label }}
         </button>
       </div>
+
+      <section v-if="demoStatistics" class="demo-statistics" aria-label="Demo 当前进程统计">
+        <span>当前进程体验：{{ demoStatistics.total_experience_count }} 次</span>
+        <span>成功分析：{{ demoStatistics.successful_analysis_count }} 次</span>
+        <span>方案推演：{{ demoStatistics.scenario_count }} 次</span>
+      </section>
 
       <div v-if="isSending" class="agent-status" aria-live="polite">
         <strong>Agent 执行状态</strong>
@@ -167,6 +234,16 @@ async function sendMessage(candidateMessage = message.value) {
         <h2>Agent 主动追问</h2>
         <p>以下信息缺失，系统不会自行编造采购参数。</p>
         <ul class="action-list"><li v-for="question in result.follow_up_questions" :key="question">{{ question }}</li></ul>
+      </section>
+
+      <section class="panel feedback-panel">
+        <h2>体验反馈</h2>
+        <p>反馈仅保存在当前服务进程，用于本轮小范围体验测试；不会保存 Excel、BOM、库存或其他原始企业数据。</p>
+        <form class="feedback-form" @submit.prevent="submitFeedback">
+          <label>你的反馈<textarea v-model="feedback" :disabled="isSubmittingFeedback" maxlength="1000" placeholder="例如：阻塞物料说明是否清晰？"></textarea></label>
+          <button type="submit" :disabled="isSubmittingFeedback || !feedback.trim()">{{ isSubmittingFeedback ? '正在提交…' : '提交反馈' }}</button>
+        </form>
+        <p v-if="feedbackMessage" class="message success">{{ feedbackMessage }}</p>
       </section>
     </template>
   </section>

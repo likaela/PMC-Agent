@@ -18,6 +18,7 @@ from api.schemas.chat import (
 )
 from api.schemas.pmc import PmcWorkflowResponse
 from services.chat_session_service import append_chat_history, get_chat_history
+from services.demo_experience_service import record_demo_analysis, record_demo_scenario
 from services.scenario_service import simulate_reduced_quantity
 from services.task_parser_service import TaskParseError, parse_production_task
 
@@ -25,6 +26,7 @@ from services.task_parser_service import TaskParseError, parse_production_task
 router = APIRouter(prefix="/api/v1", tags=["Chat"])
 _WHY_PATTERN = re.compile(r"为什么|为何|原因")
 _REDUCE_PATTERN = re.compile(r"(?:减少到|改为|调整为)\s*(\d+)\s*(?:台|套|件|个|只)?")
+_IMPACT_PATTERN = re.compile(r"哪些物料最影响生产|最影响生产")
 
 
 def _follow_up_questions(missing_items: list[object]) -> list[str]:
@@ -75,6 +77,18 @@ def _explanation_message(response: PmcWorkflowResponse) -> str:
     blockers = "、".join(item.material for item in response.blocking_materials) or "无确定阻塞物料"
     missing = "、".join(item.material for item in response.missing_purchase_parameters) or "无待补采购参数"
     return f"当前生产结论为 {response.decision_status}。阻塞物料：{blockers}。待补采购参数物料：{missing}。"
+
+
+def _impact_message(response: PmcWorkflowResponse) -> str:
+    """复述既有 Production Decision 的优先级，不新增影响度算法。"""
+    blockers = response.blocking_materials[:3]
+    if not blockers:
+        return "当前结构化生产决策未识别确定阻塞物料。"
+    items = "；".join(
+        f"P{item.priority} {item.material}（缺料 {item.shortage}，采购状态：{item.purchase_status}）"
+        for item in blockers
+    )
+    return f"以下物料按既有生产决策的优先级最需要处理：{items}。完整清单请查看阻塞物料表。"
 
 
 def _save_turn(
@@ -152,6 +166,28 @@ def chat(request: ChatRequest) -> ChatResponse:
             )
             return response
 
+        if _IMPACT_PATTERN.search(request.message):
+            agent_message = _impact_message(original_response)
+            response = _chat_response(
+                parsed_task=parsed_task,
+                workflow_response=original_response,
+                conversation_workflow_id=request.workflow_id,
+                turn_type="impact",
+                agent_message=agent_message,
+                agent_trace=[
+                    ChatTraceStep(step="会话上下文复用", status="completed", summary="已读取当前 workflow 的生产决策。"),
+                    ChatTraceStep(step="阻塞物料展示", status="completed", summary="已按既有决策优先级展示阻塞物料。"),
+                ],
+            )
+            _save_turn(
+                request.workflow_id,
+                user_message=request.message,
+                agent_message=agent_message,
+                turn_type="impact",
+                active_workflow_id=original_response.workflow_id,
+            )
+            return response
+
         reduction_match = _REDUCE_PATTERN.search(request.message)
         if reduction_match:
             reduced_quantity = int(reduction_match.group(1))
@@ -194,6 +230,7 @@ def chat(request: ChatRequest) -> ChatResponse:
                 turn_type="scenario",
                 active_workflow_id=active_response.workflow_id,
             )
+            record_demo_scenario()
             return response
 
         raise HTTPException(
@@ -227,6 +264,7 @@ def chat(request: ChatRequest) -> ChatResponse:
         turn_type="analysis",
         active_workflow_id=workflow_response.workflow_id,
     )
+    record_demo_analysis(workflow_response.workflow_id, request.message, analysis_completed=True)
     return response
 
 

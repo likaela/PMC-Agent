@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes.chat import router as chat_router
+from api.routes.demo import router as demo_router
 from api.routes.pmc import health_router, router as pmc_router
 
 
@@ -35,3 +36,4 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(pmc_router)
 app.include_router(chat_router)
+app.include_router(demo_router)
