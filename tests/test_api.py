@@ -157,6 +157,29 @@ class PmcApiTests(unittest.TestCase):
         self.assertIn("supplier_code", payload["follow_up_questions"][0])
         self.assertIn("采购参数", payload["agent_message"])
 
+    def test_scenario_api_returns_existing_workflow_based_plan(self) -> None:
+        response = self.client.post(
+            "/api/v1/scenarios/analyze",
+            json={"product": "KQ-Z112", "bom_version": "V01", "quantity": 1},
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["original_result"]["decision_status"], "blocked")
+        self.assertEqual(payload["original_result"]["workflow_status"], "waiting_for_purchase_parameters")
+        self.assertEqual(len(payload["scenarios"]), 1)
+        self.assertEqual(payload["scenarios"][0]["scenario_status"], "conditional_purchase_plan")
+
+    def test_chat_detects_scenario_request_and_returns_plan(self) -> None:
+        response = self.client.post(
+            "/api/v1/chat",
+            json={"message": "我要生产1台KQ-Z112，如果不能生产有什么方案？"},
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIsNotNone(payload["scenario_analysis"])
+        self.assertEqual(payload["scenario_analysis"]["original_result"]["decision_status"], "blocked")
+        self.assertIn("方案推演", payload["agent_message"])
+
 
 if __name__ == "__main__":
     unittest.main()

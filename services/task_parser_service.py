@@ -22,6 +22,12 @@ class ParsedProductionTask(TypedDict):
     quantity: int
 
 
+class ParsedAgentRequest(ParsedProductionTask):
+    """自然语言入口附带的展示层 Agent 意图。"""
+
+    scenario_request: bool
+
+
 class TaskParseError(ValueError):
     """自然语言中缺少或包含非法任务参数。"""
 
@@ -33,6 +39,7 @@ _PRODUCTION_QUANTITY_PATTERN = re.compile(
 )
 _QUANTITY_LABEL_PATTERN = re.compile(r"(?:生产数量|数量)\s*(?:为|是|：|:)?\s*(\d+)")
 _UNIT_QUANTITY_PATTERN = re.compile(r"(\d+)\s*(?:台|套|件|个|只|PCS|pcs)")
+_SCENARIO_REQUEST_PATTERN = re.compile(r"方案|推演|如果不能|不能生产|怎么办|怎么生产|备选")
 
 
 def _parse_quantity(message: str) -> int | None:
@@ -80,3 +87,10 @@ def parse_production_task(message: str) -> ParsedProductionTask:
         "bom_version": _parse_bom_version(message),
         "quantity": quantity,
     }
+
+
+def parse_agent_request(message: str) -> ParsedAgentRequest:
+    """解析生产任务及是否请求生产方案；不产生任何业务结论。"""
+
+    task = parse_production_task(message)
+    return {**task, "scenario_request": bool(_SCENARIO_REQUEST_PATTERN.search(message))}

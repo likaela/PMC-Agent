@@ -81,17 +81,22 @@ def _workflow_response(workflow_id: str, workflow_state: Mapping[str, object]) -
     )
 
 
-@router.post("/analyze", response_model=PmcWorkflowResponse)
-def analyze_pmc(request: AnalyzeRequest) -> PmcWorkflowResponse:
-    """启动一次新的内存 PMC 工作流。"""
+def start_public_pmc_workflow(product: str, bom_version: str, quantity: int) -> PmcWorkflowResponse:
+    """启动既有工作流并返回公开契约，供交互层复用。"""
     try:
-        workflow_id = run_pmc_workflow(request.product, request.bom_version, request.quantity)
+        workflow_id = run_pmc_workflow(product, bom_version, quantity)
         workflow_state = _workflow_state_or_404(workflow_id)
     except HTTPException:
         raise
     except Exception:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="PMC 工作流启动失败") from None
     return _workflow_response(workflow_id, workflow_state)
+
+
+@router.post("/analyze", response_model=PmcWorkflowResponse)
+def analyze_pmc(request: AnalyzeRequest) -> PmcWorkflowResponse:
+    """启动一次新的内存 PMC 工作流。"""
+    return start_public_pmc_workflow(request.product, request.bom_version, request.quantity)
 
 
 @router.get("/{workflow_id}", response_model=PmcWorkflowResponse)

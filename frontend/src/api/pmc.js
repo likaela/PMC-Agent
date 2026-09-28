@@ -34,6 +34,13 @@ export function chatPmc(message) {
   })
 }
 
+export function analyzeScenarios(payload) {
+  return request('/api/v1/scenarios/analyze', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
 export function resumePurchaseParameters(workflowId, updates) {
   return request(`/api/v1/pmc/${encodeURIComponent(workflowId)}/purchase-parameters`, {
     method: 'POST',

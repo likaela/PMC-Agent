@@ -12,6 +12,7 @@ const isSending = ref(false)
 const demoCases = [
   { label: '单台开工分析', message: '我要生产1台KQ-Z112，帮我看看能不能开工' },
   { label: '100台批量评估', message: '我要生产100台KQ-Z112，帮我看看能不能开工' },
+  { label: '100台方案推演', message: '我要生产100台KQ-Z112，如果不能生产有什么方案？' },
 ]
 
 const decisionLabel = computed(() => ({
@@ -127,6 +128,22 @@ async function sendMessage(candidateMessage = message.value) {
             P{{ action.priority }} {{ action.material || '全部相关物料' }}：{{ action.action }}
           </li>
         </ul>
+      </section>
+
+      <section v-if="result.scenario_analysis" class="panel scenario-panel">
+        <h2>生产方案推演</h2>
+        <p>{{ result.scenario_analysis.summary }}</p>
+        <article class="scenario-card original-scenario">
+          <span>原方案 · {{ result.scenario_analysis.original_result.report.product_information?.production_quantity }} 台</span>
+          <strong>{{ result.scenario_analysis.original_result.decision_status }}</strong>
+          <small>工作流状态：{{ result.scenario_analysis.original_result.workflow_status }}</small>
+        </article>
+        <article v-for="scenario in result.scenario_analysis.scenarios" :key="scenario.name" class="scenario-card">
+          <span>{{ scenario.name }} · {{ scenario.quantity }} 台</span>
+          <strong>{{ scenario.workflow_result.decision_status || scenario.conditional_next_status || scenario.scenario_status }}</strong>
+          <small>{{ scenario.improvement }}</small>
+          <em v-if="scenario.conditional_next_status">条件性下一状态：{{ scenario.conditional_next_status }}</em>
+        </article>
       </section>
 
       <section v-if="result.follow_up_questions.length" class="panel follow-up-panel">

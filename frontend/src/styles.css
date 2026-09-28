@@ -55,6 +55,11 @@ td { font-size: .9rem; }
 .execution-trace li[data-status="waiting"] { border-left-color: #d4881e; background: #fff7e8; }
 .execution-trace li[data-status="error"] { border-left-color: #c44b3d; background: #fff0ed; }
 .execution-trace code { color: #126a57; font-size: .82rem; }
+.scenario-panel > p { color: #60737d; }
+.scenario-card { border: 1px solid #d9e3e7; border-left: 4px solid #126a57; border-radius: 8px; display: grid; gap: 6px; margin-top: 12px; padding: 13px 15px; }
+.scenario-card span, .scenario-card small, .scenario-card em { color: #60737d; font-style: normal; }
+.scenario-card strong { font-size: 1.1rem; text-transform: lowercase; }
+.original-scenario { border-left-color: #64748b; }
 .message { border-radius: 8px; margin: 0 0 18px; padding: 12px 14px; }
 .error { background: #ffe9e6; color: #9d3025; }
 .success { background: #e3f4ed; color: #126a57; }

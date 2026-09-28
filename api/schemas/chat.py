@@ -5,6 +5,7 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
 
 from api.schemas.pmc import PmcWorkflowResponse
+from api.schemas.scenario import ScenarioResponse
 
 
 class ChatRequest(BaseModel):
@@ -25,3 +26,4 @@ class ChatResponse(PmcWorkflowResponse):
     parsed_task: ParsedTaskResponse
     agent_message: str
     follow_up_questions: list[str] = Field(default_factory=list)
+    scenario_analysis: ScenarioResponse | None = None
