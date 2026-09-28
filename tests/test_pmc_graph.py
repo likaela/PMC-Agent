@@ -14,6 +14,14 @@ from workflows.pmc_graph import (
 
 
 class PmcGraphTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.purchase_mode_patcher = patch(
+            "tools.purchase_tool.resolve_data_source_mode",
+            return_value="raw",
+        )
+        self.purchase_mode_patcher.start()
+        self.addCleanup(self.purchase_mode_patcher.stop)
+
     def run_real_graph(self) -> tuple[str, dict[str, object]]:
         workflow_id = f"test-{uuid4()}"
         run_pmc_workflow("KQ-Z112", "V01", 1, workflow_id)

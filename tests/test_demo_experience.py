@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -11,6 +13,9 @@ from api.app import app
 
 class DemoExperienceApiTests(unittest.TestCase):
     def setUp(self) -> None:
+        self.data_mode_patcher = patch.dict(os.environ, {"PMC_DATA_SOURCE": "demo"})
+        self.data_mode_patcher.start()
+        self.addCleanup(self.data_mode_patcher.stop)
         self.client = TestClient(app)
 
     def _start_demo_workflow(self) -> dict[str, object]:
@@ -38,7 +43,11 @@ class DemoExperienceApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["parsed_task"], {"product": "KQ-Z112", "bom_version": "V01", "quantity": 100})
-        self.assertEqual(payload["workflow_status"], "waiting_for_purchase_parameters")
+        self.assertEqual(payload["workflow_status"], "completed")
+        self.assertEqual(payload["decision_status"], "procurement_pending")
+        self.assertFalse(payload["can_start_production"])
+        self.assertEqual(payload["missing_purchase_parameters"], [])
+        self.assertEqual(len(payload["report"]["purchase_recommendations"]), 8)
 
     def test_feedback_is_accepted_without_exposing_experience_record(self) -> None:
         workflow = self._start_demo_workflow()

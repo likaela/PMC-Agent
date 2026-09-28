@@ -1,5 +1,6 @@
 import inspect
 import unittest
+from unittest.mock import patch
 
 from scripts.generate_kq_z112_real_mrp_report import build_kq_z112_report
 from tools import agent_tools
@@ -14,6 +15,14 @@ from tools.agent_tools import (
 
 
 class AgentToolTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.purchase_mode_patcher = patch(
+            "tools.purchase_tool.resolve_data_source_mode",
+            return_value="raw",
+        )
+        self.purchase_mode_patcher.start()
+        self.addCleanup(self.purchase_mode_patcher.stop)
+
     def build_real_tool_chain(self) -> dict[str, object]:
         bom = real_bom_check.invoke(
             {"product": "KQ-Z112", "bom_version": "V01", "quantity": 1}

@@ -2,6 +2,8 @@
 
 from collections.abc import Mapping
 
+from repositories.data_source import resolve_data_source_mode
+from repositories.demo_purchase_parameter_repository import load_demo_purchase_parameters
 from repositories.purchase_repository import load_purchase_data
 from services.purchase_service import (
     analyze_real_purchase,
@@ -16,6 +18,14 @@ _session_purchase_parameters: dict[str, dict[str, object]] = {}
 _session_shortages: dict[str, int] = {}
 
 
+def _effective_purchase_parameters() -> dict[str, dict[str, object]]:
+    """Demo 使用显式合成参数；raw 只使用业务人员当前会话补充值。"""
+    parameters = load_demo_purchase_parameters() if resolve_data_source_mode() == "demo" else {}
+    for material, values in _session_purchase_parameters.items():
+        parameters[material] = {**parameters.get(material, {}), **values}
+    return parameters
+
+
 def purchase_recommendation(shortages: Mapping[str, int]) -> dict[str, dict[str, int | str]]:
     """读取采购参数并生成采购建议。"""
     return calculate_purchase(shortages, load_purchase_data())
@@ -25,7 +35,7 @@ def check_real_purchase_parameters(shortages: Mapping[str, int]) -> list[dict[st
     """登记本次真实 MRP 缺料，并逐项返回采购参数待补充状态。"""
     _session_shortages.clear()
     _session_shortages.update(shortages)
-    return analyze_interactive_purchase(shortages, _session_purchase_parameters)
+    return analyze_interactive_purchase(shortages, _effective_purchase_parameters())
 
 
 def analyze_real_purchase_for_mrp(mrp_result: Mapping[str, object]) -> dict[str, list[dict[str, object]]]:
@@ -49,7 +59,7 @@ def analyze_real_purchase_for_mrp(mrp_result: Mapping[str, object]) -> dict[str,
             shortages[material] = shortage
     _session_shortages.clear()
     _session_shortages.update(shortages)
-    return analyze_real_purchase(materials, _session_purchase_parameters)
+    return analyze_real_purchase(materials, _effective_purchase_parameters())
 
 
 def supplement_real_purchase_parameter(
@@ -63,7 +73,7 @@ def supplement_real_purchase_parameter(
     if material not in _session_shortages:
         raise ValueError("请先使用当前 MRP 缺料清单检查采购参数")
 
-    parameters = dict(_session_purchase_parameters.get(material, {}))
+    parameters = dict(_effective_purchase_parameters().get(material, {}))
     for field, value in {
         "supplier_code": supplier_code,
         "safety_stock": safety_stock,

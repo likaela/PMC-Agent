@@ -1,6 +1,7 @@
 import json
 import os
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -11,6 +12,12 @@ from workflows.pmc_graph import get_pmc_workflow_state
 
 class PmcApiTests(unittest.TestCase):
     def setUp(self) -> None:
+        self.purchase_mode_patcher = patch(
+            "tools.purchase_tool.resolve_data_source_mode",
+            return_value="raw",
+        )
+        self.purchase_mode_patcher.start()
+        self.addCleanup(self.purchase_mode_patcher.stop)
         self.client = TestClient(app)
 
     def analyze_kq(self) -> dict[str, object]:

@@ -129,6 +129,16 @@
   "required_missing_inventory_codes": [
     "DEMO-M045", "DEMO-M046", "DEMO-M047", "DEMO-M048", "DEMO-M049"
   ],
+  "purchase_parameters": [
+    {"material_code": "DEMO-M001", "supplier_code": "DEMO-SUP-001", "safety_stock": 0, "lead_time_days": 3},
+    {"material_code": "DEMO-M002", "supplier_code": "DEMO-SUP-002", "safety_stock": 0, "lead_time_days": 5},
+    {"material_code": "DEMO-M003", "supplier_code": "DEMO-SUP-003", "safety_stock": 0, "lead_time_days": 7},
+    {"material_code": "DEMO-M004", "supplier_code": "DEMO-SUP-004", "safety_stock": 0, "lead_time_days": 8},
+    {"material_code": "DEMO-M005", "supplier_code": "DEMO-SUP-005", "safety_stock": 0, "lead_time_days": 10},
+    {"material_code": "DEMO-M006", "supplier_code": "DEMO-SUP-006", "safety_stock": 0, "lead_time_days": 4},
+    {"material_code": "DEMO-M007", "supplier_code": "DEMO-SUP-007", "safety_stock": 0, "lead_time_days": 12},
+    {"material_code": "DEMO-M008", "supplier_code": "DEMO-SUP-008", "safety_stock": 0, "lead_time_days": 6}
+  ],
   "supplier_master": [
     {
       "supplier_code": "DEMO-SUP-001",
