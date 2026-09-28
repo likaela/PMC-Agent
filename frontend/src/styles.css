@@ -40,7 +40,7 @@ td { font-size: .9rem; }
 .section-heading p, .report-panel p { color: #60737d; margin-bottom: 0; }
 .agent-hero { background: linear-gradient(135deg, #0e5f52, #164a72); border-radius: 12px; color: #fff; display: grid; gap: 18px; grid-template-columns: 1.15fr .85fr; margin-top: 16px; padding: 22px; }
 .agent-hero > div > span, .demo-guide-kicker { color: #bde8dc; font-size: .78rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.agent-hero h3 { font-size: 1.25rem; line-height: 1.45; margin: 8px 0; }
+.agent-hero h2, .agent-hero h3 { color: #fff; font-size: 1.45rem; line-height: 1.4; margin: 8px 0; }
 .agent-hero p { color: #e0eff4; line-height: 1.65; margin: 0; }
 .agent-flow { align-content: center; display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
 .agent-flow li { background: rgb(255 255 255 / 13%); border-left: 3px solid #8be1ca; border-radius: 6px; font-size: .88rem; padding: 8px 10px; }
@@ -63,6 +63,8 @@ td { font-size: .9rem; }
 .demo-cases button:hover { background: #cde9dd; }
 .demo-cases .secondary-button, .retry-button { background: #64748b; color: #fff; }
 .demo-cases .secondary-button:hover, .retry-button:hover { background: #475569; }
+.quick-experience { background: #f7fbfa; border: 1px solid #d7e9e3; border-radius: 10px; padding: 12px; }
+.quick-experience > span { color: #0e5f52; width: 100%; }
 .retry-button { margin: -8px 0 12px; }
 .demo-onboarding { background: #f4f8fb; border: 1px solid #d9e3e7; border-radius: 10px; margin-top: 16px; padding: 16px; }
 .demo-onboarding h3 { margin: 0 0 8px; }

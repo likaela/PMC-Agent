@@ -24,7 +24,7 @@ function stepState(index) {
     <div>
       <span class="demo-guide-kicker">三分钟演示路径</span>
       <h2>从自然语言需求到生产决策</h2>
-      <p>每一步均调用现有 PMC API；系统不会预设或伪造分析结论。</p>
+      <p>每一步都基于实际分析结果继续推进，系统不会预设或伪造生产结论。</p>
     </div>
     <ol>
       <li v-for="(step, index) in steps" :key="step.label" :data-state="stepState(index)">

@@ -36,6 +36,16 @@ function statusLabel(status) {
     running: '正在执行',
   }[status] || '状态待确认')
 }
+
+function stageSummary(summary) {
+  if (typeof summary !== 'string') return '当前阶段已完成。'
+  return summary
+    .replace(/PMC 工作流/g, '生产分析')
+    .replace(/当前 workflow/gi, '当前分析结果')
+    .replace(/工作流报告/g, '生产分析结果')
+    .replace(/工作流/g, '分析过程')
+    .replace(/结构化报告/g, '生产分析结果')
+}
 </script>
 
 <template>
@@ -54,7 +64,7 @@ function statusLabel(status) {
       <li v-for="step in steps" :key="`${step.step}-${step.status}`" :data-status="step.status">
         <strong>{{ stageLabel(step.step) }}</strong>
         <code>{{ statusLabel(step.status) }}</code>
-        <span>{{ step.summary }}</span>
+        <span>{{ stageSummary(step.summary) }}</span>
       </li>
     </ol>
   </section>

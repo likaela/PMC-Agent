@@ -2,9 +2,9 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { analyzePmc, ApiError, resumePurchaseParameters } from './api/pmc'
 import Chat from './views/Chat.vue'
+import { getMaterialPresentation, getPresentedActions, getPresentedMaterials, presentationRiskLabel } from './utils/presentation'
 
 const analysisForm = reactive({ product: 'KQ-Z112', bom_version: 'V01', quantity: 1 })
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 const workflow = ref(null)
 const parameterForms = reactive({})
 const isAnalyzing = ref(false)
@@ -28,6 +28,21 @@ const workflowStatusLabel = computed(() => ({
 }[workflow.value?.workflow_status] || '状态待确认'))
 
 const reportJson = computed(() => workflow.value?.report ? JSON.stringify(workflow.value.report, null, 2) : '')
+const presentedDashboardMaterials = computed(() => getPresentedMaterials(workflow.value?.blocking_materials))
+const presentedDashboardActions = computed(() => getPresentedActions(
+  workflow.value?.report?.production_decision?.recommended_actions,
+  workflow.value?.blocking_materials,
+))
+
+function dashboardMaterialPresentation(item, index) {
+  return getMaterialPresentation(item, index)
+}
+
+function dashboardActionMaterialLabel(action) {
+  if (!action?.material) return '全部相关物料'
+  const index = workflow.value?.blocking_materials?.findIndex((item) => item.material === action.material) ?? -1
+  return getMaterialPresentation({ material: action.material }, index >= 0 ? index : 0).label
+}
 
 function resetParameterForms(missingItems) {
   Object.keys(parameterForms).forEach((key) => delete parameterForms[key])
@@ -47,7 +62,7 @@ async function submitAnalysis() {
   isAnalyzing.value = true
   try {
     applyWorkflow(await analyzePmc({ ...analysisForm, quantity: Number(analysisForm.quantity) }))
-    lastAction.value = '已获取后端确定性 PMC 分析结果。'
+    lastAction.value = 'PMC 分析已完成，生产决策结果已更新。'
   } catch (error) {
     errorMessage.value = error instanceof ApiError ? error.message : '无法连接 PMC API。'
   } finally {
@@ -79,9 +94,9 @@ async function submitPurchaseParameters() {
   isResuming.value = true
   try {
     applyWorkflow(await resumePurchaseParameters(workflow.value.workflow_id, updates))
-    lastAction.value = '采购参数已提交，工作流已从采购分析节点恢复。'
+    lastAction.value = '采购参数已提交，采购与生产分析已继续完成。'
   } catch (error) {
-    errorMessage.value = error instanceof ApiError ? error.message : '恢复 PMC 工作流失败。'
+    errorMessage.value = error instanceof ApiError ? error.message : '继续分析失败，请稍后重试。'
   } finally {
     isResuming.value = false
   }
@@ -96,16 +111,15 @@ watch(() => workflow.value?.missing_purchase_parameters, (items) => {
   <main class="page-shell">
     <header class="page-header">
       <div>
-        <p class="eyebrow">PMC-AGENT / COMPETITION DEMO</p>
+        <p class="eyebrow">MANUFACTURING DECISION AGENT</p>
         <h1>智造 PMC Agent</h1>
-        <p class="subtitle">基于大语言模型与智能工作流的制造生产决策系统。</p>
+        <p class="subtitle">面向制造企业的生产决策智能体。</p>
       </div>
-      <span class="api-badge">API: {{ apiBaseUrl }}</span>
     </header>
 
     <nav class="view-tabs" aria-label="页面切换">
-      <button :class="{ active: activeView === 'dashboard' }" type="button" @click="activeView = 'dashboard'">PMC Dashboard</button>
-      <button :class="{ active: activeView === 'chat' }" type="button" @click="activeView = 'chat'">自然语言 Agent</button>
+      <button :class="{ active: activeView === 'chat' }" type="button" @click="activeView = 'chat'">智能体体验</button>
+      <button :class="{ active: activeView === 'dashboard' }" type="button" @click="activeView = 'dashboard'">专业数据面板</button>
     </nav>
 
     <Chat v-if="activeView === 'chat'" />
@@ -130,32 +144,38 @@ watch(() => workflow.value?.missing_purchase_parameters, (items) => {
           <span>生产决策</span><strong>{{ statusLabel }}</strong><small>由确定性生产决策服务生成</small>
         </article>
         <article class="status-card"><span>分析状态</span><strong>{{ workflowStatusLabel }}</strong><small>当前分析结果已加载</small></article>
-        <article class="status-card"><span>是否可开工</span><strong>{{ workflow.can_start_production === true ? '是' : workflow.can_start_production === false ? '否' : '待确认' }}</strong><small>来自 Production Decision</small></article>
-        <article class="status-card"><span>待补采购参数</span><strong>{{ workflow.missing_purchase_parameters.length }}</strong><small>来自 API 返回清单</small></article>
+        <article class="status-card"><span>是否可开工</span><strong>{{ workflow.can_start_production === true ? '是' : workflow.can_start_production === false ? '否' : '待确认' }}</strong><small>来自生产可行性分析</small></article>
+        <article class="status-card"><span>待补采购参数</span><strong>{{ workflow.missing_purchase_parameters.length }}</strong><small>来自采购分析结果</small></article>
         <article class="status-card"><span>物料齐套率</span><strong>{{ workflow.report.known_inventory_kit_analysis?.material_readiness_rate ?? '—' }}</strong><small>来自确定性报告</small></article>
         <article class="status-card"><span>数量满足率</span><strong>{{ workflow.report.known_inventory_kit_analysis?.quantity_fulfillment_rate ?? '—' }}</strong><small>来自确定性报告</small></article>
       </section>
 
       <section class="panel">
-        <h2>阻塞物料</h2>
+        <h2>关键物料 Top 5</h2>
         <div class="table-wrap">
-          <table>
-            <thead><tr><th>优先级</th><th>物料</th><th>需求</th><th>可用</th><th>缺料</th><th>缺料比例</th><th>采购状态</th><th>风险</th></tr></thead>
+          <table class="presentation-table">
+            <thead><tr><th>关键物料</th><th>需求</th><th>可用</th><th>缺口</th><th>风险</th></tr></thead>
             <tbody>
-              <tr v-for="item in workflow.blocking_materials" :key="item.material">
-                <td>P{{ item.priority }}</td><td>{{ item.material }}</td><td>{{ item.required }}</td><td>{{ item.available ?? '—' }}</td><td>{{ item.shortage }}</td><td>{{ item.shortage_ratio }}</td><td>{{ item.purchase_status }}</td><td>{{ item.risk_level || '待补参数' }}</td>
+              <tr v-for="(item, index) in presentedDashboardMaterials" :key="item.material">
+                <td>
+                  <div class="material-presentation">
+                    <strong>{{ dashboardMaterialPresentation(item, index).label }}</strong>
+                    <small v-if="dashboardMaterialPresentation(item, index).code">编码 {{ dashboardMaterialPresentation(item, index).code }}</small>
+                  </div>
+                </td>
+                <td>{{ item.required }}</td><td>{{ item.available ?? '—' }}</td><td>{{ item.shortage }}</td><td>{{ presentationRiskLabel(item) }}</td>
               </tr>
-              <tr v-if="!workflow.blocking_materials.length"><td colspan="8" class="empty">API 未返回阻塞物料。</td></tr>
+              <tr v-if="!workflow.blocking_materials.length"><td colspan="5" class="empty">暂无影响开工的关键物料。</td></tr>
             </tbody>
           </table>
         </div>
       </section>
 
-      <section v-if="workflow.report.production_decision?.recommended_actions?.length" class="panel">
+      <section v-if="presentedDashboardActions.length" class="panel">
         <h2>建议行动</h2>
         <ul class="action-list">
-          <li v-for="action in workflow.report.production_decision.recommended_actions" :key="`${action.priority}-${action.material}-${action.action}`">
-            P{{ action.priority }} {{ action.material || '全部相关物料' }}：{{ action.action }}
+          <li v-for="action in presentedDashboardActions" :key="`${action.priority}-${action.material}-${action.action}`">
+            {{ dashboardActionMaterialLabel(action) }}：{{ action.action }}
           </li>
         </ul>
       </section>

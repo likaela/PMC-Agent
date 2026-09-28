@@ -1,11 +1,14 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { ApiError, chatPmc, getChatHistory, getDemoCases, getDemoStatistics, getPmcWorkflow, submitDemoFeedback } from '../api/pmc'
+import { ApiError, chatPmc, getChatHistory, getDemoStatistics, getPmcWorkflow, submitDemoFeedback } from '../api/pmc'
 import DemoGuide from '../components/DemoGuide.vue'
 import WorkflowTrace from '../components/WorkflowTrace.vue'
 import { normalizeCandidateMessage } from '../utils/chatMessage'
 import { clearDemoSession, loadDemoSession, saveDemoSession } from '../utils/demoSession'
 import {
+  formatAgentMessage,
+  formatHistoryMessage,
+  formatScenarioImprovement,
   getMaterialPresentation,
   getPresentedActions,
   getPresentedMaterials,
@@ -31,12 +34,11 @@ const demoStatistics = ref(null)
 const retryRequest = ref(null)
 const isFullDemoActive = ref(false)
 const completedDemoStep = ref(0)
-const demoCases = ref([
-  { id: 'analyze-100', label: '我要生产100台KQ-Z112', message: '我要生产100台KQ-Z112，帮我分析', requires_workflow: false },
+const quickExperienceCases = [
+  { id: 'analyze-100', label: '我要生产100台KQ-Z112', message: '我要生产100台KQ-Z112', requires_workflow: false },
   { id: 'why-blocked', label: '为什么不能生产？', message: '为什么不能生产？', requires_workflow: true },
-  { id: 'reduce-50', label: '如果减少到50台呢？', message: '如果减少到50台呢？', requires_workflow: true },
-  { id: 'production-impact', label: '哪些物料最影响生产？', message: '哪些物料最影响生产？', requires_workflow: true },
-])
+  { id: 'reduce-50', label: '减少到50台呢？', message: '减少到50台呢？', requires_workflow: true },
+]
 const fullDemoSteps = [
   { label: '分析 100 台 KQ-Z112', message: '我要生产100台KQ-Z112', requiresWorkflow: false },
   { label: '追问无法生产原因', message: '为什么不能生产？', requiresWorkflow: true },
@@ -77,6 +79,7 @@ const presentedRecommendedActions = computed(() => getPresentedActions(
   result.value?.blocking_materials,
 ))
 const hasRecommendedActions = computed(() => presentedRecommendedActions.value.length > 0)
+const formattedExplanation = computed(() => formatAgentMessage(result.value))
 const currentPlanLabel = computed(() => {
   const task = result.value?.parsed_task
   return task?.product && Number.isInteger(task?.quantity)
@@ -117,7 +120,7 @@ function actionMaterialLabel(action) {
 }
 
 function createInitialMessages() {
-  return [{ role: 'agent', content: '请用自然语言描述生产任务，例如：我要生产100台KQ-Z112。' }]
+  return [{ role: 'agent', content: '我是面向制造企业的生产决策智能体。请告诉我产品型号和生产数量，例如：我要生产100台KQ-Z112。' }]
 }
 
 function resetDemoSession({ notice = '' } = {}) {
@@ -228,7 +231,7 @@ async function sendMessage(candidateMessage = message.value, { reuseCurrentWorkf
   result.value = null
   retryRequest.value = { message: userMessage, reuseCurrentWorkflow: shouldReuseWorkflow, demoStep }
   messages.value.push({ role: 'user', content: userMessage })
-  const pendingMessage = { role: 'agent', content: '正在理解当前任务并准备执行 PMC 工作流。', pending: true }
+  const pendingMessage = { role: 'agent', content: '正在理解生产需求，并准备开展物料、库存与采购分析。', pending: true }
   messages.value.push(pendingMessage)
   isSending.value = true
   try {
@@ -237,7 +240,7 @@ async function sendMessage(candidateMessage = message.value, { reuseCurrentWorkf
       taskUnderstanding.value = response.task_intent
       messages.value.push({
         role: 'agent',
-        content: response.agent_message,
+        content: formatAgentMessage(response),
       })
       return
     }
@@ -252,15 +255,10 @@ async function sendMessage(candidateMessage = message.value, { reuseCurrentWorkf
     if (response.turn_type === 'analysis') {
       const understood = response.task_intent || response.parsed_task
       taskUnderstanding.value = response.task_intent || null
-      const sourceLabel = response.task_intent ? parserSourceLabel(response.task_intent.parser_source) : 'Rule fallback'
+      const sourceLabel = response.task_intent ? parserSourceLabel(response.task_intent.parser_source) : '本地规则解析'
       messages.value.push({
         role: 'agent',
         content: `AI 已识别任务：产品 ${understood.product}，BOM ${understood.bom_version}，数量 ${understood.quantity}。解析来源：${sourceLabel}。`,
-      })
-    } else if (response.turn_type === 'scenario') {
-      messages.value.push({
-        role: 'agent',
-        content: `已复用当前会话，将备选生产数量调整为 ${response.parsed_task.quantity} 台。`,
       })
     }
     result.value = response
@@ -274,7 +272,7 @@ async function sendMessage(candidateMessage = message.value, { reuseCurrentWorkf
     }
     messages.value.push({
       role: 'agent',
-      content: `${response.turn_type === 'explanation' ? '说明完成' : '处理完成'}：${decisionLabel.value}。${response.agent_message}`,
+      content: formatAgentMessage(response),
     })
     getVisibleFollowUpQuestions(response).forEach((question) => messages.value.push({ role: 'agent', content: question }))
   } catch (error) {
@@ -325,7 +323,14 @@ async function restoreDemoSession() {
       missing_fields: [],
       parser_source: 'restored',
     }
-    messages.value = historyResponse.history.map((item) => ({ role: item.role, content: item.content }))
+    const restoredContext = {
+      ...workflow,
+      parsed_task: saved.task_summary,
+    }
+    messages.value = historyResponse.history.map((item) => ({
+      role: item.role,
+      content: formatHistoryMessage(item, restoredContext),
+    }))
     result.value = {
       ...workflow,
       conversation_workflow_id: saved.session_id,
@@ -361,11 +366,6 @@ async function submitFeedback() {
 }
 
 onMounted(async () => {
-  try {
-    demoCases.value = (await getDemoCases()).cases
-  } catch {
-    // 保留本地默认案例，使 API 暂不可用时仍可阅读 Demo 引导。
-  }
   await refreshDemoStatistics()
   await restoreDemoSession()
 })
@@ -374,37 +374,30 @@ onMounted(async () => {
 <template>
   <section class="chat-layout">
     <section class="panel chat-panel">
-      <div class="section-heading">
-        <div>
-          <h2>智造 PMC Agent</h2>
-          <p>基于大语言模型与智能工作流的制造生产决策系统。</p>
-        </div>
-      </div>
-
       <section class="agent-hero">
         <div>
-          <span>制造生产决策 Agent</span>
-          <h3>不是普通聊天机器人，而是面向 PMC 的生产分析入口。</h3>
-          <p>AI 只理解生产任务；BOM、库存、缺料、采购与生产结论全部由后端确定性 PMC 工作流生成。</p>
+          <span>智造 PMC Agent</span>
+          <h2>面向制造企业的生产决策智能体</h2>
+          <p>用户只需描述生产需求，Agent 即可自动理解任务，并依次完成物料、库存、采购与生产可行性分析。</p>
         </div>
         <ol class="agent-flow" aria-label="生产决策流程">
-          <li>自然语言生产需求</li><li>AI 任务理解</li><li>PMC 智能分析</li><li>生产决策建议</li>
+          <li>需求理解</li><li>物料分析</li><li>库存检查</li><li>采购建议</li><li>生产决策</li>
         </ol>
       </section>
 
       <section class="demo-onboarding">
-        <h3>欢迎体验 PMC-Agent Demo</h3>
-        <p>这是一个面向制造业 PMC 的生产决策助手：理解生产任务后，由后端确定性工作流完成 BOM、库存、缺料、采购与生产决策分析。</p>
+        <h3>欢迎体验制造生产决策 Agent</h3>
+        <p>直接输入产品和数量即可开始分析，也可以在首轮结果后继续追问原因、调整数量或查看关键物料。</p>
         <div class="guide-grid">
           <article><strong>可以解决什么</strong><span>判断是否可开工、定位阻塞物料、生成采购建议、比较减量方案。</span></article>
-          <article><strong>当前支持能力</strong><span>KQ-Z112 / V01 演示、连续追问、公开节点 Trace 与当前进程内方案推演。</span></article>
+          <article><strong>当前支持能力</strong><span>KQ-Z112 / V01 演示、连续追问、分析进度展示与生产方案调整。</span></article>
           <article><strong>推荐流程</strong><span>先分析 100 台 → 追问原因 → 查看关键物料 → 推演减少到 50 台。</span></article>
         </div>
       </section>
 
-      <div class="demo-cases" aria-label="演示案例">
-        <span>Demo 案例</span>
-        <button v-for="item in demoCases" :key="item.id" type="button" :disabled="isSending" @click="runDemoCase(item)">
+      <div class="demo-cases quick-experience" aria-label="快速体验">
+        <span>快速体验</span>
+        <button v-for="item in quickExperienceCases" :key="item.id" type="button" :disabled="isSending" @click="runDemoCase(item)">
           {{ item.label }}
         </button>
         <button class="secondary-button" type="button" :disabled="isSending" @click="restartDemo">重新开始分析</button>
@@ -420,7 +413,7 @@ onMounted(async () => {
       />
 
       <section v-if="demoStatistics" class="demo-statistics" aria-label="Demo 当前进程统计">
-        <span>当前进程体验：{{ demoStatistics.total_experience_count }} 次</span>
+        <span>本次体验：{{ demoStatistics.total_experience_count }} 次</span>
         <span>成功分析：{{ demoStatistics.successful_analysis_count }} 次</span>
         <span>方案推演：{{ demoStatistics.scenario_count }} 次</span>
       </section>
@@ -469,10 +462,10 @@ onMounted(async () => {
       <p class="current-plan-label">{{ currentPlanLabel }}</p>
       <section class="status-grid">
         <article class="status-card" :data-status="result.decision_status || 'unknown'">
-          <span>生产状态</span><strong>{{ productionStatusLabel }}</strong><small>{{ decisionLabel }} · 由确定性生产决策服务生成</small>
+          <span>生产状态</span><strong>{{ productionStatusLabel }}</strong><small>{{ decisionLabel }} · 由生产决策分析生成</small>
         </article>
         <article class="status-card"><span>Agent 执行状态</span><strong>{{ workflowStatusLabel(result.workflow_status) }}</strong><small>本次分析已关联当前会话</small></article>
-        <article class="status-card"><span>是否可开工</span><strong>{{ result.can_start_production === true ? '是' : result.can_start_production === false ? '否' : '待确认' }}</strong><small>来自 Production Decision</small></article>
+        <article class="status-card"><span>是否可开工</span><strong>{{ result.can_start_production === true ? '是' : result.can_start_production === false ? '否' : '待确认' }}</strong><small>来自生产可行性分析</small></article>
         <article class="status-card">
           <span>{{ demoPurchaseParametersLoaded ? '演示采购参数' : '待补采购参数' }}</span>
           <strong>{{ demoPurchaseParametersLoaded ? '已加载' : result.missing_purchase_parameters.length }}</strong>
@@ -488,7 +481,7 @@ onMounted(async () => {
 
       <section v-if="hasReport && result.explanation" class="panel explanation-panel">
         <h2>PMC 结果解释</h2>
-        <p>{{ result.explanation.answer }}</p>
+        <p>{{ formattedExplanation }}</p>
         <small>解释来源：{{ result.explanation.source === 'llm' ? 'DeepSeek' : '确定性模板' }}</small>
       </section>
 
@@ -518,13 +511,12 @@ onMounted(async () => {
 
       <section v-if="hasReport" class="panel key-material-panel">
         <h2>关键物料 Top 5</h2>
-        <p>沿用 Production Decision 已有优先级，仅展示最高优先级的 5 项，不重新计算排序。</p>
+        <p>依据既有生产影响顺序，展示当前最需要优先处理的 5 项物料。</p>
         <div class="table-wrap">
           <table class="presentation-table">
-            <thead><tr><th>影响等级</th><th>关键物料</th><th>缺口数量</th><th>风险信息</th></tr></thead>
+            <thead><tr><th>关键物料</th><th>缺口数量</th><th>风险信息</th></tr></thead>
             <tbody>
               <tr v-for="(item, index) in presentedBlockingMaterials" :key="item.material">
-                <td><span class="priority-badge">P{{ item.priority }}</span></td>
                 <td>
                   <div class="material-presentation">
                     <strong>{{ materialPresentation(item, index).label }}</strong>
@@ -534,7 +526,7 @@ onMounted(async () => {
                 <td><strong>{{ item.shortage }}</strong></td>
                 <td>{{ presentationRiskLabel(item) }}</td>
               </tr>
-              <tr v-if="!hasBlockingMaterials"><td colspan="4" class="empty">暂无阻塞物料可展示。</td></tr>
+              <tr v-if="!hasBlockingMaterials"><td colspan="3" class="empty">暂无阻塞物料可展示。</td></tr>
             </tbody>
           </table>
         </div>
@@ -547,7 +539,7 @@ onMounted(async () => {
         <h2>建议行动</h2>
         <ul class="action-list">
           <li v-for="action in presentedRecommendedActions" :key="`${action.priority}-${action.material}-${action.action}`">
-            P{{ action.priority }} {{ actionMaterialLabel(action) }}：{{ action.action }}
+            {{ actionMaterialLabel(action) }}：{{ action.action }}
           </li>
         </ul>
       </section>
@@ -567,7 +559,7 @@ onMounted(async () => {
         <article class="scenario-card">
           <span>备选方案 · {{ result.scenario.quantity }} 台</span>
           <strong>{{ decisionStatusLabel(result.scenario.workflow_result.decision_status) }}</strong>
-          <small>{{ result.scenario.improvement }}</small>
+          <small>{{ formatScenarioImprovement(result.scenario) }}</small>
         </article>
       </section>
 
