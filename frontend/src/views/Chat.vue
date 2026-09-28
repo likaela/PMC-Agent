@@ -23,12 +23,25 @@ const demoCases = ref([
   { id: 'production-impact', label: '哪些物料最影响生产？', message: '哪些物料最影响生产？', requires_workflow: true },
 ])
 
-const decisionLabel = computed(() => ({
+function decisionStatusLabel(status) {
+  return ({
   ready: '可开工',
   blocked: '生产受阻',
   procurement_pending: '采购待到货',
   data_incomplete: '数据不完整',
-}[result.value?.decision_status] || '等待分析'))
+  }[status] || '等待分析')
+}
+
+function workflowStatusLabel(status) {
+  return ({
+    waiting_for_purchase_parameters: '等待补充采购参数',
+    completed: '分析完成',
+    running: '正在分析',
+    error: '分析暂不可用',
+  }[status] || '状态待确认')
+}
+
+const decisionLabel = computed(() => decisionStatusLabel(result.value?.decision_status))
 
 async function refreshDemoStatistics() {
   try {
@@ -63,9 +76,11 @@ async function sendMessage(candidateMessage = message.value) {
     sessionHistory.value = (await getChatHistory(response.conversation_workflow_id)).history
     await refreshDemoStatistics()
     if (response.turn_type === 'analysis') {
+      const understood = response.task_intent || response.parsed_task
+      const sourceLabel = response.task_intent?.parser_source === 'llm' ? 'AI 已识别' : '已识别（本地规则辅助）'
       messages.value.push({
         role: 'agent',
-        content: `已理解生产任务：产品 ${response.parsed_task.product}，BOM ${response.parsed_task.bom_version}，数量 ${response.parsed_task.quantity}。`,
+        content: `${sourceLabel}：产品 ${understood.product}，BOM ${understood.bom_version}，数量 ${understood.quantity}。`,
       })
     } else if (response.turn_type === 'scenario') {
       messages.value.push({
@@ -76,7 +91,7 @@ async function sendMessage(candidateMessage = message.value) {
     result.value = response
     messages.value.push({
       role: 'agent',
-      content: `${response.turn_type === 'explanation' ? '说明完成' : '处理完成'}：${decisionLabel.value}（${response.workflow_status}）。${response.agent_message}`,
+      content: `${response.turn_type === 'explanation' ? '说明完成' : '处理完成'}：${decisionLabel.value}。${response.agent_message}`,
     })
     response.follow_up_questions.forEach((question) => messages.value.push({ role: 'agent', content: question }))
   } catch (error) {
@@ -175,11 +190,19 @@ onMounted(async () => {
     <template v-if="result">
       <section class="status-grid">
         <article class="status-card" :data-status="result.decision_status || 'unknown'">
-          <span>生产决策</span><strong>{{ decisionLabel }}</strong><small>{{ result.decision_status || '未返回' }}</small>
+          <span>生产决策</span><strong>{{ decisionLabel }}</strong><small>由确定性生产决策服务生成</small>
         </article>
-        <article class="status-card"><span>Agent 执行状态</span><strong>{{ result.workflow_status }}</strong><small>workflow_id: {{ result.workflow_id }}</small></article>
+        <article class="status-card"><span>Agent 执行状态</span><strong>{{ workflowStatusLabel(result.workflow_status) }}</strong><small>本次分析已关联当前会话</small></article>
         <article class="status-card"><span>是否可开工</span><strong>{{ result.can_start_production === true ? '是' : result.can_start_production === false ? '否' : '待确认' }}</strong><small>来自 Production Decision</small></article>
         <article class="status-card"><span>待补采购参数</span><strong>{{ result.missing_purchase_parameters.length }}</strong><small>来自 API 返回清单</small></article>
+      </section>
+
+      <section v-if="result.task_intent" class="panel task-understanding">
+        <h2>任务理解</h2>
+        <p>
+          {{ result.task_intent.parser_source === 'llm' ? 'AI 已识别' : '本地规则已识别' }}：
+          产品 {{ result.task_intent.product }}，数量 {{ result.task_intent.quantity }}，BOM {{ result.task_intent.bom_version }}。
+        </p>
       </section>
 
       <section class="panel">
@@ -220,12 +243,12 @@ onMounted(async () => {
         <h2>方案比较</h2>
         <article class="scenario-card original-scenario">
           <span>原方案 · {{ result.scenario.original_result.report.product_information?.production_quantity }} 台</span>
-          <strong>{{ result.scenario.original_result.decision_status }}</strong>
-          <small>工作流：{{ result.scenario.original_result.workflow_status }}</small>
+          <strong>{{ decisionStatusLabel(result.scenario.original_result.decision_status) }}</strong>
+          <small>{{ workflowStatusLabel(result.scenario.original_result.workflow_status) }}</small>
         </article>
         <article class="scenario-card">
           <span>备选方案 · {{ result.scenario.quantity }} 台</span>
-          <strong>{{ result.scenario.workflow_result.decision_status }}</strong>
+          <strong>{{ decisionStatusLabel(result.scenario.workflow_result.decision_status) }}</strong>
           <small>{{ result.scenario.improvement }}</small>
         </article>
       </section>

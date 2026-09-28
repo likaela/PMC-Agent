@@ -72,6 +72,8 @@ td { font-size: .9rem; }
 .scenario-card span, .scenario-card small { color: #526572; }
 .scenario-card strong { font-size: 1.05rem; }
 .original-scenario { background: #f4f6f7; border-left-color: #64748b; }
+.task-understanding { border-left: 4px solid #4c87c6; }
+.task-understanding p { color: #526572; margin-bottom: 0; }
 .feedback-panel p { color: #526572; }
 .feedback-form { align-items: end; display: grid; gap: 14px; grid-template-columns: 1fr auto; }
 .message { border-radius: 8px; margin: 0 0 18px; padding: 12px 14px; }

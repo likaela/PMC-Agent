@@ -16,11 +16,13 @@ from api.schemas.chat import (
     ChatTraceStep,
     ParsedTaskResponse,
 )
+from api.schemas.llm_task import ProductionTaskIntent
 from api.schemas.pmc import PmcWorkflowResponse
 from services.chat_session_service import append_chat_history, get_chat_history
 from services.demo_experience_service import record_demo_analysis, record_demo_scenario
+from services.llm_task_parser_service import parse_production_task_with_llm
 from services.scenario_service import simulate_reduced_quantity
-from services.task_parser_service import TaskParseError, parse_production_task
+from services.task_parser_service import TaskParseError
 
 
 router = APIRouter(prefix="/api/v1", tags=["Chat"])
@@ -57,13 +59,26 @@ def _task_from_workflow_context(workflow_id: str) -> tuple[dict[str, object], Pm
     )
 
 
-def _trace_from_workflow(response: PmcWorkflowResponse, *, include_parse: bool) -> list[ChatTraceStep]:
+def _trace_from_workflow(
+    response: PmcWorkflowResponse,
+    *,
+    include_parse: bool,
+    parser_source: str | None = None,
+) -> list[ChatTraceStep]:
     trace: list[ChatTraceStep] = []
     if include_parse:
         trace.extend(
             [
                 ChatTraceStep(step="用户请求", status="completed", summary="已接收自然语言生产任务。"),
-                ChatTraceStep(step="任务解析", status="completed", summary="已提取产品、BOM 版本和生产数量。"),
+                ChatTraceStep(
+                    step="任务解析",
+                    status="completed",
+                    summary=(
+                        "已由 AI 提取产品、BOM 版本和生产数量，并完成本地字段校验。"
+                        if parser_source == "llm"
+                        else "已由本地规则提取产品、BOM 版本和生产数量。"
+                    ),
+                ),
             ]
         )
     trace.extend(
@@ -124,6 +139,7 @@ def _chat_response(
     agent_message: str,
     agent_trace: list[ChatTraceStep],
     scenario: ChatScenarioResponse | None = None,
+    task_intent: ProductionTaskIntent | None = None,
 ) -> ChatResponse:
     follow_up_questions = _follow_up_questions(workflow_response.missing_purchase_parameters)
     return ChatResponse(
@@ -134,6 +150,7 @@ def _chat_response(
         turn_type=turn_type,
         agent_trace=agent_trace,
         scenario=scenario,
+        task_intent=task_intent,
         **workflow_response.model_dump(),
     )
 
@@ -239,10 +256,11 @@ def chat(request: ChatRequest) -> ChatResponse:
         )
 
     try:
-        parsed_task = parse_production_task(request.message)
+        task_intent = parse_production_task_with_llm(request.message)
     except TaskParseError as error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from None
 
+    parsed_task = task_intent.to_workflow_task()
     workflow_response = start_public_pmc_workflow(**parsed_task)
     agent_message = (
         "PMC 分析已完成，但仍需业务人员补充采购参数后才能继续采购分析。"
@@ -255,7 +273,12 @@ def chat(request: ChatRequest) -> ChatResponse:
         conversation_workflow_id=workflow_response.workflow_id,
         turn_type="analysis",
         agent_message=agent_message,
-        agent_trace=_trace_from_workflow(workflow_response, include_parse=True),
+        agent_trace=_trace_from_workflow(
+            workflow_response,
+            include_parse=True,
+            parser_source=task_intent.parser_source,
+        ),
+        task_intent=task_intent,
     )
     _save_turn(
         workflow_response.workflow_id,
