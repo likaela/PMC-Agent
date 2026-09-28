@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { ApiError, chatPmc, getChatHistory, getDemoCases, getDemoStatistics, getPmcWorkflow, submitDemoFeedback } from '../api/pmc'
 import DemoGuide from '../components/DemoGuide.vue'
 import WorkflowTrace from '../components/WorkflowTrace.vue'
+import { normalizeCandidateMessage } from '../utils/chatMessage'
 import { clearDemoSession, loadDemoSession, saveDemoSession } from '../utils/demoSession'
 
 const DEFAULT_DEMO_MESSAGE = '我要生产100台KQ-Z112，帮我看看能不能开工'
@@ -185,7 +186,8 @@ function continueFullDemo() {
 }
 
 async function sendMessage(candidateMessage = message.value, { reuseCurrentWorkflow = true, demoStep = null } = {}) {
-  const userMessage = candidateMessage.trim()
+  const messageText = normalizeCandidateMessage(candidateMessage)
+  const userMessage = messageText.trim()
   if (!userMessage || isSending.value) return
 
   const shouldReuseWorkflow = reuseCurrentWorkflow
@@ -399,7 +401,7 @@ onMounted(async () => {
         </article>
       </div>
 
-      <form class="chat-composer" @submit.prevent="sendMessage">
+      <form class="chat-composer" @submit.prevent="sendMessage(message)">
         <label>生产任务<input v-model="message" :disabled="isSending" placeholder="例如：我要生产100台KQ-Z112" /></label>
         <button type="submit" :disabled="isSending">{{ isSending ? '正在分析…' : '发送并分析' }}</button>
       </form>
