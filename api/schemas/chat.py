@@ -23,3 +23,5 @@ class ChatResponse(PmcWorkflowResponse):
     """解析结果加上既有 PMC 工作流的受控公开响应。"""
 
     parsed_task: ParsedTaskResponse
+    agent_message: str
+    follow_up_questions: list[str] = Field(default_factory=list)

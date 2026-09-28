@@ -9,6 +9,10 @@ const messages = ref([
 const result = ref(null)
 const errorMessage = ref('')
 const isSending = ref(false)
+const demoCases = [
+  { label: '单台开工分析', message: '我要生产1台KQ-Z112，帮我看看能不能开工' },
+  { label: '100台批量评估', message: '我要生产100台KQ-Z112，帮我看看能不能开工' },
+]
 
 const decisionLabel = computed(() => ({
   ready: '可开工',
@@ -17,28 +21,33 @@ const decisionLabel = computed(() => ({
   data_incomplete: '数据不完整',
 }[result.value?.decision_status] || '等待分析'))
 
-async function sendMessage() {
-  const userMessage = message.value.trim()
+async function sendMessage(candidateMessage = message.value) {
+  const userMessage = candidateMessage.trim()
   if (!userMessage || isSending.value) return
 
   errorMessage.value = ''
   result.value = null
   messages.value.push({ role: 'user', content: userMessage })
+  messages.value.push({ role: 'agent', content: '正在理解生产任务，并调用确定性 PMC 工作流。' })
   isSending.value = true
   try {
     const response = await chatPmc(userMessage)
     messages.value.push({
       role: 'agent',
-      content: `已理解生产任务：产品 ${response.parsed_task.product}，BOM ${response.parsed_task.bom_version}，数量 ${response.parsed_task.quantity}。正在执行 PMC 分析。`,
+      content: `已理解生产任务：产品 ${response.parsed_task.product}，BOM ${response.parsed_task.bom_version}，数量 ${response.parsed_task.quantity}。`,
     })
     result.value = response
     messages.value.push({
       role: 'agent',
-      content: `分析完成：${decisionLabel.value}（${response.workflow_status}）。`,
+      content: `分析完成：${decisionLabel.value}（${response.workflow_status}）。${response.agent_message}`,
     })
+    response.follow_up_questions.forEach((question) => messages.value.push({ role: 'agent', content: question }))
   } catch (error) {
     errorMessage.value = error instanceof ApiError ? error.message : '无法连接 PMC API。'
-    messages.value.push({ role: 'agent', content: `无法执行分析：${errorMessage.value}` })
+    const followUp = error instanceof ApiError && error.status === 422
+      ? '请补充产品型号和生产数量后再试，例如：我要生产100台KQ-Z112。'
+      : '请检查输入或稍后重试。'
+    messages.value.push({ role: 'agent', content: `无法执行分析：${errorMessage.value}\n${followUp}` })
   } finally {
     isSending.value = false
   }
@@ -53,6 +62,13 @@ async function sendMessage() {
           <h2>自然语言 PMC Agent</h2>
           <p>仅理解任务参数；库存、缺料、采购和生产结论全部来自后端确定性工作流。</p>
         </div>
+      </div>
+
+      <div class="demo-cases" aria-label="演示案例">
+        <span>Demo 案例</span>
+        <button v-for="item in demoCases" :key="item.label" type="button" :disabled="isSending" @click="message = item.message; sendMessage(item.message)">
+          {{ item.label }}
+        </button>
       </div>
 
       <div class="chat-history" aria-live="polite">
@@ -80,6 +96,16 @@ async function sendMessage() {
       </section>
 
       <section class="panel">
+        <h2>Agent 执行过程</h2>
+        <p class="trace-note">展示的是工具调用状态，不展示模型思维链、提示词或内部工作流 State。</p>
+        <ol class="execution-trace">
+          <li v-for="step in result.execution_steps" :key="`${step.tool}-${step.status}`" :data-status="step.status">
+            <strong>{{ step.step }}</strong><code>{{ step.tool }}</code><span>{{ step.summary }}</span>
+          </li>
+        </ol>
+      </section>
+
+      <section class="panel">
         <h2>缺料与阻塞物料</h2>
         <div class="table-wrap">
           <table>
@@ -101,6 +127,12 @@ async function sendMessage() {
             P{{ action.priority }} {{ action.material || '全部相关物料' }}：{{ action.action }}
           </li>
         </ul>
+      </section>
+
+      <section v-if="result.follow_up_questions.length" class="panel follow-up-panel">
+        <h2>Agent 主动追问</h2>
+        <p>以下信息缺失，系统不会自行编造采购参数。</p>
+        <ul class="action-list"><li v-for="question in result.follow_up_questions" :key="question">{{ question }}</li></ul>
       </section>
     </template>
   </section>

@@ -74,6 +74,15 @@ class MissingPurchaseParameterResponse(BaseModel):
     missing_fields: list[str]
 
 
+class AgentExecutionStepResponse(BaseModel):
+    """面向展示的执行轨迹，不包含提示词、推理过程或内部 State。"""
+
+    step: str
+    tool: str
+    status: Literal["completed", "waiting", "error"]
+    summary: str
+
+
 class PmcWorkflowResponse(BaseModel):
     """API 对外的工作流快照；不暴露内部 LangGraph State。"""
 
@@ -83,6 +92,7 @@ class PmcWorkflowResponse(BaseModel):
     can_start_production: bool | None = None
     blocking_materials: list[BlockingMaterialResponse] = Field(default_factory=list)
     missing_purchase_parameters: list[MissingPurchaseParameterResponse] = Field(default_factory=list)
+    execution_steps: list[AgentExecutionStepResponse] = Field(default_factory=list)
     report: dict[str, Any] = Field(default_factory=dict)
     errors: list[str] = Field(default_factory=list)
 

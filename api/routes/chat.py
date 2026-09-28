@@ -13,6 +13,20 @@ from workflows.pmc_graph import run_pmc_workflow
 router = APIRouter(prefix="/api/v1", tags=["Chat"])
 
 
+def _follow_up_questions(missing_items: list[object]) -> list[str]:
+    """把既有采购缺失字段转为用户可执行的问题，不推测业务参数。"""
+    questions: list[str] = []
+    for item in missing_items:
+        item_data = item.model_dump() if hasattr(item, "model_dump") else item
+        if not isinstance(item_data, dict):
+            continue
+        material = item_data.get("material")
+        fields = item_data.get("missing_fields")
+        if isinstance(material, str) and isinstance(fields, list):
+            questions.append(f"请为物料 {material} 补充：{'、'.join(str(field) for field in fields)}。")
+    return questions
+
+
 @router.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
     """解析用户意图；所有 PMC 数值和结论仍来自既有 LangGraph 工作流。"""
@@ -31,7 +45,15 @@ def chat(request: ChatRequest) -> ChatResponse:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="PMC 工作流启动失败") from None
 
     workflow_response = _workflow_response(workflow_id, workflow_state)
+    follow_up_questions = _follow_up_questions(workflow_response.missing_purchase_parameters)
+    agent_message = (
+        "PMC 分析已完成，但仍需业务人员补充采购参数后才能继续采购分析。"
+        if follow_up_questions
+        else "PMC 分析已完成，结果来自确定性业务工作流。"
+    )
     return ChatResponse(
         parsed_task=ParsedTaskResponse(**parsed_task),
+        agent_message=agent_message,
+        follow_up_questions=follow_up_questions,
         **workflow_response.model_dump(),
     )

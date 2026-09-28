@@ -45,9 +45,19 @@ td { font-size: .9rem; }
 .chat-bubble.agent { background: #e3f4ed; justify-self: start; }
 .chat-bubble.user { background: #e7edf2; justify-self: end; }
 .chat-composer { align-items: end; display: grid; gap: 14px; grid-template-columns: 1fr auto; }
+.demo-cases { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.demo-cases span { color: #60737d; font-size: .85rem; font-weight: 700; margin-right: 4px; }
+.demo-cases button { background: #e3f4ed; color: #126a57; padding: 7px 11px; }
+.demo-cases button:hover { background: #cde9dd; }
+.trace-note, .follow-up-panel p { color: #60737d; }
+.execution-trace { display: grid; gap: 10px; list-style: none; margin: 0; padding: 0; }
+.execution-trace li { align-items: baseline; border-left: 4px solid #1d8b6e; display: grid; gap: 5px 12px; grid-template-columns: minmax(110px, .7fr) minmax(150px, 1fr) 2fr; padding: 10px 12px; }
+.execution-trace li[data-status="waiting"] { border-left-color: #d4881e; background: #fff7e8; }
+.execution-trace li[data-status="error"] { border-left-color: #c44b3d; background: #fff0ed; }
+.execution-trace code { color: #126a57; font-size: .82rem; }
 .message { border-radius: 8px; margin: 0 0 18px; padding: 12px 14px; }
 .error { background: #ffe9e6; color: #9d3025; }
 .success { background: #e3f4ed; color: #126a57; }
 pre { background: #17212b; border-radius: 8px; color: #dbe7ec; font-size: .78rem; max-height: 520px; overflow: auto; padding: 18px; }
 @media (max-width: 880px) { .page-header, .section-heading { align-items: stretch; flex-direction: column; } .analysis-form, .status-grid { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 560px) { .page-shell { padding: 28px 14px 48px; } .analysis-form, .status-grid, .chat-composer { grid-template-columns: 1fr; } .panel { padding: 16px; } .view-tabs { flex-direction: column; } .chat-bubble { max-width: 100%; } }
+@media (max-width: 560px) { .page-shell { padding: 28px 14px 48px; } .analysis-form, .status-grid, .chat-composer, .execution-trace li { grid-template-columns: 1fr; } .panel { padding: 16px; } .view-tabs { flex-direction: column; } .chat-bubble { max-width: 100%; } }

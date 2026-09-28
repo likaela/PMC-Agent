@@ -23,11 +23,42 @@ from workflows.pmc_graph import (
 router = APIRouter(prefix="/api/v1/pmc", tags=["PMC"])
 
 
+_EXECUTION_STEP_CATALOG: dict[str, tuple[str, str, str]] = {
+    "validate_input": ("任务校验", "输入校验", "已校验产品、版本和生产数量。"),
+    "bom_analysis": ("BOM 分析", "real_bom_check", "已调用 BOM 工具展开物料需求。"),
+    "mrp_analysis": ("MRP 齐套分析", "real_mrp_check", "已调用 MRP 工具分析库存齐套情况。"),
+    "purchase_analysis": ("采购分析", "real_purchase_analysis_check", "已调用采购工具检查参数与采购建议。"),
+    "production_decision": ("生产决策", "production_decision_check", "已调用生产决策工具生成确定性结论。"),
+    "generate_report": ("报告生成", "real_pmc_report_check", "已调用报告工具汇总结构化 PMC 报告。"),
+    "wait_for_purchase_parameters": ("等待业务补充", "purchase_parameter_interaction", "需要业务人员补充采购参数后才能继续。"),
+}
+
+
 def _workflow_state_or_404(workflow_id: str) -> dict[str, object]:
     workflow_state = get_pmc_workflow_state(workflow_id)
     if not workflow_state:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="workflow 不存在或已失效")
     return workflow_state
+
+
+def _public_execution_steps(workflow_state: Mapping[str, object]) -> list[dict[str, str]]:
+    """将已有节点完成记录转换为展示轨迹，不暴露内部推理或完整 State。"""
+    completed = workflow_state.get("completed_nodes", [])
+    completed_nodes = completed if isinstance(completed, list) else []
+    steps: list[dict[str, str]] = []
+    for node in completed_nodes:
+        if not isinstance(node, str) or node not in _EXECUTION_STEP_CATALOG:
+            continue
+        step, tool, summary = _EXECUTION_STEP_CATALOG[node]
+        steps.append({"step": step, "tool": tool, "status": "completed", "summary": summary})
+
+    waiting_for_parameters = workflow_state.get("workflow_status") == "waiting_for_purchase_parameters"
+    if waiting_for_parameters and not any(item["tool"] == "purchase_parameter_interaction" for item in steps):
+        step, tool, summary = _EXECUTION_STEP_CATALOG["wait_for_purchase_parameters"]
+        steps.append({"step": step, "tool": tool, "status": "waiting", "summary": summary})
+    if workflow_state.get("errors"):
+        steps.append({"step": "工作流异常", "tool": "error_handler", "status": "error", "summary": "工作流已返回结构化错误信息。"})
+    return steps
 
 
 def _workflow_response(workflow_id: str, workflow_state: Mapping[str, object]) -> PmcWorkflowResponse:
@@ -44,6 +75,7 @@ def _workflow_response(workflow_id: str, workflow_state: Mapping[str, object]) -
         can_start_production=decision_data.get("can_start_production"),
         blocking_materials=blockers if isinstance(blockers, list) else [],
         missing_purchase_parameters=missing if isinstance(missing, list) else [],
+        execution_steps=_public_execution_steps(workflow_state),
         report=report if isinstance(report, dict) else {},
         errors=workflow_state.get("errors", []) if isinstance(workflow_state.get("errors"), list) else [],
     )

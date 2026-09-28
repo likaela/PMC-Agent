@@ -139,6 +139,24 @@ class PmcApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 422)
         self.assertIn("产品型号", response.json()["detail"])
 
+    def test_public_execution_steps_show_tools_without_internal_state(self) -> None:
+        payload = self.analyze_kq()
+        steps = payload["execution_steps"]
+        self.assertEqual(steps[0]["tool"], "输入校验")
+        self.assertIn("real_bom_check", [step["tool"] for step in steps])
+        self.assertEqual(steps[-1]["status"], "waiting")
+        self.assertNotIn("completed_nodes", json.dumps(steps, ensure_ascii=False))
+        self.assertNotIn("prompt", json.dumps(steps, ensure_ascii=False).lower())
+
+    def test_chat_turns_missing_purchase_parameters_into_follow_up_questions(self) -> None:
+        response = self.client.post("/api/v1/chat", json={"message": "我要生产1台KQ-Z112"})
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(len(payload["follow_up_questions"]), 8)
+        self.assertIn("11296476B0101", payload["follow_up_questions"][0])
+        self.assertIn("supplier_code", payload["follow_up_questions"][0])
+        self.assertIn("采购参数", payload["agent_message"])
+
 
 if __name__ == "__main__":
     unittest.main()
