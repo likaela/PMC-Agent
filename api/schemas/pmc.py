@@ -99,5 +99,16 @@ class PmcWorkflowResponse(BaseModel):
     public_error: PublicErrorResponse | None = None
 
 
+class HealthCheckResponse(BaseModel):
+    status: Literal["ok", "warning", "error"]
+    message: str
+    mode: str | None = None
+    provider: str | None = None
+    fallback_available: bool | None = None
+    directory_exists: bool | None = None
+    allowed_origin_count: int | None = None
+
+
 class HealthResponse(BaseModel):
-    status: Literal["ok"] = "ok"
+    status: Literal["ok", "degraded"] = "ok"
+    checks: dict[str, HealthCheckResponse] | None = None

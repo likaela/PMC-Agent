@@ -2,7 +2,7 @@ import unittest
 
 from repositories.material_master_repository import index_material_master, load_material_master_records
 from repositories.real_bom_repository import load_real_bom_data, load_real_bom_relationships
-from repositories.real_data_quality import REQUIRED_MISSING_INVENTORY_CODES, build_real_data_quality_report
+from repositories.real_data_quality import build_real_data_quality_report
 from repositories.real_inventory_repository import aggregate_real_inventory, load_real_inventory_data, load_real_inventory_details
 from repositories.supplier_repository import load_supplier_master
 from services.bom_service import explode_bom
@@ -33,7 +33,9 @@ class RealDataRepositoryTests(unittest.TestCase):
 
     def test_required_missing_inventory_codes_are_explicitly_reported(self) -> None:
         report = build_real_data_quality_report()
-        self.assertTrue(REQUIRED_MISSING_INVENTORY_CODES.issubset(report["unmatched_inventory_material_codes"]))
+        self.assertTrue(
+            set(report["required_missing_inventory_codes"]).issubset(report["unmatched_inventory_material_codes"])
+        )
         self.assertTrue(report["required_missing_inventory_codes_confirmed"])
 
     def test_only_inventory_sheet_is_used_for_real_inventory(self) -> None:

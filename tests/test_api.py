@@ -63,11 +63,12 @@ class PmcApiTests(unittest.TestCase):
         analyzed = self.analyze_kq()
         workflow_id = analyzed["workflow_id"]
         initial_state = get_pmc_workflow_state(workflow_id)
+        material = analyzed["missing_purchase_parameters"][0]["material"]
         response = self.client.post(
             f"/api/v1/pmc/{workflow_id}/purchase-parameters",
             json={
                 "updates": {
-                    "11296476B0101": {
+                    material: {
                         "supplier_code": "SUP001",
                         "safety_stock": 10,
                         "lead_time_days": 8,
@@ -156,7 +157,8 @@ class PmcApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(len(payload["follow_up_questions"]), 8)
-        self.assertIn("11296476B0101", payload["follow_up_questions"][0])
+        first_material = payload["missing_purchase_parameters"][0]["material"]
+        self.assertIn(first_material, payload["follow_up_questions"][0])
         self.assertIn("supplier_code", payload["follow_up_questions"][0])
         self.assertIn("采购参数", payload["agent_message"])
 

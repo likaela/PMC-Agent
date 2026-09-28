@@ -1,7 +1,10 @@
 import unittest
 
 from repositories.inventory_disposition_repository import load_inventory_dispositions
-from repositories.real_inventory_repository import exclude_inventory_data_errors
+from repositories.real_inventory_repository import (
+    exclude_inventory_data_errors,
+    get_inventory_data_error_material_codes,
+)
 from scripts.generate_kq_z112_real_mrp_report import build_kq_z112_report
 from services.bom_service import explode_bom
 from services.inventory_disposition_service import apply_inventory_dispositions
@@ -82,11 +85,12 @@ class RealMrpPipelineTests(unittest.TestCase):
         self.assertIn("一期可用库存仅来自已清洗的主库存表", report["data_limitations_and_assumptions"][0])
 
     def test_confirmed_inventory_errors_are_excluded_from_mrp_not_bom(self) -> None:
-        requirements = {"19T0Z11200101": 1, "M-008": 2}
+        excluded_material = next(iter(get_inventory_data_error_material_codes()))
+        requirements = {excluded_material: 1, "M-008": 2}
         cleaned, excluded = exclude_inventory_data_errors(requirements)
-        self.assertEqual(requirements, {"19T0Z11200101": 1, "M-008": 2})
+        self.assertEqual(requirements, {excluded_material: 1, "M-008": 2})
         self.assertEqual(cleaned, {"M-008": 2})
-        self.assertEqual(excluded, ["19T0Z11200101"])
+        self.assertEqual(excluded, [excluded_material])
 
     def test_missing_inventory_is_not_automatically_converted_to_zero(self) -> None:
         scope = apply_inventory_dispositions(

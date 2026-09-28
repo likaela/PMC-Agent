@@ -6,10 +6,10 @@ from pathlib import Path
 import xlrd
 
 from repositories.normalization import normalize_header, normalize_material_code, normalize_nonnegative_int
+from repositories.data_source import RAW_BOM_FILE, load_demo_data, resolve_data_source_mode
 
 
-RAW_DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "raw"
-BOM_FILE = RAW_DATA_DIR / "10 KQ-Z112 BOM 969T0Z1120101  23.xls"
+BOM_FILE = RAW_BOM_FILE
 BOM_SHEET_NAME = "BOM"
 METADATA_ROW_INDEX = 1
 HEADER_ROW_INDEX = 2
@@ -21,9 +21,15 @@ def _get_bom_sheet(file_path: Path) -> xlrd.sheet.Sheet:
     return workbook.sheet_by_name(BOM_SHEET_NAME)
 
 
-def load_real_bom_metadata(file_path: Path = BOM_FILE) -> dict[str, str]:
+def load_real_bom_metadata(file_path: Path | None = None) -> dict[str, str]:
     """从 BOM 工作表元数据行读取父项料号和版本，不从文件名推断。"""
-    sheet = _get_bom_sheet(file_path)
+    if file_path is None and resolve_data_source_mode() == "demo":
+        metadata = load_demo_data()["metadata"]
+        return {
+            "parent_material": str(metadata["parent_material"]),
+            "version": str(metadata["version"]),
+        }
+    sheet = _get_bom_sheet(file_path or BOM_FILE)
     metadata_text = " ".join(str(value) for value in sheet.row_values(METADATA_ROW_INDEX))
     match = re.search(r"项目代号\s*:\s*([^\s]+).*版本号\s*:\s*([^\s]+)", metadata_text)
     if match is None:
@@ -32,7 +38,7 @@ def load_real_bom_metadata(file_path: Path = BOM_FILE) -> dict[str, str]:
 
 
 def load_real_bom_relationships(
-    file_path: Path = BOM_FILE,
+    file_path: Path | None = None,
     expected_parent_material: str | None = None,
     expected_version: str | None = None,
 ) -> dict[str, object]:
@@ -43,7 +49,19 @@ def load_real_bom_relationships(
     if expected_version is not None and metadata["version"] != expected_version:
         raise ValueError("BOM 版本与请求不一致")
 
-    sheet = _get_bom_sheet(file_path)
+    if file_path is None and resolve_data_source_mode() == "demo":
+        relationships = [
+            {
+                "parent_material": metadata["parent_material"],
+                "child_material": str(item["child_material"]),
+                "qty_per": normalize_nonnegative_int(item["qty_per"], "BOM 数量"),
+                "version": metadata["version"],
+            }
+            for item in load_demo_data()["bom_relationships"]
+        ]
+        return {**metadata, "relationships": relationships}
+
+    sheet = _get_bom_sheet(file_path or BOM_FILE)
     headers = {normalize_header(value): index for index, value in enumerate(sheet.row_values(HEADER_ROW_INDEX))}
     if "料号" not in headers or "数量" not in headers:
         raise ValueError("BOM 工作表缺少料号或数量列")
@@ -69,7 +87,7 @@ def load_real_bom_relationships(
     return {**metadata, "relationships": relationships}
 
 
-def load_real_bom_data(file_path: Path = BOM_FILE) -> dict[str, dict[str, int]]:
+def load_real_bom_data(file_path: Path | None = None) -> dict[str, dict[str, int]]:
     """转换为 BOM 服务可直接消费的 ``{parent: {child: qty_per}}`` 结构。"""
     payload = load_real_bom_relationships(file_path)
     parent_material = str(payload["parent_material"])

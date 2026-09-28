@@ -6,10 +6,10 @@ from pathlib import Path
 from openpyxl import load_workbook
 
 from repositories.normalization import normalize_header, normalize_material_code, normalize_nonnegative_number
+from repositories.data_source import RAW_INVENTORY_FILE, load_demo_data, resolve_data_source_mode
 
 
-RAW_DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "raw"
-INVENTORY_FILE = RAW_DATA_DIR / "2026年库存表+料号查询表及成品库存表(1).xlsx"
+INVENTORY_FILE = RAW_INVENTORY_FILE
 INVENTORY_SHEET_NAME = "库存表"
 SOURCE_ASSUMPTIONS = {
     "reserved": 0,
@@ -31,9 +31,29 @@ INVENTORY_DATA_ERROR_MATERIAL_CODES = frozenset(
 )
 
 
-def load_real_inventory_details(file_path: Path = INVENTORY_FILE) -> list[dict[str, object]]:
+def get_inventory_data_error_material_codes() -> frozenset[str]:
+    """返回当前数据源明确声明的库存排除料号。"""
+    if resolve_data_source_mode() == "demo":
+        return frozenset(str(code) for code in load_demo_data()["inventory_exclusions"])
+    return INVENTORY_DATA_ERROR_MATERIAL_CODES
+
+
+def load_real_inventory_details(file_path: Path | None = None) -> list[dict[str, object]]:
     """只读取库存表工作表，保留站点、库位和批次库存明细。"""
-    workbook = load_workbook(file_path, read_only=True, data_only=True)
+    if file_path is None and resolve_data_source_mode() == "demo":
+        return [
+            {
+                "material_code": str(item["material_code"]),
+                "stock": normalize_nonnegative_number(item["stock"], "库存"),
+                "site": "演示工厂",
+                "location": "DEMO",
+                "batch": "DEMO",
+                "source_sheet": INVENTORY_SHEET_NAME,
+            }
+            for item in load_demo_data()["inventory_details"]
+        ]
+
+    workbook = load_workbook(file_path or INVENTORY_FILE, read_only=True, data_only=True)
     try:
         sheet = workbook[INVENTORY_SHEET_NAME]
         header_row = next(sheet.iter_rows(min_row=1, max_row=1, values_only=True))
@@ -82,14 +102,14 @@ def aggregate_real_inventory(details: Iterable[dict[str, object]]) -> dict[str, 
     return result
 
 
-def load_real_inventory_data(file_path: Path = INVENTORY_FILE) -> dict[str, dict[str, object]]:
+def load_real_inventory_data(file_path: Path | None = None) -> dict[str, dict[str, object]]:
     """读取并按物料代码聚合真实库存。"""
     return aggregate_real_inventory(load_real_inventory_details(file_path))
 
 
 def build_real_inventory_scope(
     material_codes: Iterable[str],
-    file_path: Path = INVENTORY_FILE,
+    file_path: Path | None = None,
 ) -> dict[str, dict[str, object]]:
     """为给定物料生成一期 MRP 所需的库存状态，绝不把未知来源转成零库存。"""
     main_inventory = load_real_inventory_data(file_path)
@@ -117,7 +137,7 @@ def exclude_inventory_data_errors(
     requirements: dict[str, int],
 ) -> tuple[dict[str, int], list[str]]:
     """从 MRP 输入中剔除已确认的库存错误记录，保留 BOM 原始关系。"""
-    excluded = sorted(set(requirements).intersection(INVENTORY_DATA_ERROR_MATERIAL_CODES))
+    excluded = sorted(set(requirements).intersection(get_inventory_data_error_material_codes()))
     return (
         {material: quantity for material, quantity in requirements.items() if material not in excluded},
         excluded,

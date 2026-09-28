@@ -47,7 +47,7 @@ class ChatSessionApiTests(unittest.TestCase):
         self.assertEqual(payload["workflow_id"], workflow_id)
         self.assertEqual(before["completed_nodes"], after["completed_nodes"])
         self.assertIn("阻塞物料", payload["agent_message"])
-        self.assertIn("11296476B0101", payload["agent_message"])
+        self.assertIn(initial["blocking_materials"][0]["material"], payload["agent_message"])
 
     def test_reduced_quantity_scenario_keeps_original_workflow_unchanged(self) -> None:
         initial = self._start_conversation()

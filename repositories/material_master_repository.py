@@ -5,16 +5,30 @@ from pathlib import Path
 from openpyxl import load_workbook
 
 from repositories.normalization import normalize_header, normalize_material_code
+from repositories.data_source import RAW_INVENTORY_FILE, load_demo_data, resolve_data_source_mode
 
 
-RAW_DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "raw"
-MASTER_FILE = RAW_DATA_DIR / "2026年库存表+料号查询表及成品库存表(1).xlsx"
+MASTER_FILE = RAW_INVENTORY_FILE
 MASTER_SHEET_NAME = "料号查询表"
 
 
-def load_material_master_records(file_path: Path = MASTER_FILE) -> list[dict[str, str]]:
+def load_material_master_records(file_path: Path | None = None) -> list[dict[str, str]]:
     """读取料号主数据，不参与 BOM 或库存数量计算。"""
-    workbook = load_workbook(file_path, read_only=True, data_only=True)
+    if file_path is None and resolve_data_source_mode() == "demo":
+        return [
+            {
+                "material_code": str(item["child_material"]),
+                "name": f"演示物料 {index:03d}",
+                "specification": "SYNTHETIC",
+                "package": "DEMO",
+                "quality_grade": "演示",
+                "brand_or_manufacturer": "无真实厂商",
+                "remark": "纯合成公开演示数据",
+            }
+            for index, item in enumerate(load_demo_data()["bom_relationships"], start=1)
+        ]
+
+    workbook = load_workbook(file_path or MASTER_FILE, read_only=True, data_only=True)
     try:
         sheet = workbook[MASTER_SHEET_NAME]
         header_row = next(sheet.iter_rows(min_row=1, max_row=1, values_only=True))

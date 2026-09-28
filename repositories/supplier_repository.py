@@ -5,16 +5,19 @@ from pathlib import Path
 from openpyxl import load_workbook
 
 from repositories.normalization import normalize_header
+from repositories.data_source import RAW_SUPPLIER_FILE, load_demo_data, resolve_data_source_mode
 
 
-RAW_DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "raw"
-SUPPLIER_FILE = RAW_DATA_DIR / "供方导出.xlsx"
+SUPPLIER_FILE = RAW_SUPPLIER_FILE
 SUPPLIER_SHEET_NAME = "导出"
 
 
-def load_supplier_master(file_path: Path = SUPPLIER_FILE) -> list[dict[str, str]]:
+def load_supplier_master(file_path: Path | None = None) -> list[dict[str, str]]:
     """读取供应商主数据；不推断物料-供应商关系或采购参数。"""
-    workbook = load_workbook(file_path, read_only=True, data_only=True)
+    if file_path is None and resolve_data_source_mode() == "demo":
+        return [dict(item) for item in load_demo_data()["supplier_master"]]
+
+    workbook = load_workbook(file_path or SUPPLIER_FILE, read_only=True, data_only=True)
     try:
         sheet = workbook[SUPPLIER_SHEET_NAME]
         header_row = next(sheet.iter_rows(min_row=2, max_row=2, values_only=True))

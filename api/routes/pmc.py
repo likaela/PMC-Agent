@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 
 from api.schemas.pmc import (
     AnalyzeRequest,
@@ -19,6 +19,7 @@ from workflows.pmc_graph import (
     resume_pmc_workflow,
     run_pmc_workflow,
 )
+from services.startup_check_service import build_runtime_checks, overall_health_status
 
 
 router = APIRouter(prefix="/api/v1/pmc", tags=["PMC"])
@@ -137,7 +138,10 @@ def resume_purchase_parameters(
 health_router = APIRouter(tags=["System"])
 
 
-@health_router.get("/health", response_model=HealthResponse)
-def health() -> HealthResponse:
-    """无外部依赖的服务存活检查。"""
-    return HealthResponse()
+@health_router.get("/health", response_model=HealthResponse, response_model_exclude_none=True)
+def health(details: bool = Query(default=False)) -> HealthResponse:
+    """默认返回稳定存活契约；details=true 时返回不含敏感值的就绪检查。"""
+    if not details:
+        return HealthResponse()
+    checks = build_runtime_checks()
+    return HealthResponse(status=overall_health_status(checks), checks=checks)

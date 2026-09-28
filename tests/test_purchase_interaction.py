@@ -82,16 +82,7 @@ class PurchaseInteractionTests(unittest.TestCase):
         self.assertEqual(len(pending_items), 8)
         self.assertEqual(
             {item["material"] for item in pending_items},
-            {
-                "11296476B0101",
-                "11225339B0101",
-                "11295100A2101",
-                "105A710024201",
-                "105A747014201",
-                "14S6006202101",
-                "14S0464400101",
-                "14S0465000101",
-            },
+            {item["material"] for item in report["production_decision"]["blocking_materials"]},
         )
         self.assertTrue(
             all(item["purchase_status"] == "需要补充采购参数" for item in pending_items)

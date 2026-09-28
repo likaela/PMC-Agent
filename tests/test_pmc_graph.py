@@ -13,18 +13,6 @@ from workflows.pmc_graph import (
 )
 
 
-ALL_KQ_PURCHASE_PARAMETERS = {
-    "11296476B0101": {"supplier_code": "SUP-01", "safety_stock": 0, "lead_time_days": 3},
-    "11225339B0101": {"supplier_code": "SUP-02", "safety_stock": 0, "lead_time_days": 3},
-    "11295100A2101": {"supplier_code": "SUP-03", "safety_stock": 0, "lead_time_days": 3},
-    "105A710024201": {"supplier_code": "SUP-04", "safety_stock": 0, "lead_time_days": 3},
-    "105A747014201": {"supplier_code": "SUP-05", "safety_stock": 0, "lead_time_days": 3},
-    "14S6006202101": {"supplier_code": "SUP-06", "safety_stock": 0, "lead_time_days": 3},
-    "14S0464400101": {"supplier_code": "SUP-07", "safety_stock": 0, "lead_time_days": 3},
-    "14S0465000101": {"supplier_code": "SUP-08", "safety_stock": 0, "lead_time_days": 3},
-}
-
-
 class PmcGraphTests(unittest.TestCase):
     def run_real_graph(self) -> tuple[str, dict[str, object]]:
         workflow_id = f"test-{uuid4()}"
@@ -56,9 +44,10 @@ class PmcGraphTests(unittest.TestCase):
 
     def test_resume_with_one_material_reuses_prior_bom_and_mrp_state(self) -> None:
         workflow_id, initial = self.run_real_graph()
+        material = initial["missing_purchase_parameters"][0]["material"]
         resumed = resume_pmc_workflow(
             workflow_id,
-            {"11296476B0101": {"supplier_code": "SUP-01", "safety_stock": 0, "lead_time_days": 3}},
+            {material: {"supplier_code": "SUP-01", "safety_stock": 0, "lead_time_days": 3}},
         )
         self.assertEqual(resumed["workflow_status"], "waiting_for_purchase_parameters")
         self.assertEqual(len(resumed["missing_purchase_parameters"]), 7)
@@ -67,8 +56,12 @@ class PmcGraphTests(unittest.TestCase):
         self.assertGreater(resumed["completed_nodes"].count("purchase_analysis"), initial["completed_nodes"].count("purchase_analysis"))
 
     def test_full_purchase_parameter_resume_reaches_procurement_pending(self) -> None:
-        workflow_id, _ = self.run_real_graph()
-        state = resume_pmc_workflow(workflow_id, ALL_KQ_PURCHASE_PARAMETERS)
+        workflow_id, initial = self.run_real_graph()
+        parameters = {
+            item["material"]: {"supplier_code": f"SUP-{index:02d}", "safety_stock": 0, "lead_time_days": 3}
+            for index, item in enumerate(initial["missing_purchase_parameters"], start=1)
+        }
+        state = resume_pmc_workflow(workflow_id, parameters)
         self.assertEqual(state["workflow_status"], "completed")
         self.assertEqual(state["production_decision"]["decision_status"], "procurement_pending")
         self.assertFalse(state["production_decision"]["can_start_production"])

@@ -40,7 +40,8 @@ LLM 或任务解析层只负责理解用户意图和提取任务参数；不参�
 ```powershell
 py -3.14 -m venv venv
 .\venv\Scripts\python.exe -m pip install -r requirements.txt
-$env:PMC_ALLOWED_ORIGINS = "http://localhost:5173"
+Copy-Item .env.example .env
+.\venv\Scripts\python.exe scripts/check_release_readiness.py
 .\venv\Scripts\python.exe -m uvicorn api.app:app --reload
 ```
 
@@ -55,6 +56,11 @@ npm run dev
 
 访问 `http://localhost:5173`，在“自然语言 Agent”页面选择 Demo 案例或直接输入任务。
 API 文档位于 `http://localhost:8000/docs`。
+
+数据源默认使用 `PMC_DATA_SOURCE=auto`：本机 `data/raw/` 三个企业文件齐全时读取真实数据，
+否则自动使用仓库内 `data/demo/kq_z112_demo.json` 的纯合成演示数据。公开仓库不得提交
+真实企业 Excel。`GET /health?details=true` 可检查数据、工作流、LLM 与 CORS 就绪状态，
+响应不会返回密钥或本机绝对路径。
 
 ## Demo 使用方法
 

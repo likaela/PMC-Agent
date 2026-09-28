@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import os
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -14,24 +14,28 @@ from api.routes.chat import router as chat_router
 from api.routes.demo import router as demo_router
 from api.routes.pmc import health_router, router as pmc_router
 from api.schemas.errors import PublicErrorResponse
+from services.startup_check_service import get_allowed_origins, log_startup_checks
 
 
 logger = logging.getLogger(__name__)
 
 
 def _allowed_origins() -> list[str]:
-    """从环境变量读取逗号分隔的本地前端地址；绝不默认允许全部来源。"""
-    configured = os.getenv("PMC_ALLOWED_ORIGINS", "")
-    origins = [origin.strip() for origin in configured.split(",") if origin.strip()]
-    if "*" in origins:
-        raise ValueError("PMC_ALLOWED_ORIGINS 不允许使用 '*'，请配置明确 origin")
-    return origins
+    """保留既有测试入口，实际解析由启动检查服务统一负责。"""
+    return get_allowed_origins()
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    log_startup_checks(logger)
+    yield
 
 
 app = FastAPI(
     title="PMC-Agent API",
     version="1.0.0-alpha",
     description="基于确定性 LangGraph PMC 工作流的本地 HTTP API。",
+    lifespan=lifespan,
 )
 app.add_middleware(
     CORSMiddleware,

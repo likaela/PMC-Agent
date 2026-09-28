@@ -7,11 +7,54 @@ from langchain_openai import ChatOpenAI
 load_dotenv()
 
 
-# 获取当前模型选择
-provider = os.getenv("LLM_PROVIDER")
+DEFAULT_LLM_TIMEOUT_SECONDS = 6.0
+DEFAULT_LLM_MAX_RETRIES = 1
+
+
+def _llm_timeout_seconds() -> float:
+    try:
+        value = float(os.getenv("LLM_TIMEOUT_SECONDS", str(DEFAULT_LLM_TIMEOUT_SECONDS)))
+    except ValueError:
+        return DEFAULT_LLM_TIMEOUT_SECONDS
+    return min(max(value, 1.0), 30.0)
+
+
+def _llm_max_retries() -> int:
+    try:
+        value = int(os.getenv("LLM_MAX_RETRIES", str(DEFAULT_LLM_MAX_RETRIES)))
+    except ValueError:
+        return DEFAULT_LLM_MAX_RETRIES
+    return min(max(value, 0), 2)
+
+
+def get_llm_configuration_status() -> dict[str, object]:
+    """返回不包含 Key 或地址内容的 LLM 就绪状态。"""
+    selected_provider = os.getenv("LLM_PROVIDER", "").strip().lower()
+    if selected_provider not in {"deepseek", "mimo"}:
+        return {
+            "status": "warning",
+            "provider": "not_configured",
+            "message": "LLM 未配置，将使用本地规则和确定性模板回退",
+            "fallback_available": True,
+        }
+    prefix = "DEEPSEEK" if selected_provider == "deepseek" else "MIMO"
+    configured = bool(os.getenv(f"{prefix}_API_KEY")) and bool(os.getenv(f"{prefix}_BASE_URL"))
+    return {
+        "status": "ok" if configured else "warning",
+        "provider": selected_provider,
+        "message": "LLM 配置已就绪" if configured else "LLM 配置不完整，将使用本地回退",
+        "fallback_available": True,
+    }
 
 
 def get_llm():
+
+    provider = os.getenv("LLM_PROVIDER", "").strip().lower()
+    common_options = {
+        "temperature": 0,
+        "request_timeout": _llm_timeout_seconds(),
+        "max_retries": _llm_max_retries(),
+    }
 
     if provider == "deepseek":
 
@@ -23,7 +66,7 @@ def get_llm():
             base_url=os.getenv(
                 "DEEPSEEK_BASE_URL"
             ),
-            temperature=0
+            **common_options,
         )
 
         return llm
@@ -39,7 +82,7 @@ def get_llm():
             base_url=os.getenv(
                 "MIMO_BASE_URL"
             ),
-            temperature=0
+            **common_options,
         )
 
         return llm

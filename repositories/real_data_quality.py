@@ -5,6 +5,7 @@ from collections import Counter
 from pathlib import Path
 
 from repositories.material_master_repository import index_material_master, load_material_master_records
+from repositories.data_source import load_demo_data, resolve_data_source_mode
 from repositories.real_bom_repository import load_real_bom_relationships
 from repositories.real_inventory_repository import INVENTORY_SHEET_NAME, load_real_inventory_data
 
@@ -18,6 +19,13 @@ REQUIRED_MISSING_INVENTORY_CODES = {
     "11296220A0101",
     "19T0Z11200101",
 }
+
+
+def get_required_missing_inventory_codes() -> set[str]:
+    """返回当前数据源声明的必须显式报告料号。"""
+    if resolve_data_source_mode() == "demo":
+        return {str(code) for code in load_demo_data()["required_missing_inventory_codes"]}
+    return REQUIRED_MISSING_INVENTORY_CODES.copy()
 
 
 def build_real_data_quality_report() -> dict[str, object]:
@@ -40,6 +48,7 @@ def build_real_data_quality_report() -> dict[str, object]:
         code for code, count in Counter(record["material_code"] for record in master_records).items() if count > 1
     )
 
+    required_missing_codes = get_required_missing_inventory_codes()
     return {
         "bom_parent_material": bom_payload["parent_material"],
         "bom_version": bom_payload["version"],
@@ -48,8 +57,8 @@ def build_real_data_quality_report() -> dict[str, object]:
         "material_master_match_count": sum(code in material_master for code in set(bom_codes)),
         "inventory_match_count": len(set(bom_codes) & set(inventory_data)),
         "unmatched_inventory_material_codes": missing_inventory_codes,
-        "required_missing_inventory_codes": sorted(REQUIRED_MISSING_INVENTORY_CODES),
-        "required_missing_inventory_codes_confirmed": REQUIRED_MISSING_INVENTORY_CODES.issubset(missing_inventory_codes),
+        "required_missing_inventory_codes": sorted(required_missing_codes),
+        "required_missing_inventory_codes_confirmed": required_missing_codes.issubset(missing_inventory_codes),
         "duplicate_material_codes": {
             "bom": duplicate_bom_codes,
             "inventory": duplicate_inventory_codes,
