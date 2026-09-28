@@ -42,14 +42,14 @@ function statusLabel(status) {
   <section class="workflow-trace" aria-live="polite">
     <div class="workflow-trace-heading">
       <div>
-        <h2>Agent 执行轨迹</h2>
-        <p>仅展示后端公开的 Workflow 阶段状态，不展示提示词、模型推理或内部 State。</p>
+        <h2>Agent 分析进度</h2>
+        <p>展示制造分析阶段与完成状态，不展示模型内部推理。</p>
       </div>
-      <span v-if="loading" class="trace-loading">正在等待后端阶段结果</span>
+      <span v-if="loading" class="trace-loading">正在分析</span>
     </div>
 
-    <p v-if="loading" class="trace-pending">请求已提交，BOM、MRP、采购与生产决策仍由后端确定性工作流执行。</p>
-    <p v-else-if="!steps.length" class="trace-empty">完成一次分析后，这里将展示本次 Workflow 的公开执行阶段。</p>
+    <p v-if="loading" class="trace-pending">生产任务已提交，正在依次完成物料、库存、采购与生产决策分析。</p>
+    <p v-else-if="!steps.length" class="trace-empty">完成一次生产分析后，这里将展示各阶段进度。</p>
     <ol v-else class="execution-trace">
       <li v-for="step in steps" :key="`${step.step}-${step.status}`" :data-status="step.status">
         <strong>{{ stageLabel(step.step) }}</strong>
