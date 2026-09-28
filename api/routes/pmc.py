@@ -13,6 +13,7 @@ from api.schemas.pmc import (
     PmcWorkflowResponse,
     PurchaseParameterResumeRequest,
 )
+from api.schemas.errors import PublicErrorResponse
 from workflows.pmc_graph import (
     get_pmc_workflow_state,
     resume_pmc_workflow,
@@ -63,21 +64,31 @@ def _public_execution_steps(workflow_state: Mapping[str, object]) -> list[dict[s
 
 def _workflow_response(workflow_id: str, workflow_state: Mapping[str, object]) -> PmcWorkflowResponse:
     """从内部工作流 State 构建受控的公开响应。"""
+    workflow_status = str(workflow_state.get("workflow_status", "unknown"))
     decision = workflow_state.get("production_decision")
     decision_data = decision if isinstance(decision, Mapping) else {}
     blockers = decision_data.get("blocking_materials", [])
     missing = workflow_state.get("missing_purchase_parameters", [])
     report = workflow_state.get("report")
+    public_error = (
+        PublicErrorResponse(
+            code="ANALYSIS_UNAVAILABLE",
+            user_message="分析服务暂时异常，请稍后重试。",
+        )
+        if workflow_status == "error"
+        else None
+    )
     return PmcWorkflowResponse(
         workflow_id=workflow_id,
-        workflow_status=str(workflow_state.get("workflow_status", "unknown")),
+        workflow_status=workflow_status,
         decision_status=decision_data.get("decision_status"),
         can_start_production=decision_data.get("can_start_production"),
         blocking_materials=blockers if isinstance(blockers, list) else [],
         missing_purchase_parameters=missing if isinstance(missing, list) else [],
         execution_steps=_public_execution_steps(workflow_state),
-        report=report if isinstance(report, dict) else {},
-        errors=workflow_state.get("errors", []) if isinstance(workflow_state.get("errors"), list) else [],
+        # 错误工作流的报告可能含内部异常原文；只保留公开错误契约。
+        report=report if isinstance(report, dict) and public_error is None else {},
+        public_error=public_error,
     )
 
 

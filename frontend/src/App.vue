@@ -20,6 +20,13 @@ const statusLabel = computed(() => ({
   data_incomplete: '数据不完整',
 }[workflow.value?.decision_status] || '等待分析'))
 
+const workflowStatusLabel = computed(() => ({
+  waiting_for_purchase_parameters: '采购信息待补充',
+  completed: '分析完成',
+  running: '正在分析',
+  error: '分析暂不可用',
+}[workflow.value?.workflow_status] || '状态待确认'))
+
 const reportJson = computed(() => workflow.value?.report ? JSON.stringify(workflow.value.report, null, 2) : '')
 
 function resetParameterForms(missingItems) {
@@ -120,9 +127,9 @@ watch(() => workflow.value?.missing_purchase_parameters, (items) => {
     <template v-if="workflow">
       <section class="status-grid">
         <article class="status-card" :data-status="workflow.decision_status || 'unknown'">
-          <span>生产决策</span><strong>{{ statusLabel }}</strong><small>{{ workflow.decision_status || '未返回' }}</small>
+          <span>生产决策</span><strong>{{ statusLabel }}</strong><small>由确定性生产决策服务生成</small>
         </article>
-        <article class="status-card"><span>工作流状态</span><strong>{{ workflow.workflow_status }}</strong><small>workflow_id: {{ workflow.workflow_id }}</small></article>
+        <article class="status-card"><span>分析状态</span><strong>{{ workflowStatusLabel }}</strong><small>当前分析结果已加载</small></article>
         <article class="status-card"><span>是否可开工</span><strong>{{ workflow.can_start_production === true ? '是' : workflow.can_start_production === false ? '否' : '待确认' }}</strong><small>来自 Production Decision</small></article>
         <article class="status-card"><span>待补采购参数</span><strong>{{ workflow.missing_purchase_parameters.length }}</strong><small>来自 API 返回清单</small></article>
         <article class="status-card"><span>物料齐套率</span><strong>{{ workflow.report.known_inventory_kit_analysis?.material_readiness_rate ?? '—' }}</strong><small>来自确定性报告</small></article>

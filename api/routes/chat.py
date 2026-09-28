@@ -295,11 +295,12 @@ def chat(request: ChatRequest) -> ChatResponse | ChatClarificationResponse:
 
     parsed_task = task_intent.to_workflow_task()
     workflow_response = start_public_pmc_workflow(**parsed_task)
-    agent_message = (
-        "PMC 分析已完成，但仍需业务人员补充采购参数后才能继续采购分析。"
-        if workflow_response.missing_purchase_parameters
-        else "PMC 分析已完成，结果来自确定性业务工作流。"
-    )
+    if workflow_response.public_error:
+        agent_message = workflow_response.public_error.user_message
+    elif workflow_response.missing_purchase_parameters:
+        agent_message = "PMC 分析已完成，但仍需业务人员补充采购参数后才能继续采购分析。"
+    else:
+        agent_message = "PMC 分析已完成，结果来自确定性业务工作流。"
     response = _chat_response(
         parsed_task=parsed_task,
         workflow_response=workflow_response,

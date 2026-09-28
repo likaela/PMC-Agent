@@ -1,9 +1,10 @@
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '')
 
 export class ApiError extends Error {
-  constructor(message, status) {
+  constructor(message, status, code = 'REQUEST_FAILED') {
     super(message)
     this.status = status
+    this.code = code
   }
 }
 
@@ -14,8 +15,9 @@ async function request(path, options = {}) {
   })
   const body = await response.json().catch(() => ({}))
   if (!response.ok) {
-    const message = typeof body.detail === 'string' ? body.detail : '请求 PMC API 失败'
-    throw new ApiError(message, response.status)
+    const message = typeof body.user_message === 'string' ? body.user_message : '请求 PMC API 失败，请稍后重试。'
+    const code = typeof body.code === 'string' ? body.code : 'REQUEST_FAILED'
+    throw new ApiError(message, response.status, code)
   }
   return body
 }
@@ -36,6 +38,10 @@ export function chatPmc(message, workflowId = null) {
 
 export function getChatHistory(workflowId) {
   return request(`/api/v1/chat/${encodeURIComponent(workflowId)}/history`)
+}
+
+export function getPmcWorkflow(workflowId) {
+  return request(`/api/v1/pmc/${encodeURIComponent(workflowId)}`)
 }
 
 export function getDemoCases() {

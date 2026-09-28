@@ -53,6 +53,9 @@ td { font-size: .9rem; }
 .demo-cases span { color: #60737d; font-size: .85rem; font-weight: 700; margin-right: 4px; }
 .demo-cases button { background: #e3f4ed; color: #126a57; padding: 7px 11px; }
 .demo-cases button:hover { background: #cde9dd; }
+.demo-cases .secondary-button, .retry-button { background: #64748b; color: #fff; }
+.demo-cases .secondary-button:hover, .retry-button:hover { background: #475569; }
+.retry-button { margin: -8px 0 12px; }
 .demo-onboarding { background: #f4f8fb; border: 1px solid #d9e3e7; border-radius: 10px; margin-top: 16px; padding: 16px; }
 .demo-onboarding h3 { margin: 0 0 8px; }
 .demo-onboarding > p { color: #526572; margin-bottom: 12px; }
@@ -91,6 +94,8 @@ td { font-size: .9rem; }
 .feasibility-card[data-status="data_incomplete"] { border-top-color: #64748b; }
 .risk-card { border-top-color: #c44b3d; }
 .action-card { border-top-color: #1d8b6e; }
+.empty-result-panel { border-left: 4px solid #64748b; }
+.empty-result-panel p { color: #526572; }
 .scenario-panel { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .scenario-panel h2 { grid-column: 1 / -1; margin-bottom: 0; }
 .scenario-card { background: #eef6f3; border-left: 4px solid #1d8b6e; border-radius: 8px; display: grid; gap: 7px; padding: 14px; }

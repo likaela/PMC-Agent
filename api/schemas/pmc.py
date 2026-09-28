@@ -6,6 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from api.schemas.errors import PublicErrorResponse
+
 
 class AnalyzeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
@@ -94,7 +96,7 @@ class PmcWorkflowResponse(BaseModel):
     missing_purchase_parameters: list[MissingPurchaseParameterResponse] = Field(default_factory=list)
     execution_steps: list[AgentExecutionStepResponse] = Field(default_factory=list)
     report: dict[str, Any] = Field(default_factory=dict)
-    errors: list[str] = Field(default_factory=list)
+    public_error: PublicErrorResponse | None = None
 
 
 class HealthResponse(BaseModel):

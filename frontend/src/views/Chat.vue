@@ -1,12 +1,12 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { ApiError, chatPmc, getChatHistory, getDemoCases, getDemoStatistics, submitDemoFeedback } from '../api/pmc'
+import { ApiError, chatPmc, getChatHistory, getDemoCases, getDemoStatistics, getPmcWorkflow, submitDemoFeedback } from '../api/pmc'
 import WorkflowTrace from '../components/WorkflowTrace.vue'
+import { clearDemoSession, loadDemoSession, saveDemoSession } from '../utils/demoSession'
 
-const message = ref('我要生产100台KQ-Z112，帮我看看能不能开工')
-const messages = ref([
-  { role: 'agent', content: '请用自然语言描述生产任务，例如：我要生产100台KQ-Z112。' },
-])
+const DEFAULT_DEMO_MESSAGE = '我要生产100台KQ-Z112，帮我看看能不能开工'
+const message = ref(DEFAULT_DEMO_MESSAGE)
+const messages = ref(createInitialMessages())
 const result = ref(null)
 const taskUnderstanding = ref(null)
 const errorMessage = ref('')
@@ -17,6 +17,7 @@ const feedback = ref('')
 const feedbackMessage = ref('')
 const isSubmittingFeedback = ref(false)
 const demoStatistics = ref(null)
+const retryRequest = ref(null)
 const demoCases = ref([
   { id: 'analyze-100', label: '我要生产100台KQ-Z112', message: '我要生产100台KQ-Z112，帮我分析', requires_workflow: false },
   { id: 'why-blocked', label: '为什么不能生产？', message: '为什么不能生产？', requires_workflow: true },
@@ -35,7 +36,7 @@ function decisionStatusLabel(status) {
 
 function workflowStatusLabel(status) {
   return ({
-    waiting_for_purchase_parameters: '等待补充采购参数',
+    waiting_for_purchase_parameters: '采购信息待补充',
     completed: '分析完成',
     running: '正在分析',
     error: '分析暂不可用',
@@ -43,6 +44,10 @@ function workflowStatusLabel(status) {
 }
 
 const decisionLabel = computed(() => decisionStatusLabel(result.value?.decision_status))
+const hasReport = computed(() => Boolean(result.value?.report && Object.keys(result.value.report).length))
+const hasBlockingMaterials = computed(() => Array.isArray(result.value?.blocking_materials) && result.value.blocking_materials.length > 0)
+const hasRecommendedActions = computed(() => Array.isArray(result.value?.report?.production_decision?.recommended_actions)
+  && result.value.report.production_decision.recommended_actions.length > 0)
 
 const demoJourney = computed(() => {
   const completedTurns = new Set(sessionHistory.value.map((item) => item.turn_type))
@@ -55,7 +60,64 @@ const demoJourney = computed(() => {
 })
 
 function parserSourceLabel(source) {
-  return source === 'llm' ? 'DeepSeek' : 'Rule fallback'
+  if (source === 'llm') return 'DeepSeek'
+  if (source === 'restored') return '已恢复会话'
+  return '本地规则回退'
+}
+
+function createInitialMessages() {
+  return [{ role: 'agent', content: '请用自然语言描述生产任务，例如：我要生产100台KQ-Z112。' }]
+}
+
+function resetDemoSession({ notice = '' } = {}) {
+  clearDemoSession(window.sessionStorage)
+  conversationWorkflowId.value = null
+  sessionHistory.value = []
+  result.value = null
+  taskUnderstanding.value = null
+  errorMessage.value = ''
+  feedback.value = ''
+  feedbackMessage.value = ''
+  retryRequest.value = null
+  messages.value = createInitialMessages()
+  if (notice) messages.value.push({ role: 'agent', content: notice })
+}
+
+function restartDemo() {
+  resetDemoSession({ notice: '已重新开始分析。请输入新的生产任务，或点击下方 Demo 案例。' })
+  message.value = DEFAULT_DEMO_MESSAGE
+}
+
+function persistDemoSession(response) {
+  if (!response?.workflow_id || !response?.conversation_workflow_id || !response?.parsed_task) return
+  saveDemoSession(window.sessionStorage, {
+    workflow_id: response.workflow_id,
+    session_id: response.conversation_workflow_id,
+    task_summary: response.parsed_task,
+  })
+}
+
+function isUsableAnalysisResponse(response) {
+  return Boolean(
+    response
+    && response.response_type !== 'clarification'
+    && typeof response.workflow_id === 'string'
+    && typeof response.conversation_workflow_id === 'string'
+    && Array.isArray(response.blocking_materials)
+    && Array.isArray(response.missing_purchase_parameters)
+    && response.report
+    && typeof response.report === 'object',
+  )
+}
+
+function userFacingError(error) {
+  if (error instanceof ApiError) return error.message
+  return '分析服务暂时异常，请稍后重试。'
+}
+
+function isNewProductionRequest(text) {
+  const isFollowUp = /为什么|为何|原因|哪些物料最影响生产|最影响生产|减少到|改为|调整为/.test(text)
+  return !isFollowUp && /生产|安排|计划|做/.test(text)
 }
 
 async function refreshDemoStatistics() {
@@ -71,22 +133,33 @@ function runDemoCase(item) {
     errorMessage.value = '请先运行“我要生产100台KQ-Z112”，再进行原因、方案或阻塞物料追问。'
     return
   }
+  if (!item.requires_workflow) {
+    resetDemoSession()
+  }
   message.value = item.message
-  sendMessage(item.message)
+  sendMessage(item.message, { reuseCurrentWorkflow: item.requires_workflow })
 }
 
-async function sendMessage(candidateMessage = message.value) {
+async function sendMessage(candidateMessage = message.value, { reuseCurrentWorkflow = true } = {}) {
   const userMessage = candidateMessage.trim()
   if (!userMessage || isSending.value) return
 
+  const shouldReuseWorkflow = reuseCurrentWorkflow
+    && Boolean(conversationWorkflowId.value)
+    && !isNewProductionRequest(userMessage)
+  if (!shouldReuseWorkflow && conversationWorkflowId.value) {
+    resetDemoSession()
+  }
+
   errorMessage.value = ''
   result.value = null
+  retryRequest.value = { message: userMessage, reuseCurrentWorkflow: shouldReuseWorkflow }
   messages.value.push({ role: 'user', content: userMessage })
   const pendingMessage = { role: 'agent', content: '正在理解当前任务并准备执行 PMC 工作流。', pending: true }
   messages.value.push(pendingMessage)
   isSending.value = true
   try {
-    const response = await chatPmc(userMessage, conversationWorkflowId.value)
+    const response = await chatPmc(userMessage, shouldReuseWorkflow ? conversationWorkflowId.value : null)
     if (response.response_type === 'clarification') {
       taskUnderstanding.value = response.task_intent
       messages.value.push({
@@ -95,8 +168,12 @@ async function sendMessage(candidateMessage = message.value) {
       })
       return
     }
+    if (!isUsableAnalysisResponse(response)) {
+      throw new ApiError('分析服务暂时异常，请稍后重试。', 500, 'ANALYSIS_UNAVAILABLE')
+    }
     conversationWorkflowId.value = response.conversation_workflow_id
     sessionHistory.value = (await getChatHistory(response.conversation_workflow_id)).history
+    persistDemoSession(response)
     await refreshDemoStatistics()
     if (response.turn_type === 'analysis') {
       const understood = response.task_intent || response.parsed_task
@@ -113,20 +190,70 @@ async function sendMessage(candidateMessage = message.value) {
       })
     }
     result.value = response
+    retryRequest.value = null
     messages.value.push({
       role: 'agent',
       content: `${response.turn_type === 'explanation' ? '说明完成' : '处理完成'}：${decisionLabel.value}。${response.agent_message}`,
     })
     response.follow_up_questions.forEach((question) => messages.value.push({ role: 'agent', content: question }))
   } catch (error) {
-    errorMessage.value = error instanceof ApiError ? error.message : '无法连接 PMC API。'
-    const followUp = error instanceof ApiError && error.status === 422
+    const sessionExpired = error instanceof ApiError && error.code === 'SESSION_EXPIRED'
+    if (sessionExpired) {
+      resetDemoSession({ notice: '当前演示会话已失效，请重新开始分析。' })
+      message.value = DEFAULT_DEMO_MESSAGE
+      return
+    }
+    errorMessage.value = userFacingError(error)
+    const followUp = error instanceof ApiError && error.code === 'INVALID_REQUEST'
       ? '请补充产品型号和生产数量后再试，例如：我要生产100台KQ-Z112。'
-      : '请检查输入或稍后重试。'
+      : '你可以重试本次请求，或重新开始分析。'
     messages.value.push({ role: 'agent', content: `无法执行分析：${errorMessage.value}\n${followUp}` })
   } finally {
     messages.value = messages.value.filter((item) => item !== pendingMessage)
     isSending.value = false
+  }
+}
+
+function retryLastRequest() {
+  if (!retryRequest.value || isSending.value) return
+  sendMessage(retryRequest.value.message, { reuseCurrentWorkflow: retryRequest.value.reuseCurrentWorkflow })
+}
+
+async function restoreDemoSession() {
+  const saved = loadDemoSession(window.sessionStorage)
+  if (!saved) {
+    clearDemoSession(window.sessionStorage)
+    return
+  }
+  try {
+    const [workflow, historyResponse] = await Promise.all([
+      getPmcWorkflow(saved.workflow_id),
+      getChatHistory(saved.session_id),
+    ])
+    if (!workflow?.report || typeof workflow.report !== 'object' || !Array.isArray(historyResponse?.history)) {
+      throw new ApiError('当前演示会话已失效，请重新开始分析。', 404, 'SESSION_EXPIRED')
+    }
+    conversationWorkflowId.value = saved.session_id
+    sessionHistory.value = historyResponse.history
+    taskUnderstanding.value = {
+      ...saved.task_summary,
+      missing_fields: [],
+      parser_source: 'restored',
+    }
+    messages.value = historyResponse.history.map((item) => ({ role: item.role, content: item.content }))
+    result.value = {
+      ...workflow,
+      conversation_workflow_id: saved.session_id,
+      parsed_task: saved.task_summary,
+      agent_trace: workflow.execution_steps || [],
+      follow_up_questions: [],
+      scenario: null,
+      explanation: null,
+    }
+    message.value = `为什么不能生产？`
+  } catch {
+    resetDemoSession({ notice: '当前演示会话已失效，请重新开始分析。' })
+    message.value = DEFAULT_DEMO_MESSAGE
   }
 }
 
@@ -155,6 +282,7 @@ onMounted(async () => {
     // 保留本地默认案例，使 API 暂不可用时仍可阅读 Demo 引导。
   }
   await refreshDemoStatistics()
+  await restoreDemoSession()
 })
 </script>
 
@@ -183,6 +311,7 @@ onMounted(async () => {
         <button v-for="item in demoCases" :key="item.id" type="button" :disabled="isSending" @click="runDemoCase(item)">
           {{ item.label }}
         </button>
+        <button class="secondary-button" type="button" :disabled="isSending" @click="restartDemo">重新开始分析</button>
       </div>
 
       <section v-if="demoStatistics" class="demo-statistics" aria-label="Demo 当前进程统计">
@@ -205,6 +334,9 @@ onMounted(async () => {
         <button type="submit" :disabled="isSending">{{ isSending ? '正在分析…' : '发送并分析' }}</button>
       </form>
       <p v-if="errorMessage" class="message error">{{ errorMessage }}</p>
+      <button v-if="retryRequest" class="retry-button" type="button" :disabled="isSending" @click="retryLastRequest">
+        重试本次请求
+      </button>
       <p v-if="conversationWorkflowId" class="session-hint">当前会话：{{ conversationWorkflowId }} · 已同步 {{ sessionHistory.length }} 条会话记录</p>
 
       <section v-if="taskUnderstanding" class="panel task-understanding">
@@ -238,13 +370,19 @@ onMounted(async () => {
         <article class="status-card"><span>待补采购参数</span><strong>{{ result.missing_purchase_parameters.length }}</strong><small>来自 API 返回清单</small></article>
       </section>
 
-      <section v-if="result.explanation" class="panel explanation-panel">
+      <section v-if="!hasReport" class="panel empty-result-panel">
+        <h2>暂无可展示结果</h2>
+        <p>{{ result.public_error?.user_message || '暂无可展示结果，请重新分析或稍后重试。' }}</p>
+        <button type="button" @click="restartDemo">重新开始分析</button>
+      </section>
+
+      <section v-if="hasReport && result.explanation" class="panel explanation-panel">
         <h2>PMC 结果解释</h2>
         <p>{{ result.explanation.answer }}</p>
         <small>解释来源：{{ result.explanation.source === 'llm' ? 'DeepSeek' : '确定性模板' }}</small>
       </section>
 
-      <section class="decision-summary-grid">
+      <section v-if="hasReport" class="decision-summary-grid">
         <article class="panel decision-summary-card feasibility-card" :data-status="result.decision_status || 'unknown'">
           <span>生产可行性</span>
           <strong>{{ result.can_start_production === true ? '可以开工' : result.can_start_production === false ? '暂不可开工' : '待确认' }}</strong>
@@ -268,7 +406,7 @@ onMounted(async () => {
         </article>
       </section>
 
-      <section class="panel">
+      <section v-if="hasReport" class="panel">
         <h2>缺料与阻塞物料</h2>
         <div class="table-wrap">
           <table>
@@ -277,19 +415,24 @@ onMounted(async () => {
               <tr v-for="item in result.blocking_materials" :key="item.material">
                 <td>P{{ item.priority }}</td><td>{{ item.material }}</td><td>{{ item.required }}</td><td>{{ item.available ?? '—' }}</td><td>{{ item.shortage }}</td><td>{{ item.purchase_status }}</td><td>{{ item.risk_level || '待补参数' }}</td>
               </tr>
-              <tr v-if="!result.blocking_materials.length"><td colspan="7" class="empty">API 未返回阻塞物料。</td></tr>
+              <tr v-if="!hasBlockingMaterials"><td colspan="7" class="empty">暂无阻塞物料可展示。</td></tr>
             </tbody>
           </table>
         </div>
       </section>
 
-      <section v-if="result.report.production_decision?.recommended_actions?.length" class="panel">
+      <section v-if="hasReport && hasRecommendedActions" class="panel">
         <h2>建议行动</h2>
         <ul class="action-list">
           <li v-for="action in result.report.production_decision.recommended_actions" :key="`${action.priority}-${action.material}-${action.action}`">
             P{{ action.priority }} {{ action.material || '全部相关物料' }}：{{ action.action }}
           </li>
         </ul>
+      </section>
+
+      <section v-else-if="hasReport" class="panel empty-result-panel">
+        <h2>暂无建议动作</h2>
+        <p>当前报告未返回建议动作，请重新分析或稍后重试。</p>
       </section>
 
       <section v-if="result.scenario" class="panel scenario-panel">
