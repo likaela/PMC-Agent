@@ -7,13 +7,14 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
-
 from pydantic import BaseModel, ValidationError
 
 from api.schemas.llm_task import LlmTaskExtraction, ProductionTaskIntent
 from config import get_llm
-from services.task_parser_service import TaskParseError, parse_production_task, validate_production_task_fields
+from services.task_parser_service import (
+    extract_production_task_fields,
+    validate_production_task_fields,
+)
 
 
 _TASK_PARSER_PROMPT = """
@@ -58,31 +59,83 @@ def _invoke_structured_llm(message: str) -> LlmTaskExtraction:
 
 
 def _build_validated_intent(extraction: LlmTaskExtraction, *, parser_source: str) -> ProductionTaskIntent:
-    """对 LLM 字段应用与规则解析完全相同的本地校验。"""
-    validated = validate_production_task_fields(
-        extraction.product,
-        extraction.bom_version,
-        extraction.quantity,
-    )
+    """对完整 LLM 任务字段执行本地校验；字段不完整时返回澄清契约。"""
+    try:
+        validated = validate_production_task_fields(
+            extraction.product,
+            extraction.bom_version,
+            extraction.quantity,
+        )
+    except ValueError:
+        normalized_product: str | None = None
+        normalized_version: str | None = None
+        normalized_quantity: int | None = None
+        try:
+            normalized_product = validate_production_task_fields(extraction.product, "V01", 1)["product"]
+        except ValueError:
+            pass
+        try:
+            normalized_quantity = validate_production_task_fields("KQ-Z112", "V01", extraction.quantity)["quantity"]
+        except ValueError:
+            pass
+        if normalized_product is not None:
+            try:
+                normalized_version = validate_production_task_fields(
+                    normalized_product,
+                    extraction.bom_version,
+                    1,
+                )["bom_version"]
+            except ValueError:
+                pass
+        missing_fields: list[str] = []
+        if normalized_product is None:
+            missing_fields.append("产品型号")
+        if normalized_quantity is None:
+            missing_fields.append("生产数量")
+        return ProductionTaskIntent(
+            intent="analysis",
+            product=normalized_product,
+            bom_version=normalized_version,
+            quantity=normalized_quantity,
+            missing_fields=missing_fields,
+            parser_source=parser_source,
+        )
     return ProductionTaskIntent(
         intent=extraction.intent,
         **validated,
-        reduced_quantity=extraction.reduced_quantity,
-        missing_fields=extraction.missing_fields,
+        missing_fields=[],
         parser_source=parser_source,
     )
+
+
+def _build_rule_fallback_intent(message: str) -> ProductionTaskIntent:
+    extracted = extract_production_task_fields(message)
+    if not extracted["missing_fields"]:
+        try:
+            validated = validate_production_task_fields(
+                extracted["product"],
+                extracted["bom_version"],
+                extracted["quantity"],
+            )
+        except ValueError:
+            return ProductionTaskIntent(
+                intent="analysis",
+                product=extracted["product"],
+                bom_version=extracted["bom_version"],
+                quantity=None,
+                missing_fields=["生产数量"],
+                parser_source="rule_fallback",
+            )
+        return ProductionTaskIntent(intent="analysis", **validated, parser_source="rule_fallback")
+    return ProductionTaskIntent(intent="analysis", **extracted, parser_source="rule_fallback")
 
 
 def parse_production_task_with_llm(message: str) -> ProductionTaskIntent:
     """优先使用 DeepSeek；任何失败均安全回退到本地规则解析。"""
     try:
         return _build_validated_intent(_invoke_structured_llm(message), parser_source="llm")
-    except (LlmTaskParserError, TaskParseError):
-        try:
-            fallback_task = parse_production_task(message)
-        except TaskParseError as error:
-            raise TaskParseError("暂时无法识别生产任务，请补充产品型号和数量") from error
-        return ProductionTaskIntent(intent="analysis", **fallback_task, parser_source="rule_fallback")
+    except LlmTaskParserError:
+        return _build_rule_fallback_intent(message)
 
 
 __all__ = ["LlmTaskParserError", "parse_production_task_with_llm"]

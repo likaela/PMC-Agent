@@ -134,10 +134,13 @@ class PmcApiTests(unittest.TestCase):
         self.assertEqual(payload["report"], direct_payload["report"])
         self.assertNotIn("completed_nodes", payload)
 
-    def test_chat_returns_422_when_task_parameters_are_missing(self) -> None:
+    def test_chat_returns_user_facing_clarification_when_task_parameters_are_missing(self) -> None:
         response = self.client.post("/api/v1/chat", json={"message": "帮我看看能不能开工"})
-        self.assertEqual(response.status_code, 422)
-        self.assertIn("产品型号", response.json()["detail"])
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["response_type"], "clarification")
+        self.assertEqual(payload["missing_fields"], ["产品型号", "生产数量"])
+        self.assertNotIn("workflow_id", payload)
 
     def test_public_execution_steps_show_tools_without_internal_state(self) -> None:
         payload = self.analyze_kq()

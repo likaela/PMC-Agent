@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from api.routes.pmc import _workflow_response, _workflow_state_or_404, start_public_pmc_workflow
 from api.schemas.chat import (
+    ChatClarificationResponse,
     ChatHistoryResponse,
     ChatRequest,
     ChatResponse,
@@ -22,7 +23,6 @@ from services.chat_session_service import append_chat_history, get_chat_history
 from services.demo_experience_service import record_demo_analysis, record_demo_scenario
 from services.llm_task_parser_service import parse_production_task_with_llm
 from services.scenario_service import simulate_reduced_quantity
-from services.task_parser_service import TaskParseError
 
 
 router = APIRouter(prefix="/api/v1", tags=["Chat"])
@@ -155,8 +155,20 @@ def _chat_response(
     )
 
 
-@router.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest) -> ChatResponse:
+def _clarification_message(task_intent: ProductionTaskIntent) -> str:
+    """根据已校验的部分字段生成用户可执行的补充提示。"""
+    recognized: list[str] = []
+    if task_intent.product:
+        recognized.append(f"已识别产品 {task_intent.product}")
+    if task_intent.quantity is not None:
+        recognized.append(f"已识别生产数量 {task_intent.quantity} 台")
+    if recognized:
+        return f"{'。'.join(recognized)}。请补充{'、'.join(task_intent.missing_fields)}。"
+    return "暂时无法识别生产任务，请补充产品型号和数量。"
+
+
+@router.post("/chat", response_model=ChatResponse | ChatClarificationResponse)
+def chat(request: ChatRequest) -> ChatResponse | ChatClarificationResponse:
     """支持首轮分析、原因解释和减量方案的当前进程内多轮会话。"""
 
     if request.workflow_id:
@@ -255,10 +267,13 @@ def chat(request: ChatRequest) -> ChatResponse:
             detail="当前会话支持“为什么不能生产？”或“减少到50台呢？”；也可以发送新的完整生产任务。",
         )
 
-    try:
-        task_intent = parse_production_task_with_llm(request.message)
-    except TaskParseError as error:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from None
+    task_intent = parse_production_task_with_llm(request.message)
+    if not task_intent.is_complete:
+        return ChatClarificationResponse(
+            agent_message=_clarification_message(task_intent),
+            task_intent=task_intent,
+            missing_fields=task_intent.missing_fields,
+        )
 
     parsed_task = task_intent.to_workflow_task()
     workflow_response = start_public_pmc_workflow(**parsed_task)

@@ -49,9 +49,19 @@ class ChatHistoryResponse(BaseModel):
     history: list[ChatHistoryItemResponse] = Field(default_factory=list)
 
 
+class ChatClarificationResponse(BaseModel):
+    """任务不完整时的安全澄清响应；不会启动或泄露内部 Workflow。"""
+
+    response_type: Literal["clarification"] = "clarification"
+    agent_message: str
+    task_intent: ProductionTaskIntent
+    missing_fields: list[str] = Field(default_factory=list)
+
+
 class ChatResponse(PmcWorkflowResponse):
     """解析结果加上既有 PMC 工作流的受控公开响应。"""
 
+    response_type: Literal["analysis"] = "analysis"
     parsed_task: ParsedTaskResponse
     agent_message: str
     follow_up_questions: list[str] = Field(default_factory=list)

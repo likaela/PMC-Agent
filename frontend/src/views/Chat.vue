@@ -7,6 +7,7 @@ const messages = ref([
   { role: 'agent', content: '请用自然语言描述生产任务，例如：我要生产100台KQ-Z112。' },
 ])
 const result = ref(null)
+const taskUnderstanding = ref(null)
 const errorMessage = ref('')
 const isSending = ref(false)
 const conversationWorkflowId = ref(null)
@@ -43,6 +44,10 @@ function workflowStatusLabel(status) {
 
 const decisionLabel = computed(() => decisionStatusLabel(result.value?.decision_status))
 
+function parserSourceLabel(source) {
+  return source === 'llm' ? 'DeepSeek' : 'Rule fallback'
+}
+
 async function refreshDemoStatistics() {
   try {
     demoStatistics.value = await getDemoStatistics()
@@ -72,15 +77,24 @@ async function sendMessage(candidateMessage = message.value) {
   isSending.value = true
   try {
     const response = await chatPmc(userMessage, conversationWorkflowId.value)
+    if (response.response_type === 'clarification') {
+      taskUnderstanding.value = response.task_intent
+      messages.value.push({
+        role: 'agent',
+        content: response.agent_message,
+      })
+      return
+    }
     conversationWorkflowId.value = response.conversation_workflow_id
     sessionHistory.value = (await getChatHistory(response.conversation_workflow_id)).history
     await refreshDemoStatistics()
     if (response.turn_type === 'analysis') {
       const understood = response.task_intent || response.parsed_task
-      const sourceLabel = response.task_intent?.parser_source === 'llm' ? 'AI 已识别' : '已识别（本地规则辅助）'
+      taskUnderstanding.value = response.task_intent || null
+      const sourceLabel = response.task_intent ? parserSourceLabel(response.task_intent.parser_source) : 'Rule fallback'
       messages.value.push({
         role: 'agent',
-        content: `${sourceLabel}：产品 ${understood.product}，BOM ${understood.bom_version}，数量 ${understood.quantity}。`,
+        content: `AI 已识别任务：产品 ${understood.product}，BOM ${understood.bom_version}，数量 ${understood.quantity}。解析来源：${sourceLabel}。`,
       })
     } else if (response.turn_type === 'scenario') {
       messages.value.push({
@@ -185,6 +199,17 @@ onMounted(async () => {
       </form>
       <p v-if="errorMessage" class="message error">{{ errorMessage }}</p>
       <p v-if="conversationWorkflowId" class="session-hint">当前会话：{{ conversationWorkflowId }} · 已同步 {{ sessionHistory.length }} 条会话记录</p>
+
+      <section v-if="taskUnderstanding" class="panel task-understanding">
+        <h2>AI 解析结果</h2>
+        <dl class="task-details">
+          <div><dt>产品</dt><dd>{{ taskUnderstanding.product || '待补充' }}</dd></div>
+          <div><dt>数量</dt><dd>{{ taskUnderstanding.quantity === null ? '待补充' : taskUnderstanding.quantity }}</dd></div>
+          <div><dt>BOM 版本</dt><dd>{{ taskUnderstanding.bom_version || '待补充' }}</dd></div>
+          <div><dt>解析来源</dt><dd>{{ parserSourceLabel(taskUnderstanding.parser_source) }}</dd></div>
+        </dl>
+        <p v-if="taskUnderstanding.missing_fields.length" class="missing-task-fields">需要补充：{{ taskUnderstanding.missing_fields.join('、') }}</p>
+      </section>
     </section>
 
     <template v-if="result">
@@ -195,14 +220,6 @@ onMounted(async () => {
         <article class="status-card"><span>Agent 执行状态</span><strong>{{ workflowStatusLabel(result.workflow_status) }}</strong><small>本次分析已关联当前会话</small></article>
         <article class="status-card"><span>是否可开工</span><strong>{{ result.can_start_production === true ? '是' : result.can_start_production === false ? '否' : '待确认' }}</strong><small>来自 Production Decision</small></article>
         <article class="status-card"><span>待补采购参数</span><strong>{{ result.missing_purchase_parameters.length }}</strong><small>来自 API 返回清单</small></article>
-      </section>
-
-      <section v-if="result.task_intent" class="panel task-understanding">
-        <h2>任务理解</h2>
-        <p>
-          {{ result.task_intent.parser_source === 'llm' ? 'AI 已识别' : '本地规则已识别' }}：
-          产品 {{ result.task_intent.product }}，数量 {{ result.task_intent.quantity }}，BOM {{ result.task_intent.bom_version }}。
-        </p>
       </section>
 
       <section class="panel">
