@@ -163,3 +163,100 @@ class ImportResult:
     error_count: int
     pending_confirmation_fields: tuple[str, ...] = ()
     errors: tuple[RowValidationError, ...] = field(default_factory=tuple)
+
+
+class ItemMatchStatus(StrEnum):
+    """外部料号与受控 item 主数据的关联状态。"""
+
+    MATCHED = "matched"
+    UNMATCHED = "unmatched"
+
+
+@dataclass(frozen=True)
+class StagedInventoryRow:
+    """库存时点事实的行级暂存模型；未知字段始终保留为 ``None``。"""
+
+    id: str
+    import_batch_id: str
+    source_file_id: str
+    sheet_name: str
+    source_row_number: int
+    raw_material_code: str | None
+    item_id: str | None
+    match_status: ItemMatchStatus
+    site: str | None
+    warehouse: str | None
+    location: str | None
+    batch_no: str | None
+    on_hand_qty: Decimal | None
+    available_qty: Decimal | None = None
+    reserved_qty: Decimal | None = None
+    quality_status: str | None = None
+    received_at: datetime | None = None
+    expiry_date: date | None = None
+    validation_status: str = "valid"
+    is_duplicate: bool = False
+
+
+@dataclass(frozen=True)
+class InventoryImportResult:
+    import_batch_id: str
+    status: ImportBatchStatus
+    staged_row_count: int
+    valid_row_count: int
+    error_count: int
+    matched_item_count: int
+    unmatched_item_count: int
+    duplicate_row_count: int
+    pending_confirmation_fields: tuple[str, ...] = ()
+    errors: tuple[RowValidationError, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class InboundSupplyInputRow:
+    """在途导入器合同，由明确采购订单来源适配器提供。"""
+
+    sheet_name: str
+    source_row_number: int
+    material_code: object
+    ordered_qty: object
+    received_qty: object | None = None
+    supplier_code: object | None = None
+    order_no: object | None = None
+    expected_arrival_date: object | None = None
+    committed_date: object | None = None
+    status: object | None = None
+
+
+@dataclass(frozen=True)
+class StagedInboundSupplyRow:
+    id: str
+    import_batch_id: str
+    source_file_id: str
+    sheet_name: str
+    source_row_number: int
+    raw_material_code: str | None
+    item_id: str | None
+    match_status: ItemMatchStatus
+    supplier_code: str | None
+    order_no: str | None
+    ordered_qty: Decimal | None
+    received_qty: Decimal | None
+    in_transit_qty: Decimal | None
+    expected_arrival_date: date | None
+    committed_date: date | None
+    supply_status: str | None
+    validation_status: str = "valid"
+
+
+@dataclass(frozen=True)
+class InboundImportResult:
+    import_batch_id: str
+    status: ImportBatchStatus
+    staged_row_count: int
+    valid_row_count: int
+    error_count: int
+    matched_item_count: int
+    unmatched_item_count: int
+    pending_confirmation_fields: tuple[str, ...] = ()
+    errors: tuple[RowValidationError, ...] = field(default_factory=tuple)

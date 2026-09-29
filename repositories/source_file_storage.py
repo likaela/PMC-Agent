@@ -113,7 +113,7 @@ def prepare_source_file(
     """准备上传、本地或 ERP 来源；除上传外只保存受控引用与哈希。"""
     source = Path(file_path)
     if not source.is_file():
-        raise FileNotFoundError(f"BOM 源文件不存在：{source.name}")
+        raise FileNotFoundError(f"导入源文件不存在：{source.name}")
     kind = SourceKind(source_kind)
     if kind == SourceKind.UPLOAD:
         return (immutable_storage or ImmutableSourceFileStorage()).persist(source)
