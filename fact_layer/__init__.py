@@ -7,9 +7,11 @@ from fact_layer.models import (
     ImportBatchStatus,
     ImportResult,
     Item,
+    ItemRevision,
     PriceRecord,
     RowValidationError,
     SourceFile,
+    SourceKind,
     StagedBomRow,
 )
 
@@ -20,8 +22,10 @@ __all__ = [
     "ImportBatchStatus",
     "ImportResult",
     "Item",
+    "ItemRevision",
     "PriceRecord",
     "RowValidationError",
     "SourceFile",
+    "SourceKind",
     "StagedBomRow",
 ]

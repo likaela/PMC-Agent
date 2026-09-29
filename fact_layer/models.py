@@ -22,6 +22,14 @@ class ImportBatchStatus(StrEnum):
     PUBLISHED = "published"
 
 
+class SourceKind(StrEnum):
+    """源文件进入事实层的受控方式。"""
+
+    UPLOAD = "upload"
+    LOCAL = "local"
+    ERP = "erp"
+
+
 @dataclass(frozen=True)
 class ImportBatch:
     id: str
@@ -41,6 +49,10 @@ class SourceFile:
     original_filename: str
     content_sha256: str
     byte_size: int
+    source_kind: SourceKind
+    storage_key: str | None = None
+    source_uri: str | None = None
+    immutable_copy: bool = False
 
 
 @dataclass(frozen=True)
@@ -82,6 +94,21 @@ class StagedBomRow:
 class Item:
     id: str
     material_code: str
+    name: str | None
+    specification: str | None
+    unit: str
+    import_batch_id: str
+    source_file_id: str
+    source_sheet: str
+    source_row_number: int
+
+
+@dataclass(frozen=True)
+class ItemRevision:
+    """同一物料在一次发布批次中的不可变主数据快照。"""
+
+    id: str
+    item_id: str
     name: str | None
     specification: str | None
     unit: str

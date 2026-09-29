@@ -48,6 +48,7 @@
   ],
   "pending_when_absent": ["unit", "currency", "effective_from"],
   "stop_row_markers": ["合计", "总计"],
+  "header_scan_limit": 100,
   "validation": {
     "total_price_tolerance": "0.01"
   }

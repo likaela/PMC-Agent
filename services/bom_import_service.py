@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
-import hashlib
 from dataclasses import replace
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from uuid import uuid4
 
-from fact_layer.models import ImportBatch, ImportBatchStatus, ImportResult, RowValidationError, StagedBomRow
+from fact_layer.models import (
+    ImportBatch,
+    ImportBatchStatus,
+    ImportResult,
+    RowValidationError,
+    SourceKind,
+    StagedBomRow,
+)
 from repositories.bom_import_repository import (
     BomImportMapping,
     BomWorkbookRepository,
@@ -18,6 +24,7 @@ from repositories.bom_import_repository import (
     load_bom_import_mapping,
 )
 from repositories.fact_repository import FactRepository
+from repositories.source_file_storage import ImmutableSourceFileStorage, prepare_source_file
 
 
 def _new_id() -> str:
@@ -74,21 +81,31 @@ class BomImportService:
         self,
         file_path: str | Path,
         mapping_path: str | Path = DEFAULT_3588M_MAPPING,
+        *,
+        source_kind: SourceKind | str = SourceKind.LOCAL,
+        source_uri: str | None = None,
+        immutable_storage: ImmutableSourceFileStorage | None = None,
     ) -> ImportResult:
-        source_path = Path(file_path)
-        if not source_path.is_file():
-            raise FileNotFoundError(f"BOM 源文件不存在：{source_path.name}")
         mapping = load_bom_import_mapping(mapping_path)
-        content = source_path.read_bytes()
+        prepared_source = prepare_source_file(
+            file_path,
+            source_kind,
+            source_uri=source_uri,
+            immutable_storage=immutable_storage,
+        )
         batch, source_file = self.fact_repository.create_staging_batch(
             mapping_name=mapping.mapping_name,
-            original_filename=source_path.name,
-            content_sha256=hashlib.sha256(content).hexdigest(),
-            byte_size=len(content),
+            original_filename=prepared_source.original_filename,
+            content_sha256=prepared_source.content_sha256,
+            byte_size=prepared_source.byte_size,
+            source_kind=prepared_source.source_kind,
+            storage_key=prepared_source.storage_key,
+            source_uri=prepared_source.source_uri,
+            immutable_copy=prepared_source.immutable_copy,
         )
 
         try:
-            mapped = self.workbook_repository.map_workbook(source_path, mapping)
+            mapped = self.workbook_repository.map_workbook(prepared_source.read_path, mapping)
         except Exception as error:
             validation_error = self._validation_error(
                 batch.id,

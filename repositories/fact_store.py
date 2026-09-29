@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sqlite3
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Sequence
@@ -41,9 +42,10 @@ class PersistentFactStore(ABC):
         return connection.execute(self.adapt_query(query), tuple(params))
 
     @contextmanager
-    def transaction(self) -> Iterator[Any]:
+    def transaction(self, *, write_lock: bool = False) -> Iterator[Any]:
         connection = self.connect()
         try:
+            self.begin_transaction(connection, write_lock=write_lock)
             yield connection
             connection.commit()
         except Exception:
@@ -51,6 +53,9 @@ class PersistentFactStore(ABC):
             raise
         finally:
             connection.close()
+
+    def begin_transaction(self, connection: Any, *, write_lock: bool) -> None:
+        """允许方言在关键写事务开始时提前获得锁。"""
 
     def _split_migration(self, sql: str) -> list[str]:
         return [statement.strip() for statement in sql.split("-- statement-break") if statement.strip()]
@@ -93,21 +98,31 @@ class SQLiteFactStore(PersistentFactStore):
 
     def __init__(self, database_path: str | Path) -> None:
         self.database_path = str(database_path)
-        if self.database_path != ":memory:":
-            Path(self.database_path).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
+        if self.database_path == ":memory:":
+            raise ValueError(
+                "SQLite :memory: 不适用于多连接事实存储；请使用临时文件数据库"
+            )
+        Path(self.database_path).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
 
     def connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.database_path)
+        connection = sqlite3.connect(self.database_path, timeout=30)
         connection.execute("PRAGMA foreign_keys = ON")
         return connection
+
+    def begin_transaction(self, connection: sqlite3.Connection, *, write_lock: bool) -> None:
+        if write_lock:
+            connection.execute("BEGIN IMMEDIATE")
 
 
 class PostgreSQLFactStore(PersistentFactStore):
     dialect = "postgresql"
     placeholder = "%s"
 
-    def __init__(self, database_url: str) -> None:
+    def __init__(self, database_url: str, *, schema: str | None = None) -> None:
         self.database_url = database_url.replace("postgresql+psycopg://", "postgresql://", 1)
+        if schema is not None and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", schema) is None:
+            raise ValueError("PostgreSQL schema 名称不合法")
+        self.schema = schema
 
     def connect(self) -> Any:
         try:
@@ -116,7 +131,10 @@ class PostgreSQLFactStore(PersistentFactStore):
             raise RuntimeError(
                 "PostgreSQL 事实存储需要安装 requirements.txt 中的 psycopg 驱动"
             ) from error
-        return psycopg.connect(self.database_url)
+        connection = psycopg.connect(self.database_url)
+        if self.schema:
+            connection.execute(f'SET search_path TO "{self.schema}"')
+        return connection
 
 
 def create_fact_store(database_url: str | None = None) -> PersistentFactStore:

@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 from openpyxl import Workbook, load_workbook
 
 from fact_layer.models import ImportBatchStatus
-from repositories.bom_import_repository import BomWorkbookRepository
+from repositories.bom_import_repository import BomWorkbookRepository, load_bom_import_mapping
 from repositories.data_source import resolve_data_source_mode
 from repositories.fact_repository import FactRepository
 from repositories.fact_store import PostgreSQLFactStore, SQLiteFactStore, create_fact_store
@@ -228,16 +228,24 @@ class BomImportFactLayerTests(unittest.TestCase):
 
     def test_legacy_xls_reader_does_not_require_a_fixed_sheet_name(self) -> None:
         fake_sheet = Mock()
-        fake_sheet.nrows = 2
-        fake_sheet.row_values.side_effect = [["项目代号", "3588M"], ["料号", "数量"]]
+        fake_sheet.nrows = 3
+        fake_sheet.row_values.side_effect = [
+            ["项目代号", "3588M", "版本号", "V-A"],
+            HEADERS,
+            [1, "M-001", "物料1", "规格1", 1, "1.25", "1.25"],
+        ]
         fake_workbook = Mock()
         fake_workbook.sheet_names.return_value = ["任意旧版工作表"]
         fake_workbook.sheet_by_name.return_value = fake_sheet
 
         with patch("repositories.bom_import_repository.xlrd.open_workbook", return_value=fake_workbook):
-            sheets = BomWorkbookRepository().read_sheets(self.temp_path / "任意文件.xls")
+            mapped = BomWorkbookRepository().map_workbook(
+                self.temp_path / "任意文件.xls",
+                load_bom_import_mapping(),
+            )
 
-        self.assertEqual(sheets[0].name, "任意旧版工作表")
+        self.assertEqual(mapped.detected_sheets, ("任意旧版工作表",))
+        self.assertEqual(len(mapped.rows), 1)
         fake_workbook.release_resources.assert_called_once()
 
     def test_postgresql_store_is_selected_for_production_url_without_connecting(self) -> None:

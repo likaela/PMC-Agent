@@ -6,6 +6,7 @@ Repository 只负责持久化、事务和查询；Excel 字段识别与业务校
 from __future__ import annotations
 
 import json
+import hashlib
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
@@ -16,6 +17,7 @@ from fact_layer.models import (
     ImportBatchStatus,
     RowValidationError,
     SourceFile,
+    SourceKind,
     StagedBomRow,
 )
 from repositories.fact_store import PersistentFactStore
@@ -38,6 +40,69 @@ def _cursor_dicts(cursor: Any) -> list[dict[str, Any]]:
     return [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]
 
 
+def _batch_from_row(row: dict[str, Any]) -> ImportBatch:
+    return ImportBatch(
+        id=str(row["id"]),
+        mapping_name=str(row["mapping_name"]),
+        status=ImportBatchStatus(str(row["status"])),
+        created_at=datetime.fromisoformat(str(row["created_at"])),
+        published_at=(
+            datetime.fromisoformat(str(row["published_at"])) if row["published_at"] else None
+        ),
+        staged_row_count=int(row["staged_row_count"]),
+        error_count=int(row["error_count"]),
+        pending_confirmation_fields=tuple(json.loads(str(row["pending_confirmation_fields_json"]))),
+    )
+
+
+def _staged_rows_from_dicts(rows: list[dict[str, Any]]) -> list[StagedBomRow]:
+    return [
+        StagedBomRow(
+            id=str(row["id"]),
+            import_batch_id=str(row["import_batch_id"]),
+            source_file_id=str(row["source_file_id"]),
+            sheet_name=str(row["sheet_name"]),
+            source_row_number=int(row["source_row_number"]),
+            parent_material_code=(
+                str(row["parent_material_code"])
+                if row["parent_material_code"] is not None
+                else None
+            ),
+            version=str(row["version"]) if row["version"] is not None else None,
+            material_code=(
+                str(row["material_code"]) if row["material_code"] is not None else None
+            ),
+            material_name=(
+                str(row["material_name"]) if row["material_name"] is not None else None
+            ),
+            specification=(
+                str(row["specification"]) if row["specification"] is not None else None
+            ),
+            quantity=Decimal(str(row["quantity"])) if row["quantity"] is not None else None,
+            tax_included_unit_price=(
+                Decimal(str(row["tax_included_unit_price"]))
+                if row["tax_included_unit_price"] is not None
+                else None
+            ),
+            source_total_price=(
+                Decimal(str(row["source_total_price"]))
+                if row["source_total_price"] is not None
+                else None
+            ),
+            unit=str(row["unit"]) if row["unit"] is not None else None,
+            currency=str(row["currency"]) if row["currency"] is not None else None,
+            effective_from=(
+                date.fromisoformat(str(row["effective_from"]))
+                if row["effective_from"] is not None
+                else None
+            ),
+            validation_status=str(row["validation_status"]),
+            pending_fields=tuple(json.loads(str(row["pending_fields_json"]))),
+        )
+        for row in rows
+    ]
+
+
 class FactRepository:
     """Staging 与 published facts 的唯一持久化入口。"""
 
@@ -53,7 +118,15 @@ class FactRepository:
         original_filename: str,
         content_sha256: str,
         byte_size: int,
+        source_kind: SourceKind,
+        storage_key: str | None,
+        source_uri: str | None,
+        immutable_copy: bool,
     ) -> tuple[ImportBatch, SourceFile]:
+        if not storage_key and not source_uri:
+            raise ValueError("源文件必须提供 storage_key 或 source_uri")
+        if source_kind == SourceKind.UPLOAD and (not storage_key or not immutable_copy):
+            raise ValueError("上传型源文件必须保存不可变私有副本")
         batch_id = _new_id()
         source_file_id = _new_id()
         created_at = datetime.now(UTC)
@@ -74,9 +147,19 @@ class FactRepository:
             self.store.execute(
                 connection,
                 "INSERT INTO source_files "
-                "(id, import_batch_id, original_filename, content_sha256, byte_size) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (source_file_id, batch_id, original_filename, content_sha256, byte_size),
+                "(id, import_batch_id, original_filename, content_sha256, byte_size, source_kind, "
+                "storage_key, source_uri, immutable_copy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    source_file_id,
+                    batch_id,
+                    original_filename,
+                    content_sha256,
+                    byte_size,
+                    source_kind.value,
+                    storage_key,
+                    source_uri,
+                    immutable_copy,
+                ),
             )
         return (
             ImportBatch(
@@ -91,7 +174,36 @@ class FactRepository:
                 original_filename=original_filename,
                 content_sha256=content_sha256,
                 byte_size=byte_size,
+                source_kind=source_kind,
+                storage_key=storage_key,
+                source_uri=source_uri,
+                immutable_copy=immutable_copy,
             ),
+        )
+
+    def get_source_file(self, source_file_id: str) -> SourceFile | None:
+        with self.store.transaction() as connection:
+            cursor = self.store.execute(
+                connection,
+                "SELECT id, import_batch_id, original_filename, content_sha256, byte_size, "
+                "source_kind, storage_key, source_uri, immutable_copy "
+                "FROM source_files WHERE id = ?",
+                (source_file_id,),
+            )
+            rows = _cursor_dicts(cursor)
+        if not rows:
+            return None
+        row = rows[0]
+        return SourceFile(
+            id=str(row["id"]),
+            import_batch_id=str(row["import_batch_id"]),
+            original_filename=str(row["original_filename"]),
+            content_sha256=str(row["content_sha256"]),
+            byte_size=int(row["byte_size"]),
+            source_kind=SourceKind(str(row["source_kind"])),
+            storage_key=str(row["storage_key"]) if row["storage_key"] is not None else None,
+            source_uri=str(row["source_uri"]) if row["source_uri"] is not None else None,
+            immutable_copy=bool(row["immutable_copy"]),
         )
 
     def save_staging_result(
@@ -179,21 +291,7 @@ class FactRepository:
             rows = _cursor_dicts(cursor)
         if not rows:
             return None
-        row = rows[0]
-        return ImportBatch(
-            id=str(row["id"]),
-            mapping_name=str(row["mapping_name"]),
-            status=ImportBatchStatus(str(row["status"])),
-            created_at=datetime.fromisoformat(str(row["created_at"])),
-            published_at=(
-                datetime.fromisoformat(str(row["published_at"])) if row["published_at"] else None
-            ),
-            staged_row_count=int(row["staged_row_count"]),
-            error_count=int(row["error_count"]),
-            pending_confirmation_fields=tuple(
-                json.loads(str(row["pending_confirmation_fields_json"]))
-            ),
-        )
+        return _batch_from_row(rows[0])
 
     def get_validation_errors(self, batch_id: str) -> list[RowValidationError]:
         with self.store.transaction() as connection:
@@ -235,51 +333,7 @@ class FactRepository:
                 (batch_id,),
             )
             rows = _cursor_dicts(cursor)
-        return [
-            StagedBomRow(
-                id=str(row["id"]),
-                import_batch_id=str(row["import_batch_id"]),
-                source_file_id=str(row["source_file_id"]),
-                sheet_name=str(row["sheet_name"]),
-                source_row_number=int(row["source_row_number"]),
-                parent_material_code=(
-                    str(row["parent_material_code"])
-                    if row["parent_material_code"] is not None
-                    else None
-                ),
-                version=str(row["version"]) if row["version"] is not None else None,
-                material_code=(
-                    str(row["material_code"]) if row["material_code"] is not None else None
-                ),
-                material_name=(
-                    str(row["material_name"]) if row["material_name"] is not None else None
-                ),
-                specification=(
-                    str(row["specification"]) if row["specification"] is not None else None
-                ),
-                quantity=Decimal(str(row["quantity"])) if row["quantity"] is not None else None,
-                tax_included_unit_price=(
-                    Decimal(str(row["tax_included_unit_price"]))
-                    if row["tax_included_unit_price"] is not None
-                    else None
-                ),
-                source_total_price=(
-                    Decimal(str(row["source_total_price"]))
-                    if row["source_total_price"] is not None
-                    else None
-                ),
-                unit=str(row["unit"]) if row["unit"] is not None else None,
-                currency=str(row["currency"]) if row["currency"] is not None else None,
-                effective_from=(
-                    date.fromisoformat(str(row["effective_from"]))
-                    if row["effective_from"] is not None
-                    else None
-                ),
-                validation_status=str(row["validation_status"]),
-                pending_fields=tuple(json.loads(str(row["pending_fields_json"]))),
-            )
-            for row in rows
-        ]
+        return _staged_rows_from_dicts(rows)
 
     def apply_confirmations(
         self,
@@ -321,7 +375,21 @@ class FactRepository:
             where += " AND material_code = ?"
             params.append(material_code)
 
-        with self.store.transaction() as connection:
+        with self.store.transaction(write_lock=True) as connection:
+            batch_query = "SELECT status, error_count FROM import_batches WHERE id = ?"
+            if self.store.dialect == "postgresql":
+                batch_query += " FOR UPDATE"
+            batch_cursor = self.store.execute(connection, batch_query, (batch_id,))
+            batch_state = batch_cursor.fetchone()
+            if batch_state is None:
+                raise KeyError("导入批次不存在")
+            if str(batch_state[0]) not in {
+                ImportBatchStatus.PENDING_CONFIRMATION.value,
+                ImportBatchStatus.READY_TO_PUBLISH.value,
+            }:
+                raise ValueError("当前导入批次状态不允许修改人工确认值")
+            if int(batch_state[1]) != 0:
+                raise ValueError("存在校验错误的导入批次不能确认并发布")
             cursor = self.store.execute(
                 connection,
                 f"UPDATE staged_bom_rows SET {', '.join(assignments)} WHERE {where}",
@@ -368,25 +436,65 @@ class FactRepository:
         return batch
 
     def publish_batch(self, batch_id: str) -> dict[str, object]:
-        """在一个事务中把已确认 staging 发布为不可分割的 BOM 事实。"""
-        batch = self.get_import_batch(batch_id)
-        if batch is None:
-            raise KeyError("导入批次不存在")
-        if batch.status != ImportBatchStatus.READY_TO_PUBLISH:
-            raise ValueError("导入批次尚未通过校验和人工确认，不能发布")
-        rows = self.get_staged_rows(batch_id)
-        if not rows or any(row.validation_status != "valid" for row in rows):
-            raise ValueError("导入批次没有可发布的完整 BOM 明细")
-
-        parent_versions = {(row.parent_material_code, row.version) for row in rows}
-        if len(parent_versions) != 1:
-            raise ValueError("一个导入批次只能发布一个父件和版本")
-        parent_material_code, version = next(iter(parent_versions))
-        if not parent_material_code or not version:
-            raise ValueError("父件或版本未确认")
-
+        """在同一加锁事务内复核 staging 并发布；重复版本明确拒绝。"""
         header_id = _new_id()
-        with self.store.transaction() as connection:
+        rows: list[StagedBomRow]
+        parent_material_code: str
+        version: str
+        with self.store.transaction(write_lock=True) as connection:
+            batch_query = (
+                "SELECT id, mapping_name, status, created_at, published_at, staged_row_count, "
+                "error_count, pending_confirmation_fields_json FROM import_batches WHERE id = ?"
+            )
+            if self.store.dialect == "postgresql":
+                batch_query += " FOR UPDATE"
+            batch_cursor = self.store.execute(connection, batch_query, (batch_id,))
+            batch_rows = _cursor_dicts(batch_cursor)
+            if not batch_rows:
+                raise KeyError("导入批次不存在")
+            batch = _batch_from_row(batch_rows[0])
+            if batch.status != ImportBatchStatus.READY_TO_PUBLISH:
+                raise ValueError("导入批次尚未通过校验和人工确认，不能发布")
+            if batch.error_count != 0 or batch.pending_confirmation_fields:
+                raise ValueError("导入批次仍有校验错误或待确认字段，不能发布")
+
+            staged_cursor = self.store.execute(
+                connection,
+                "SELECT id, import_batch_id, source_file_id, sheet_name, source_row_number, "
+                "parent_material_code, version, material_code, material_name, specification, "
+                "quantity, tax_included_unit_price, source_total_price, unit, currency, "
+                "effective_from, validation_status, pending_fields_json "
+                "FROM staged_bom_rows WHERE import_batch_id = ? "
+                "ORDER BY sheet_name, source_row_number",
+                (batch_id,),
+            )
+            rows = _staged_rows_from_dicts(_cursor_dicts(staged_cursor))
+            if (
+                not rows
+                or len(rows) != batch.staged_row_count
+                or any(row.validation_status != "valid" for row in rows)
+            ):
+                raise ValueError("导入批次没有可发布的完整有效 BOM 明细")
+
+            parent_versions = {(row.parent_material_code, row.version) for row in rows}
+            if len(parent_versions) != 1:
+                raise ValueError("一个导入批次只能发布一个父件和版本")
+            parent_value, version_value = next(iter(parent_versions))
+            if not parent_value or not version_value:
+                raise ValueError("父件或版本未确认")
+            parent_material_code = parent_value
+            version = version_value
+
+            if self.store.dialect == "postgresql":
+                lock_digest = hashlib.sha256(
+                    f"{parent_material_code}\0{version}".encode("utf-8")
+                ).digest()
+                lock_key = int.from_bytes(lock_digest[:8], byteorder="big", signed=True)
+                self.store.execute(
+                    connection,
+                    "SELECT pg_advisory_xact_lock(?)",
+                    (lock_key,),
+                )
             existing_cursor = self.store.execute(
                 connection,
                 "SELECT id FROM bom_headers WHERE parent_material_code = ? AND version = ?",
@@ -430,10 +538,7 @@ class FactRepository:
                     "INSERT INTO items "
                     "(id, material_code, name, specification, unit, import_batch_id, source_file_id, "
                     "source_sheet, source_row_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
-                    "ON CONFLICT(material_code) DO UPDATE SET "
-                    "name = excluded.name, specification = excluded.specification, unit = excluded.unit, "
-                    "import_batch_id = excluded.import_batch_id, source_file_id = excluded.source_file_id, "
-                    "source_sheet = excluded.source_sheet, source_row_number = excluded.source_row_number",
+                    "ON CONFLICT(material_code) DO NOTHING",
                     (
                         proposed_item_id,
                         row.material_code,
@@ -452,6 +557,23 @@ class FactRepository:
                     (row.material_code,),
                 )
                 item_id = str(item_cursor.fetchone()[0])
+                self.store.execute(
+                    connection,
+                    "INSERT INTO item_revisions "
+                    "(id, item_id, name, specification, unit, import_batch_id, source_file_id, "
+                    "source_sheet, source_row_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        _new_id(),
+                        item_id,
+                        row.material_name,
+                        row.specification,
+                        row.unit,
+                        batch_id,
+                        row.source_file_id,
+                        row.sheet_name,
+                        row.source_row_number,
+                    ),
+                )
                 self.store.execute(
                     connection,
                     "INSERT INTO bom_lines "
@@ -508,7 +630,8 @@ class FactRepository:
             header_cursor = self.store.execute(
                 connection,
                 "SELECT h.id, h.parent_material_code, h.version, h.effective_from, h.import_batch_id, "
-                "sf.original_filename, h.source_sheet "
+                "sf.id AS source_file_id, sf.original_filename, sf.content_sha256, sf.source_kind, "
+                "sf.storage_key, sf.source_uri, sf.immutable_copy, h.source_sheet "
                 "FROM bom_headers h JOIN source_files sf ON sf.id = h.source_file_id "
                 "WHERE h.parent_material_code = ? AND h.version = ?",
                 (parent_material_code, version),
@@ -519,11 +642,14 @@ class FactRepository:
             header = headers[0]
             line_cursor = self.store.execute(
                 connection,
-                "SELECT i.material_code, i.name AS material_name, i.specification, bl.quantity, "
+                "SELECT i.material_code, ir.name AS material_name, ir.specification, bl.quantity, "
                 "bl.unit, pr.tax_included_unit_price, pr.currency, pr.effective_from, "
-                "sf.original_filename AS source_file, bl.source_sheet, bl.source_row_number, "
-                "bl.import_batch_id "
+                "sf.id AS source_file_id, sf.original_filename AS source_file, "
+                "sf.content_sha256, sf.source_kind, sf.storage_key, sf.source_uri, "
+                "sf.immutable_copy, bl.source_sheet, bl.source_row_number, bl.import_batch_id "
                 "FROM bom_lines bl JOIN items i ON i.id = bl.item_id "
+                "JOIN item_revisions ir ON ir.item_id = bl.item_id "
+                "AND ir.import_batch_id = bl.import_batch_id "
                 "JOIN source_files sf ON sf.id = bl.source_file_id "
                 "JOIN price_records pr ON pr.item_id = bl.item_id "
                 "AND pr.import_batch_id = bl.import_batch_id "
@@ -536,6 +662,7 @@ class FactRepository:
         for line in lines:
             line["quantity"] = Decimal(str(line["quantity"]))
             line["tax_included_unit_price"] = Decimal(str(line["tax_included_unit_price"]))
+            line["immutable_copy"] = bool(line["immutable_copy"])
         return {
             "header": {
                 "id": str(header["id"]),
@@ -543,7 +670,17 @@ class FactRepository:
                 "version": str(header["version"]),
                 "effective_from": str(header["effective_from"]),
                 "import_batch_id": str(header["import_batch_id"]),
+                "source_file_id": str(header["source_file_id"]),
                 "source_file": str(header["original_filename"]),
+                "content_sha256": str(header["content_sha256"]),
+                "source_kind": str(header["source_kind"]),
+                "storage_key": (
+                    str(header["storage_key"]) if header["storage_key"] is not None else None
+                ),
+                "source_uri": (
+                    str(header["source_uri"]) if header["source_uri"] is not None else None
+                ),
+                "immutable_copy": bool(header["immutable_copy"]),
                 "source_sheet": str(header["source_sheet"]),
             },
             "lines": lines,
@@ -553,6 +690,23 @@ class FactRepository:
         with self.store.transaction() as connection:
             cursor = self.store.execute(connection, "SELECT COUNT(*) FROM bom_headers")
             return int(cursor.fetchone()[0])
+
+    def get_item_audit_history(self, material_code: str) -> list[dict[str, object]]:
+        """返回物料每次发布的不可变主数据快照及其来源。"""
+        with self.store.transaction() as connection:
+            cursor = self.store.execute(
+                connection,
+                "SELECT i.material_code, ir.name, ir.specification, ir.unit, ir.import_batch_id, "
+                "sf.id AS source_file_id, sf.original_filename AS source_file, sf.content_sha256, "
+                "sf.source_kind, sf.storage_key, sf.source_uri, ir.source_sheet, "
+                "ir.source_row_number "
+                "FROM items i JOIN item_revisions ir ON ir.item_id = i.id "
+                "JOIN source_files sf ON sf.id = ir.source_file_id "
+                "JOIN import_batches ib ON ib.id = ir.import_batch_id "
+                "WHERE i.material_code = ? ORDER BY ib.published_at, ir.id",
+                (material_code,),
+            )
+            return _cursor_dicts(cursor)
 
 
 __all__ = ["FactRepository"]

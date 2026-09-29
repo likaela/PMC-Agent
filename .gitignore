@@ -19,6 +19,9 @@ scripts/node_modules/
 # Private enterprise source data: local only, never commit
 data/raw/
 
+# Local fact database and immutable private source copies
+data/facts/
+
 # Real enterprise private data
 data/normalized/
 
