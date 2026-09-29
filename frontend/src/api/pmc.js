@@ -29,10 +29,15 @@ export function analyzePmc(payload) {
   })
 }
 
-export function queryAgent(message, workflowId = null) {
+export function queryAgent(message, workflowId = null, factSessionId = null, activeContext = null) {
   return request('/api/v1/agent/query', {
     method: 'POST',
-    body: JSON.stringify({ message, ...(workflowId ? { workflow_id: workflowId } : {}) }),
+    body: JSON.stringify({
+      message,
+      ...(workflowId ? { workflow_id: workflowId } : {}),
+      ...(factSessionId ? { fact_session_id: factSessionId } : {}),
+      ...(activeContext ? { active_context: activeContext } : {}),
+    }),
   })
 }
 

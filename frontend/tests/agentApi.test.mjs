@@ -26,6 +26,14 @@ try {
     workflow_id: 'workflow-1',
   })
 
+  await queryAgent('还能用吗？', 'workflow-1', 'fact-session-1', 'fact_query')
+  assert.deepEqual(JSON.parse(calls[2].options.body), {
+    message: '还能用吗？',
+    workflow_id: 'workflow-1',
+    fact_session_id: 'fact-session-1',
+    active_context: 'fact_query',
+  })
+
   globalThis.fetch = async () => ({
     ok: false,
     status: 500,
@@ -39,6 +47,8 @@ try {
 
   const chatView = readFileSync(new URL('../src/views/Chat.vue', import.meta.url), 'utf8')
   assert.match(chatView, /await queryAgent\(/)
+  assert.match(chatView, /factSessionId\.value = envelope\.structured_data\.fact_session_id/)
+  assert.match(chatView, /factSessionId\.value = null/)
   assert.doesNotMatch(chatView, /await chatPmc\(/)
 } finally {
   globalThis.fetch = originalFetch

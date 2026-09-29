@@ -163,6 +163,17 @@ class FactQueryAgentTests(unittest.TestCase):
         self.assertIn("当前事实库没有对应信息", response["answer"])
         self.assertNotIn("预计", response["answer"])
 
+    def test_absent_snapshot_and_bom_refuse_without_guessing(self) -> None:
+        for question, expected in [
+            ("查询 MAT-001 库存", "没有已发布库存快照"),
+            ("查询 PARENT-1 V1 的 BOM", "没有已发布 BOM 事实"),
+        ]:
+            with self.subTest(question=question):
+                response, _ = self._run_with_tool(question, tool_result("data_unavailable"))
+            self.assertIn("当前事实库没有对应信息", response["answer"])
+            self.assertIn(expected, response["answer"])
+            self.assertIsNone(response["data"])
+
     def test_invalid_query_does_not_invent_missing_bom_version(self) -> None:
         response, tool = self._run_with_tool("查询 PARENT-1 的 BOM", tool_result("invalid_query"))
         self.assertEqual(tool.calls, [{"parent_material_code": "PARENT-1", "revision": ""}])

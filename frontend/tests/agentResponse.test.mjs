@@ -34,8 +34,8 @@ assert.deepEqual(inventory.sources, [
   { label: '来源文件', value: 'synthetic.xlsx' },
   { label: '导入批次', value: 'batch-1' },
   { label: '库存快照时间', value: '2026-09-20T00:00:00+00:00' },
-  { label: '库存快照', value: 'snapshot-1' },
 ])
+assert.ok(!inventory.sources.some((item) => item.value === 'snapshot-1'))
 assert.equal(inventory.warnings[0], '可用数量缺少权威来源，返回 未知')
 assert.equal(inventoryEnvelope.structured_data.data.available_qty, null)
 
@@ -54,6 +54,23 @@ assert.equal(bom.queryObject, 'PARENT-1')
 assert.equal(bom.rows[0].label, '测试物料')
 assert.equal(bom.rows[0].value, '2')
 assert.ok(bom.sources.some((item) => item.label === 'BOM 版本' && item.value === 'V1'))
+assert.ok(bom.sources.some((item) => item.label === '生效时间' && item.value === '未知'))
+
+for (const [queryType, expected] of [
+  ['inventory', '库存快照'],
+  ['bom', 'BOM 版本'],
+  ['inbound', '权威在途采购事实'],
+]) {
+  const unavailable = presentFactResult({
+    ...inventoryEnvelope,
+    status: 'data_unavailable',
+    structured_data: { query_type: queryType, query: { material_code: 'MAT-001' }, data: null },
+    provenance: null,
+    warnings: [],
+  })
+  assert.match(unavailable.answer, new RegExp(expected))
+  assert.match(unavailable.answer, /当前事实库没有对应信息/)
+}
 
 const inbound = presentFactResult({
   ...inventoryEnvelope,

@@ -23,6 +23,7 @@ const message = ref(DEFAULT_DEMO_MESSAGE)
 const messages = ref(createInitialMessages())
 const result = ref(null)
 const factResult = ref(null)
+const factSessionId = ref(null)
 const activeView = ref('pmc')
 const taskUnderstanding = ref(null)
 const errorMessage = ref('')
@@ -133,6 +134,7 @@ function resetDemoSession({ notice = '' } = {}) {
   sessionHistory.value = []
   result.value = null
   factResult.value = null
+  factSessionId.value = null
   activeView.value = 'pmc'
   taskUnderstanding.value = null
   errorMessage.value = ''
@@ -241,7 +243,13 @@ async function sendMessage(candidateMessage = message.value, { reuseCurrentWorkf
   messages.value.push(pendingMessage)
   isSending.value = true
   try {
-    const envelope = await queryAgent(userMessage, shouldReuseWorkflow ? activeWorkflowId.value : null)
+    const envelope = await queryAgent(
+      userMessage,
+      shouldReuseWorkflow ? activeWorkflowId.value : null,
+      factSessionId.value,
+      activeView.value === 'fact' && factSessionId.value ? 'fact_query' :
+        shouldReuseWorkflow ? 'pmc_analysis' : null,
+    )
     if (envelope?.intent === 'clarification') {
       retryRequest.value = null
       messages.value.push({ role: 'agent', content: '请明确您要进行生产分析，还是查询物料库存、批次、BOM 或在途信息。' })
@@ -250,6 +258,9 @@ async function sendMessage(candidateMessage = message.value, { reuseCurrentWorkf
     if (envelope?.intent === 'fact_query') {
       const fact = presentFactResult(envelope)
       if (!fact) throw new ApiError('事实查询暂不可用，请稍后重试。', 500, 'QUERY_UNAVAILABLE')
+      if (typeof envelope.structured_data?.fact_session_id === 'string') {
+        factSessionId.value = envelope.structured_data.fact_session_id
+      }
       factResult.value = fact
       activeView.value = 'fact'
       if (envelope.status !== 'query_failed') retryRequest.value = null

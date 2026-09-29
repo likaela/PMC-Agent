@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 
 from config import get_llm, get_llm_configuration_status
 from fact_layer.query_models import FactQueryResult
+from services.fact_dialogue_context_service import FactDialogueContext
 from tools.fact_query_registry import FactQueryKind, get_fact_query_tool
 
 
@@ -48,7 +49,22 @@ _REVISION_PATTERN = re.compile(r"(?<![A-Za-z0-9])V\d+(?![A-Za-z0-9])", re.IGNORE
 _TIMESTAMP_PATTERN = re.compile(
     r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:\d{2})?"
 )
-_RESERVED_CODES = {"BOM", "FIFO", "MRP", "PMC"}
+_RESERVED_CODES = {"BOM", "FIFO", "MRP", "PMC", "STOCK", "BATCH", "INBOUND"}
+
+
+def _explicit_material_code(message: str) -> str | None:
+    timestamp_match = _TIMESTAMP_PATTERN.search(message)
+    return next(
+        (
+            token
+            for token in _CODE_PATTERN.findall(message)
+            if token.upper() not in _RESERVED_CODES
+            and not _REVISION_PATTERN.fullmatch(token)
+            and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", token)
+            and (timestamp_match is None or token not in timestamp_match.group())
+        ),
+        None,
+    )
 
 
 def _rule_intent(message: str) -> FactQueryIntent | None:
@@ -66,21 +82,9 @@ def _rule_intent(message: str) -> FactQueryIntent | None:
 
     revision_match = _REVISION_PATTERN.search(message)
     timestamp_match = _TIMESTAMP_PATTERN.search(message)
-    tokens = _CODE_PATTERN.findall(message)
-    material_code = next(
-        (
-            token
-            for token in tokens
-            if token.upper() not in _RESERVED_CODES
-            and not _REVISION_PATTERN.fullmatch(token)
-            and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", token)
-            and (timestamp_match is None or token not in timestamp_match.group())
-        ),
-        None,
-    )
     return FactQueryIntent(
         query_type=kind,
-        material_code=material_code,
+        material_code=_explicit_material_code(message),
         revision=revision_match.group() if kind == "bom" and revision_match else None,
         as_of=timestamp_match.group() if kind != "bom" and timestamp_match else None,
     )
@@ -128,6 +132,40 @@ def _choose_intent(message: str) -> tuple[FactQueryIntent | None, str]:
     return rule, "rule_fallback"
 
 
+def _inherit_fact_context(
+    intent: FactQueryIntent | None,
+    message: str,
+    context: FactDialogueContext | None,
+) -> tuple[FactQueryIntent | None, bool]:
+    """只继承已确认的事实会话对象；新显式料号绝不借用旧料号的版本/时点。"""
+    if context is None:
+        return intent, False
+    if intent is None:
+        explicit_code = _explicit_material_code(message)
+        same_material = explicit_code is None or explicit_code == context.material_code
+        explicit_revision = _REVISION_PATTERN.search(message)
+        explicit_time = _TIMESTAMP_PATTERN.search(message)
+        revision = explicit_revision.group() if explicit_revision else (context.revision if same_material else None)
+        as_of = explicit_time.group() if explicit_time else (context.as_of if same_material else None)
+        return FactQueryIntent(
+            query_type=context.query_type,
+            material_code=explicit_code or context.material_code,
+            revision=revision if context.query_type == "bom" else None,
+            as_of=as_of if context.query_type != "bom" else None,
+        ), True
+
+    same_material = intent.material_code is None or intent.material_code == context.material_code
+    reuse_revision = intent.query_type == "bom" and context.query_type == "bom" and same_material
+    reuse_as_of = intent.query_type != "bom" and same_material and not re.search(r"最新|当前|现在", message)
+    resolved = FactQueryIntent(
+        query_type=intent.query_type,
+        material_code=intent.material_code or context.material_code,
+        revision=intent.revision or (context.revision if reuse_revision else None),
+        as_of=intent.as_of or (context.as_of if reuse_as_of else None),
+    )
+    return resolved, resolved != intent
+
+
 def _query_arguments(intent: FactQueryIntent) -> dict[str, str | None]:
     if intent.query_type == "bom":
         return {
@@ -171,14 +209,21 @@ def _known(value: object) -> str:
     return "未知" if value is None else str(value)
 
 
-def _answer_from_result(kind: FactQueryKind, result: FactQueryResult) -> str:
+def _answer_from_result(kind: FactQueryKind, result: FactQueryResult, question: str = "") -> str:
     status = result["status"]
     if status in {"item_not_found", "data_unavailable", "invalid_query"}:
-        detail = {
-            "item_not_found": "没有精确匹配的物料标识",
-            "data_unavailable": "没有符合查询条件的已发布事实",
-            "invalid_query": "查询条件不完整或时点格式无效",
-        }[status]
+        if status == "data_unavailable":
+            detail = {
+                "inventory": "该物料在查询时点没有已发布库存快照",
+                "inventory_batches": "该物料在查询时点没有已发布库存批次",
+                "bom": "该父件与版本没有已发布 BOM 事实",
+                "inbound": "没有已发布的权威在途采购事实",
+            }[kind]
+        else:
+            detail = {
+                "item_not_found": "没有精确匹配的物料标识",
+                "invalid_query": "查询条件不完整或时点格式无效",
+            }[status]
         return f"当前事实库没有对应信息：{detail}。请核对物料编码、BOM 版本或查询时点。"
     if status == "item_alias_ambiguous":
         return "当前事实库的物料别名对应多个标准料号，需要先确认物料身份，不能推测查询结果。"
@@ -193,8 +238,15 @@ def _answer_from_result(kind: FactQueryKind, result: FactQueryResult) -> str:
     if isinstance(provenance, Mapping):
         source_file = provenance.get("source_file")
         batch_id = provenance.get("import_batch_id")
-        if source_file or batch_id:
-            source = f" 来源：{_known(source_file)}；导入批次：{_known(batch_id)}。"
+        timepoint = provenance.get("snapshot_at") or provenance.get("observed_at")
+        revision = provenance.get("bom_version") if kind == "bom" else None
+        source_parts = [f"来源文件：{_known(source_file)}", f"导入批次：{_known(batch_id)}"]
+        if kind == "bom":
+            source_parts.append(f"BOM 版本：{_known(revision)}")
+            source_parts.append(f"生效时间：{_known(data.get('effective_from'))}")
+        elif timepoint is not None:
+            source_parts.append(f"数据时点：{_known(timepoint)}")
+        source = " 数据来源：" + "；".join(source_parts) + "。"
 
     if kind == "inventory":
         answer = (
@@ -232,10 +284,19 @@ def _answer_from_result(kind: FactQueryKind, result: FactQueryResult) -> str:
         )
     warnings = result["warnings"]
     warning_text = " 提示：" + "；".join(str(warning) for warning in warnings) + "。" if warnings else ""
-    return answer + source + warning_text
+    usability_note = (
+        " 当前缺少权威可用库存数据，不能仅凭在库数量判断是否可用。"
+        if kind == "inventory" and re.search(r"能用|可用|能否使用", question) and data.get("available_qty") is None
+        else ""
+    )
+    return answer + source + warning_text + usability_note
 
 
-def run_fact_query_agent(message: str) -> FactQueryAgentResponse:
+def run_fact_query_agent(
+    message: str,
+    *,
+    context: FactDialogueContext | None = None,
+) -> FactQueryAgentResponse:
     """独立入口：识别意图、调用一个受控 Tool、保留原始结构化结果。"""
     if not isinstance(message, str) or not message.strip():
         result: FactQueryResult = {
@@ -247,7 +308,15 @@ def run_fact_query_agent(message: str) -> FactQueryAgentResponse:
             "warnings": ["查询内容不能为空"],
         }
         return {**result, "query_type": None, "tool_name": None, "parser_source": "rule_fallback", "answer": _answer_from_result("inventory", result)}
-    intent, parser_source = _choose_intent(message.strip())
+    normalized_message = message.strip()
+    if context is not None and _rule_intent(normalized_message) is None:
+        # “还能用吗”等省略查询对象的追问只使用事实会话，不让 LLM 重选料号。
+        intent, parser_source = None, "fact_context"
+    else:
+        intent, parser_source = _choose_intent(normalized_message)
+    intent, inherited = _inherit_fact_context(intent, normalized_message, context)
+    if inherited:
+        parser_source = "fact_context"
     if intent is None:
         result: FactQueryResult = {
             "status": "invalid_query",
@@ -270,7 +339,7 @@ def run_fact_query_agent(message: str) -> FactQueryAgentResponse:
         "query_type": intent.query_type,
         "tool_name": tool.name,
         "parser_source": parser_source,
-        "answer": _answer_from_result(intent.query_type, result),
+        "answer": _answer_from_result(intent.query_type, result, normalized_message),
     }
 
 

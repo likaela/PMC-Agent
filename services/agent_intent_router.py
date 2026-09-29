@@ -24,7 +24,7 @@ class IntentExtraction(BaseModel):
 
 class RouteDecision(TypedDict):
     intent: RoutedIntent | Literal["clarification"]
-    parser_source: Literal["llm", "rule_fallback", "rule_override", "ambiguous"]
+    parser_source: Literal["llm", "rule_fallback", "rule_override", "ambiguous", "fact_context"]
 
 
 _ROUTER_PROMPT = """
@@ -35,6 +35,7 @@ fact_query：查询已发布的库存、批次、BOM、在途事实。
 """
 _PMC_PATTERN = re.compile(r"生产|开工|减(?:少|量)|调整.*(?:台|件|个)|产量|齐套|缺料|生产方案|哪些物料.*影响")
 _FACT_PATTERN = re.compile(r"库存|批次|库位|BOM|物料清单|物料组成|在途|到货|采购订单", re.IGNORECASE)
+_FACT_FOLLOWUP_PATTERN = re.compile(r"这个|该物料|它|还能|还有|能用|可用|版本|明细|同一|刚才|继续|多少|^\s*V\d+\s*$", re.IGNORECASE)
 
 
 def _rule_classify(message: str) -> RoutedIntent | Literal["ambiguous"] | None:
@@ -61,11 +62,20 @@ def _invoke_llm_classification(message: str) -> IntentExtraction:
     raise ValueError("模型未返回受控意图对象")
 
 
-def route_agent_message(message: str) -> RouteDecision:
+def route_agent_message(
+    message: str,
+    *,
+    fact_context_active: bool = False,
+    pmc_context_active: bool = False,
+) -> RouteDecision:
     """分类失败时仅回退规则；双重意图不猜测，要求用户澄清。"""
     rule = _rule_classify(message)
     if rule == "ambiguous":
         return {"intent": "clarification", "parser_source": "ambiguous"}
+    if rule is None and fact_context_active and _FACT_FOLLOWUP_PATTERN.search(message) and not re.search(r"\d+\s*台", message):
+        return {"intent": "fact_query", "parser_source": "fact_context"}
+    if rule is None and pmc_context_active:
+        return {"intent": "clarification", "parser_source": "rule_fallback"}
 
     if get_llm_configuration_status()["status"] == "ok":
         try:

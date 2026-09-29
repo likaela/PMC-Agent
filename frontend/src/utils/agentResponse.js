@@ -96,15 +96,17 @@ export function presentFactResult(envelope) {
     }
   }
 
-  const sourceFields = [
-    ['来源文件', provenance.source_file],
-    ['导入批次', provenance.import_batch_id],
-    ['库存快照时间', provenance.snapshot_at],
-    ['库存快照', provenance.snapshot_id],
-    ['BOM 版本', provenance.bom_version],
+  const sourceFields = envelope.status === 'ok' ? [
+    ['来源文件', known(provenance.source_file)],
+    ['导入批次', known(provenance.import_batch_id)],
+    ...(queryType === 'inventory' || queryType === 'inventory_batches'
+      ? [['库存快照时间', known(provenance.snapshot_at)]] : []),
+    ...(queryType === 'bom'
+      ? [['BOM 版本', known(provenance.bom_version || data.revision)], ['生效时间', known(data.effective_from)]] : []),
+    ...(queryType === 'inbound'
+      ? [['在途观测时间', known(provenance.observed_at)]] : []),
     ['工作表', provenance.sheet_name],
-    ['在途观测时间', provenance.observed_at],
-  ]
+  ] : []
   const sources = sourceFields
     .filter(([, value]) => value !== null && value !== undefined && value !== '')
     .map(([label, value]) => ({ label, value: String(value) }))
@@ -114,7 +116,12 @@ export function presentFactResult(envelope) {
 
   const unavailableAnswers = {
     item_not_found: '当前事实库没有对应信息：未找到精确匹配的物料，请核对编码。',
-    data_unavailable: '当前事实库没有对应信息：该查询条件下暂无已发布的权威数据。',
+    data_unavailable: {
+      inventory: '当前事实库没有对应信息：查询时点没有已发布的库存快照。',
+      inventory_batches: '当前事实库没有对应信息：查询时点没有已发布的库存批次。',
+      bom: '当前事实库没有对应信息：没有已发布的对应 BOM 版本。',
+      inbound: '当前事实库没有对应信息：没有已发布的权威在途采购事实。',
+    }[queryType] || '当前事实库没有对应信息：该查询条件下暂无已发布的权威数据。',
     invalid_query: '当前事实库没有对应信息：请补充物料编码、BOM 版本或有效的查询时点。',
     item_alias_ambiguous: '当前物料别名对应多个标准料号，请先确认物料身份。',
     query_failed: '事实查询暂不可用，请稍后重试。',
