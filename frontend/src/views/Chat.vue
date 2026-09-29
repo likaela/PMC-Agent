@@ -532,6 +532,14 @@ onMounted(async () => {
       <p v-if="!factResult.metrics.length && !factResult.rows.length" class="fact-empty">
         当前没有可展示的已发布事实，请核对查询条件或稍后重试。
       </p>
+      <section v-if="factResult.completenessItems?.length" class="fact-provenance" aria-label="数据完整性">
+        <h3>数据完整性</h3>
+        <dl>
+          <div v-for="item in factResult.completenessItems" :key="item.label">
+            <dt>{{ item.label }}</dt><dd>{{ item.value }}</dd>
+          </div>
+        </dl>
+      </section>
       <section v-if="factResult.sources.length" class="fact-provenance" aria-label="数据来源">
         <h3>数据来源</h3>
         <dl>

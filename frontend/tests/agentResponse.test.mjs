@@ -37,6 +37,11 @@ assert.deepEqual(inventory.sources, [
 ])
 assert.ok(!inventory.sources.some((item) => item.value === 'snapshot-1'))
 assert.equal(inventory.warnings[0], '可用数量缺少权威来源，返回 未知')
+assert.deepEqual(inventory.completenessItems, [
+  { label: '在库数量', value: '已核实' },
+  { label: '可用数量', value: '暂无完整权威数据' },
+  { label: '预留数量', value: '暂无完整权威数据' },
+])
 assert.equal(inventoryEnvelope.structured_data.data.available_qty, null)
 
 const bom = presentFactResult({
@@ -101,6 +106,17 @@ for (const status of ['item_not_found', 'data_unavailable', 'invalid_query', 'qu
   assert.doesNotMatch(unavailable.answer, /traceback|workflow|blocked/i)
 }
 
+const missingItem = presentFactResult({
+  ...inventoryEnvelope,
+  status: 'item_not_found',
+  structured_data: { ...inventoryEnvelope.structured_data, query: { material_code: '1305000050101' }, data: null },
+  provenance: null,
+  warnings: ['private database field exception'],
+})
+assert.match(missingItem.answer, /未找到物料编码 1305000050101/)
+assert.deepEqual(missingItem.warnings, [])
+assert.deepEqual(missingItem.completenessItems, [])
+
 const pmcPayload = {
   workflow_id: 'workflow-1',
   decision_status: 'blocked',
@@ -120,6 +136,7 @@ assert.match(chatView, /class="status-grid"/)
 assert.match(chatView, /<WorkflowTrace v-if="activeView === 'pmc'"/)
 assert.match(chatView, /数据来源/)
 assert.match(chatView, /数据完整性提示/)
+assert.match(chatView, /aria-label="数据完整性"/)
 
 const capacity = presentProductionCapacityResult({
   intent: 'production_capacity',

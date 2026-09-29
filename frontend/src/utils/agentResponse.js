@@ -43,6 +43,7 @@ export function presentFactResult(envelope) {
   const structured = record(envelope.structured_data)
   const query = record(structured.query)
   const data = record(structured.data)
+  const completeness = record(structured.completeness)
   const provenance = record(envelope.provenance)
   const queryType = structured.query_type
   const queryObject = query.resolved_material_code
@@ -113,18 +114,29 @@ export function presentFactResult(envelope) {
   const warnings = (Array.isArray(envelope.warnings) ? envelope.warnings : [])
     .filter((item) => typeof item === 'string')
     .map((item) => item.replace(/\bunknown\b/gi, '未知'))
+  const completenessFields = {
+    inventory: [['on_hand_qty', '在库数量'], ['available_qty', '可用数量'], ['reserved_qty', '预留数量']],
+    inventory_batches: [['batch_no', '批次号'], ['received_at', '收货时间'], ['expiry_date', '有效期']],
+    bom: [['bom_lines', 'BOM 明细'], ['qty_per', '单位用量'], ['price', '价格']],
+    inbound: [['ordered_qty', '订购数量'], ['in_transit_qty', '在途数量']],
+  }
+  const completenessItems = envelope.status === 'ok'
+    ? (completenessFields[queryType] || [])
+      .filter(([key]) => typeof completeness[key] === 'boolean')
+      .map(([key, label]) => ({ label, value: completeness[key] ? '已核实' : '暂无完整权威数据' }))
+    : []
 
   const unavailableAnswers = {
-    item_not_found: '当前事实库没有对应信息：未找到精确匹配的物料，请核对编码。',
+    item_not_found: `当前事实库没有对应信息：未找到物料编码 ${queryObject}，请确认编码是否正确。`,
     data_unavailable: {
-      inventory: '当前事实库没有对应信息：查询时点没有已发布的库存快照。',
-      inventory_batches: '当前事实库没有对应信息：查询时点没有已发布的库存批次。',
-      bom: '当前事实库没有对应信息：没有已发布的对应 BOM 版本。',
-      inbound: '当前事实库没有对应信息：没有已发布的权威在途采购事实。',
+      inventory: '当前事实库没有对应信息：已找到该物料，但查询时点没有已发布的库存快照。',
+      inventory_batches: '当前事实库没有对应信息：已找到该物料，但查询时点没有已发布的库存批次。',
+      bom: '当前事实库没有对应信息：当前没有该产品的已发布 BOM 版本。',
+      inbound: '当前事实库没有对应信息：当前没有权威在途采购事实。',
     }[queryType] || '当前事实库没有对应信息：该查询条件下暂无已发布的权威数据。',
     invalid_query: '当前事实库没有对应信息：请补充物料编码、BOM 版本或有效的查询时点。',
     item_alias_ambiguous: '当前物料别名对应多个标准料号，请先确认物料身份。',
-    query_failed: '事实查询暂不可用，请稍后重试。',
+    query_failed: '系统查询异常，请稍后重试。',
   }
   return {
     kindLabel: FACT_KIND_LABELS[queryType] || '事实查询',
@@ -134,8 +146,9 @@ export function presentFactResult(envelope) {
       || (typeof envelope.answer === 'string' && envelope.answer.trim() ? envelope.answer : '查询完成，请查看下方事实结果。'),
     metrics,
     rows,
+    completenessItems,
     sources,
-    warnings,
+    warnings: envelope.status === 'ok' ? warnings : [],
   }
 }
 

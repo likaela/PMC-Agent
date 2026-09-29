@@ -45,6 +45,7 @@ _INTENT_PROMPT = """
 只输出符合结构化 schema 的字段。
 """
 _CODE_PATTERN = re.compile(r"(?<![A-Za-z0-9])[A-Za-z0-9][A-Za-z0-9_-]{2,}(?![A-Za-z0-9])")
+_QUOTED_ALIAS_PATTERN = re.compile(r"[\"“‘]([^\"”’\r\n]{1,64})[\"”’]")
 _REVISION_PATTERN = re.compile(r"(?<![A-Za-z0-9])V\d+(?![A-Za-z0-9])", re.IGNORECASE)
 _TIMESTAMP_PATTERN = re.compile(
     r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:\d{2})?"
@@ -53,6 +54,9 @@ _RESERVED_CODES = {"BOM", "FIFO", "MRP", "PMC", "STOCK", "BATCH", "INBOUND"}
 
 
 def _explicit_material_code(message: str) -> str | None:
+    quoted = _QUOTED_ALIAS_PATTERN.search(message)
+    if quoted and quoted.group(1).strip():
+        return quoted.group(1).strip()
     timestamp_match = _TIMESTAMP_PATTERN.search(message)
     return next(
         (
@@ -69,13 +73,13 @@ def _explicit_material_code(message: str) -> str | None:
 
 def _rule_intent(message: str) -> FactQueryIntent | None:
     lowered = message.lower()
-    if "批次" in message or "库位" in message or "batch" in lowered:
+    if any(word in message for word in ("批次", "哪批", "库位", "有效期")) or "batch" in lowered or "fifo" in lowered:
         kind: FactQueryKind = "inventory_batches"
-    elif "在途" in message or "到货" in message or "采购订单" in message or "inbound" in lowered:
+    elif any(word in message for word in ("在途", "到货", "什么时候到", "采购", "订单")) or "inbound" in lowered:
         kind = "inbound"
-    elif "bom" in lowered or "物料清单" in message or "物料组成" in message:
+    elif "bom" in lowered or any(word in message for word in ("物料清单", "物料组成", "有哪些物料", "有哪些料")):
         kind = "bom"
-    elif "库存" in message or "现存" in message or "stock" in lowered:
+    elif any(word in message for word in ("库存", "现存", "剩余", "余量", "存量", "还有多少", "还剩多少", "有没有")) or "stock" in lowered:
         kind = "inventory"
     else:
         return None
@@ -108,11 +112,17 @@ def _is_literal_from_message(value: str | None, message: str) -> bool:
 
 def _choose_intent(message: str) -> tuple[FactQueryIntent | None, str]:
     rule = _rule_intent(message)
-    if get_llm_configuration_status()["status"] == "ok":
+    explicit_code = _explicit_material_code(message)
+    try:
+        llm_available = get_llm_configuration_status()["status"] == "ok"
+    except Exception:
+        llm_available = False
+    if llm_available:
         try:
             llm_intent = _invoke_structured_llm(message)
             if (
                 (rule is None or llm_intent.query_type == rule.query_type)
+                and (explicit_code is None or llm_intent.material_code in (None, explicit_code))
                 and all(
                     _is_literal_from_message(value, message)
                     for value in (llm_intent.material_code, llm_intent.revision, llm_intent.as_of)
@@ -122,7 +132,7 @@ def _choose_intent(message: str) -> tuple[FactQueryIntent | None, str]:
                 if rule is not None:
                     return FactQueryIntent(
                         query_type=llm_intent.query_type,
-                        material_code=rule.material_code or llm_intent.material_code,
+                        material_code=explicit_code or rule.material_code or llm_intent.material_code,
                         revision=rule.revision or llm_intent.revision,
                         as_of=rule.as_of or llm_intent.as_of,
                     ), "llm"
@@ -202,6 +212,8 @@ def _validated_result(value: object, query: dict[str, object]) -> FactQueryResul
         "ok", "item_not_found", "item_alias_ambiguous", "data_unavailable", "invalid_query", "query_failed"
     }:
         return _failed_result(query)
+    if value["status"] == "query_failed":
+        return _failed_result(query)
     return {key: value[key] for key in required}  # type: ignore[return-value]
 
 
@@ -212,23 +224,22 @@ def _known(value: object) -> str:
 def _answer_from_result(kind: FactQueryKind, result: FactQueryResult, question: str = "") -> str:
     status = result["status"]
     if status in {"item_not_found", "data_unavailable", "invalid_query"}:
-        if status == "data_unavailable":
-            detail = {
-                "inventory": "该物料在查询时点没有已发布库存快照",
-                "inventory_batches": "该物料在查询时点没有已发布库存批次",
-                "bom": "该父件与版本没有已发布 BOM 事实",
-                "inbound": "没有已发布的权威在途采购事实",
-            }[kind]
-        else:
-            detail = {
-                "item_not_found": "没有精确匹配的物料标识",
-                "invalid_query": "查询条件不完整或时点格式无效",
-            }[status]
-        return f"当前事实库没有对应信息：{detail}。请核对物料编码、BOM 版本或查询时点。"
+        if status == "item_not_found":
+            code = result["query"].get("material_code") or result["query"].get("parent_material_code")
+            return f"当前事实库没有对应信息：未找到物料编码 {code or '所查询物料'}，请确认编码是否正确。"
+        if status == "invalid_query":
+            return "当前事实库没有对应信息：查询条件不完整，请补充物料编码、BOM 版本或有效的查询时点。"
+        detail = {
+            "inventory": "已找到该物料，但当前没有已发布库存数据（没有已发布库存快照）",
+            "inventory_batches": "已找到该物料，但当前没有已发布库存批次数据",
+            "bom": "该产品与版本没有已发布 BOM 事实",
+            "inbound": "当前没有已发布的权威在途采购事实",
+        }[kind]
+        return f"当前事实库没有对应信息：{detail}。"
     if status == "item_alias_ambiguous":
         return "当前事实库的物料别名对应多个标准料号，需要先确认物料身份，不能推测查询结果。"
     if status != "ok" or result["data"] is None:
-        return "事实查询暂不可用，当前无法给出可靠结果，请稍后重试。"
+        return "系统查询异常，请稍后重试。"
 
     data = result["data"]
     query = result["query"]
@@ -328,16 +339,16 @@ def run_fact_query_agent(
         }
         return {**result, "query_type": None, "tool_name": None, "parser_source": parser_source, "answer": _answer_from_result("inventory", result)}
 
-    tool = get_fact_query_tool(intent.query_type)
     arguments = _query_arguments(intent)
     try:
+        tool = get_fact_query_tool(intent.query_type)
         result = _validated_result(tool.invoke(arguments), arguments)
     except Exception:
         result = _failed_result(arguments)
     return {
         **result,
         "query_type": intent.query_type,
-        "tool_name": tool.name,
+        "tool_name": tool.name if result["status"] != "query_failed" else None,
         "parser_source": parser_source,
         "answer": _answer_from_result(intent.query_type, result, normalized_message),
     }

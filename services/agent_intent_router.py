@@ -35,8 +35,13 @@ production_capacity：询问最多能生产多少、当前库存是否满足指�
 只返回符合 schema 的 intent，不返回事实、数量、采购或生产结论。
 """
 _PMC_PATTERN = re.compile(r"生产|开工|减(?:少|量)|调整.*(?:台|件|个)|产量|齐套|缺料|生产方案|哪些物料.*影响")
-_FACT_PATTERN = re.compile(r"库存|批次|库位|BOM|物料清单|物料组成|在途|到货|采购订单", re.IGNORECASE)
+_FACT_PATTERN = re.compile(
+    r"库存|批次|哪批|库位|FIFO|有效期|BOM|物料清单|物料组成|有哪些(?:物料|料)|"
+    r"在途|到货|什么时候到|采购(?:订单|在途|到货|状态|情况)|订单|剩余|余量|存量|还有多少|还剩多少",
+    re.IGNORECASE,
+)
 _FACT_FOLLOWUP_PATTERN = re.compile(r"这个|该物料|它|还能|还有|能用|可用|版本|明细|同一|刚才|继续|多少|^\s*V\d+\s*$", re.IGNORECASE)
+_EXPLICIT_ITEM_PATTERN = re.compile(r"(?<![A-Za-z0-9])[A-Za-z0-9][A-Za-z0-9_-]{2,}(?![A-Za-z0-9])")
 _CAPACITY_PATTERN = re.compile(
     r"(?:最多|最大|至多|极限|理论).*?(?:生产|做|产量).*?(?:多少|几)|"
     r"(?:当前|现在)?库存.*?(?:够|能).*?(?:生产|做).*?(?:多少|几)|"
@@ -53,12 +58,18 @@ def _rule_classify(message: str) -> RoutedIntent | Literal["ambiguous"] | None:
     if _CAPACITY_PATTERN.search(message):
         return "production_capacity"
     pmc = bool(_PMC_PATTERN.search(message))
-    fact = bool(_FACT_PATTERN.search(message))
+    fact = bool(_FACT_PATTERN.search(message)) or (not pmc and "采购" in message)
     if pmc and fact:
         return "ambiguous"
     if pmc:
         return "pmc_analysis"
     if fact:
+        return "fact_query"
+    if re.search(r"多少|有无|有没有", message) and any(
+        token.upper() not in {"BOM", "FIFO", "PMC", "MRP"}
+        and not re.fullmatch(r"V\d+", token, re.IGNORECASE)
+        for token in _EXPLICIT_ITEM_PATTERN.findall(message)
+    ):
         return "fact_query"
     return None
 
@@ -90,7 +101,11 @@ def route_agent_message(
     if rule is None and pmc_context_active:
         return {"intent": "clarification", "parser_source": "rule_fallback"}
 
-    if get_llm_configuration_status()["status"] == "ok":
+    try:
+        llm_available = get_llm_configuration_status()["status"] == "ok"
+    except Exception:
+        llm_available = False
+    if llm_available:
         try:
             llm_intent = _invoke_llm_classification(message).intent
             if rule is not None and llm_intent != rule:
