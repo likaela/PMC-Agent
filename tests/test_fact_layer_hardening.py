@@ -7,6 +7,7 @@ import tempfile
 import threading
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -14,11 +15,14 @@ from openpyxl import Workbook
 
 from fact_layer.models import ImportBatchStatus, SourceKind
 from repositories.bom_import_repository import BomWorkbookRepository, load_bom_import_mapping
+from repositories.fact_query_repository import FactQueryRepository
 from repositories.fact_repository import FactRepository
 from repositories.fact_store import PostgreSQLFactStore, SQLiteFactStore, create_fact_store
 from repositories.source_file_storage import ImmutableSourceFileStorage, hash_source_file
 from scripts.validate_3588m_fact_import import DEFAULT_SOURCE, validate_3588m
 from services.bom_import_service import BomImportService
+from services.fact_query_service import FactQueryService
+from services.inventory_import_service import InventoryImportService
 
 
 HEADERS = ["序号", "料号", "名称", "规格型号", "数量", "含税单价", "总价"]
@@ -264,8 +268,24 @@ class PostgreSQLFactStoreIntegrationTests(unittest.TestCase):
         applied = self.repository.migrate()
         self.assertEqual(
             applied,
-            ["001_controlled_fact_layer", "002_source_audit_and_item_history"],
+            [
+                "001_controlled_fact_layer",
+                "002_source_audit_and_item_history",
+                "003_inventory_and_inbound_facts",
+            ],
         )
+
+        with self.store.transaction() as connection:
+            inventory_table = self.store.execute(
+                connection,
+                "SELECT to_regclass('inventory_facts')",
+            ).fetchone()
+            inbound_table = self.store.execute(
+                connection,
+                "SELECT to_regclass('inbound_supply_facts')",
+            ).fetchone()
+        self.assertIsNotNone(inventory_table[0])
+        self.assertIsNotNone(inbound_table[0])
 
         rollback_id = str(uuid4())
         with self.assertRaises(RuntimeError):
@@ -292,6 +312,30 @@ class PostgreSQLFactStoreIntegrationTests(unittest.TestCase):
             staged = service.stage_bom(source)
             published = _confirm_and_publish(service, staged.import_batch_id)
             self.assertEqual(published["line_count"], 1)
+
+            inventory_path = Path(directory) / "inventory.xlsx"
+            workbook = Workbook()
+            sheet = workbook.active
+            sheet.title = "库存表"
+            sheet.append(["归属地", "库位", "物料代码", "批次号", "库存"])
+            sheet.append(["S1", "L1", "M-0001", "B1", 10])
+            workbook.save(inventory_path)
+            workbook.close()
+            inventory_service = InventoryImportService(self.repository)
+            inventory_staged = inventory_service.stage_inventory(
+                inventory_path,
+                snapshot_at=datetime(2026, 9, 29, tzinfo=UTC),
+            )
+            inventory_published = inventory_service.publish(
+                inventory_staged.import_batch_id
+            )
+            self.assertEqual(inventory_published["fact_count"], 1)
+            query_result = FactQueryService(
+                FactQueryRepository(self.repository)
+            ).query_inventory("M-0001")
+            self.assertEqual(query_result["status"], "ok")
+            self.assertEqual(query_result["data"]["on_hand_qty"], "10")
+            self.assertIsNone(query_result["data"]["available_qty"])
 
 
 if __name__ == "__main__":
