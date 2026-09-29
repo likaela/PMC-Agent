@@ -1,0 +1,54 @@
+{
+  "mapping_name": "3588m_costing_v1",
+  "description": "3588M 核价类工作簿映射；映射由调用方显式选择，不依赖文件名、工作表名或产品值。",
+  "metadata": {
+    "parent_material_code": {
+      "aliases": ["项目代号"]
+    },
+    "version": {
+      "aliases": ["版本号"]
+    }
+  },
+  "columns": {
+    "material_code": {
+      "aliases": ["料号"]
+    },
+    "material_name": {
+      "aliases": ["名称"]
+    },
+    "specification": {
+      "aliases": ["规格型号"]
+    },
+    "quantity": {
+      "aliases": ["数量"]
+    },
+    "tax_included_unit_price": {
+      "aliases": ["含税单价"]
+    },
+    "total_price": {
+      "aliases": ["总价"]
+    },
+    "unit": {
+      "aliases": ["单位"]
+    },
+    "currency": {
+      "aliases": ["币种"]
+    },
+    "effective_from": {
+      "aliases": ["有效期", "生效日期"]
+    }
+  },
+  "required_columns": [
+    "material_code",
+    "material_name",
+    "specification",
+    "quantity",
+    "tax_included_unit_price",
+    "total_price"
+  ],
+  "pending_when_absent": ["unit", "currency", "effective_from"],
+  "stop_row_markers": ["合计", "总计"],
+  "validation": {
+    "total_price_tolerance": "0.01"
+  }
+}
