@@ -145,6 +145,27 @@ td { font-size: .9rem; }
 .explanation-panel small { color: #60737d; }
 .feedback-panel p { color: #526572; }
 .feedback-form { align-items: end; display: grid; gap: 14px; grid-template-columns: 1fr auto; }
+.fact-result-panel { border-top: 4px solid #126a57; }
+.fact-result-heading { align-items: center; display: flex; gap: 16px; justify-content: space-between; }
+.fact-result-heading span { color: #60737d; font-size: .8rem; font-weight: 800; }
+.fact-result-heading h2 { margin: 4px 0 0; }
+.fact-result-heading > strong { background: #e3f4ed; border-radius: 99px; color: #126a57; font-size: .82rem; padding: 7px 10px; }
+.fact-query-object { color: #526572; margin: 12px 0 16px; overflow-wrap: anywhere; }
+.fact-metrics { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.fact-metrics > div { background: #f4f8fb; border-radius: 8px; display: grid; gap: 6px; padding: 12px; }
+.fact-metrics span, .fact-provenance dt { color: #60737d; font-size: .78rem; }
+.fact-metrics strong { overflow-wrap: anywhere; }
+.fact-rows { display: grid; gap: 8px; max-height: 420px; margin-top: 16px; overflow: auto; }
+.fact-rows article { align-items: center; border-bottom: 1px solid #e5ecef; display: flex; gap: 12px; justify-content: space-between; padding: 9px 4px; }
+.fact-rows article > div { display: grid; gap: 4px; min-width: 0; }
+.fact-rows small { color: #60737d; overflow-wrap: anywhere; }
+.fact-rows article > span { flex: 0 0 auto; font-weight: 700; }
+.fact-provenance, .fact-warnings { border-top: 1px solid #e5ecef; margin-top: 18px; padding-top: 14px; }
+.fact-provenance h3, .fact-warnings h3 { font-size: .94rem; margin: 0 0 10px; }
+.fact-provenance dl { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); margin: 0; }
+.fact-provenance dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+.fact-warnings ul { color: #8a5d00; margin: 0; padding-left: 20px; }
+.fact-empty { background: #f4f8fb; border-radius: 8px; color: #526572; margin: 14px 0 0; padding: 12px; }
 .message { border-radius: 8px; margin: 0 0 18px; padding: 12px 14px; }
 .error { background: #ffe9e6; color: #9d3025; }
 .success { background: #e3f4ed; color: #126a57; }

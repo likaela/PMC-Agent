@@ -1,4 +1,4 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '')
+const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '')
 
 export class ApiError extends Error {
   constructor(message, status, code = 'REQUEST_FAILED') {
@@ -29,8 +29,8 @@ export function analyzePmc(payload) {
   })
 }
 
-export function chatPmc(message, workflowId = null) {
-  return request('/api/v1/chat', {
+export function queryAgent(message, workflowId = null) {
+  return request('/api/v1/agent/query', {
     method: 'POST',
     body: JSON.stringify({ message, ...(workflowId ? { workflow_id: workflowId } : {}) }),
   })

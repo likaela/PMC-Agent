@@ -1,8 +1,9 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { ApiError, chatPmc, getChatHistory, getDemoStatistics, getPmcWorkflow, submitDemoFeedback } from '../api/pmc'
+import { ApiError, queryAgent, getChatHistory, getDemoStatistics, getPmcWorkflow, submitDemoFeedback } from '../api/pmc'
 import DemoGuide from '../components/DemoGuide.vue'
 import WorkflowTrace from '../components/WorkflowTrace.vue'
+import { extractPmcResponse, isPmcResponseUnavailable, presentFactResult } from '../utils/agentResponse'
 import { normalizeCandidateMessage } from '../utils/chatMessage'
 import { clearDemoSession, loadDemoSession, saveDemoSession } from '../utils/demoSession'
 import {
@@ -21,6 +22,8 @@ const DEFAULT_DEMO_MESSAGE = '我要生产100台KQ-Z112，帮我看看能不能�
 const message = ref(DEFAULT_DEMO_MESSAGE)
 const messages = ref(createInitialMessages())
 const result = ref(null)
+const factResult = ref(null)
+const activeView = ref('pmc')
 const taskUnderstanding = ref(null)
 const errorMessage = ref('')
 const isSending = ref(false)
@@ -129,6 +132,8 @@ function resetDemoSession({ notice = '' } = {}) {
   activeWorkflowId.value = null
   sessionHistory.value = []
   result.value = null
+  factResult.value = null
+  activeView.value = 'pmc'
   taskUnderstanding.value = null
   errorMessage.value = ''
   feedback.value = ''
@@ -173,6 +178,7 @@ function userFacingError(error) {
 }
 
 function isNewProductionRequest(text) {
+  if (/查询|查看|库存|BOM|批次|在途|到货/.test(text)) return false
   const isFollowUp = /为什么|为何|原因|哪些物料最影响生产|哪些物料影响最大|哪些物料影响生产|哪些物料最关键|哪些材料影响最大|最影响生产|减少到|改为|调整为/.test(text)
   return !isFollowUp && /生产|安排|计划|做/.test(text)
 }
@@ -228,16 +234,37 @@ async function sendMessage(candidateMessage = message.value, { reuseCurrentWorkf
   }
 
   errorMessage.value = ''
-  result.value = null
+  if (activeView.value === 'fact') factResult.value = null
   retryRequest.value = { message: userMessage, reuseCurrentWorkflow: shouldReuseWorkflow, demoStep }
   messages.value.push({ role: 'user', content: userMessage })
-  const pendingMessage = { role: 'agent', content: '正在理解生产需求，并准备开展物料、库存与采购分析。', pending: true }
+  const pendingMessage = { role: 'agent', content: '正在理解问题并查询相关信息，请稍候。', pending: true }
   messages.value.push(pendingMessage)
   isSending.value = true
   try {
-    const response = await chatPmc(userMessage, shouldReuseWorkflow ? activeWorkflowId.value : null)
+    const envelope = await queryAgent(userMessage, shouldReuseWorkflow ? activeWorkflowId.value : null)
+    if (envelope?.intent === 'clarification') {
+      retryRequest.value = null
+      messages.value.push({ role: 'agent', content: '请明确您要进行生产分析，还是查询物料库存、批次、BOM 或在途信息。' })
+      return
+    }
+    if (envelope?.intent === 'fact_query') {
+      const fact = presentFactResult(envelope)
+      if (!fact) throw new ApiError('事实查询暂不可用，请稍后重试。', 500, 'QUERY_UNAVAILABLE')
+      factResult.value = fact
+      activeView.value = 'fact'
+      if (envelope.status !== 'query_failed') retryRequest.value = null
+      messages.value.push({ role: 'agent', content: fact.answer })
+      return
+    }
+    const response = extractPmcResponse(envelope)
+    if (!response) throw new ApiError('分析服务暂时异常，请稍后重试。', 500, 'ANALYSIS_UNAVAILABLE')
+    if (isPmcResponseUnavailable(envelope)) {
+      throw new ApiError('分析服务暂时异常，请稍后重试。', 500, 'ANALYSIS_UNAVAILABLE')
+    }
     if (response.response_type === 'clarification') {
       taskUnderstanding.value = response.task_intent
+      activeView.value = 'pmc'
+      retryRequest.value = null
       messages.value.push({
         role: 'agent',
         content: formatAgentMessage(response),
@@ -247,6 +274,8 @@ async function sendMessage(candidateMessage = message.value, { reuseCurrentWorkf
     if (!isUsableAnalysisResponse(response)) {
       throw new ApiError('分析服务暂时异常，请稍后重试。', 500, 'ANALYSIS_UNAVAILABLE')
     }
+    activeView.value = 'pmc'
+    factResult.value = null
     conversationWorkflowId.value = response.conversation_workflow_id
     activeWorkflowId.value = response.workflow_id
     sessionHistory.value = (await getChatHistory(response.conversation_workflow_id)).history
@@ -340,6 +369,8 @@ async function restoreDemoSession() {
       scenario: null,
       explanation: null,
     }
+    factResult.value = null
+    activeView.value = 'pmc'
     message.value = `为什么不能生产？`
   } catch {
     resetDemoSession({ notice: '当前演示会话已失效，请重新开始分析。' })
@@ -378,7 +409,7 @@ onMounted(async () => {
         <div>
           <span>智造 PMC Agent</span>
           <h2>面向制造企业的生产决策智能体</h2>
-          <p>用户只需描述生产需求，Agent 即可自动理解任务，并依次完成物料、库存、采购与生产可行性分析。</p>
+          <p>描述生产需求，或直接询问已发布的库存、批次、BOM 与在途事实。生产结论由确定性业务分析生成，查到的事实可追溯来源。</p>
         </div>
         <ol class="agent-flow" aria-label="生产决策流程">
           <li>需求理解</li><li>物料分析</li><li>库存检查</li><li>采购建议</li><li>生产决策</li>
@@ -387,7 +418,7 @@ onMounted(async () => {
 
       <section class="demo-onboarding">
         <h3>欢迎体验制造生产决策 Agent</h3>
-        <p>直接输入产品和数量即可开始分析，也可以在首轮结果后继续追问原因、调整数量或查看关键物料。</p>
+        <p>输入产品和数量可开始生产分析；也可以直接查询已发布的物料事实。分析后仍可追问原因、调整数量或查看关键物料。</p>
         <div class="guide-grid">
           <article><strong>可以解决什么</strong><span>判断是否可开工、定位阻塞物料、生成采购建议、比较减量方案。</span></article>
           <article><strong>当前支持能力</strong><span>KQ-Z112 / V01 演示、连续追问、分析进度展示与生产方案调整。</span></article>
@@ -418,7 +449,7 @@ onMounted(async () => {
         <span>方案推演：{{ demoStatistics.scenario_count }} 次</span>
       </section>
 
-      <WorkflowTrace :steps="result?.agent_trace || []" :loading="isSending" />
+      <WorkflowTrace v-if="activeView === 'pmc'" :steps="result?.agent_trace || []" :loading="isSending" />
 
       <div class="chat-history" aria-live="polite">
         <article v-for="(item, index) in messages" :key="index" class="chat-bubble" :class="item.role">
@@ -428,8 +459,8 @@ onMounted(async () => {
       </div>
 
       <form class="chat-composer" @submit.prevent="sendMessage(message)">
-        <label>生产任务<input v-model="message" :disabled="isSending" placeholder="例如：我要生产100台KQ-Z112" /></label>
-        <button type="submit" :disabled="isSending">{{ isSending ? '正在分析…' : '发送并分析' }}</button>
+        <label>生产任务或事实查询<input v-model="message" :disabled="isSending" placeholder="例如：我要生产100台KQ-Z112；查询 MAT-001 库存" /></label>
+        <button type="submit" :disabled="isSending">{{ isSending ? '正在处理…' : '发送' }}</button>
       </form>
       <p v-if="errorMessage" class="message error">{{ errorMessage }}</p>
       <button v-if="retryRequest" class="retry-button" type="button" :disabled="isSending" @click="retryLastRequest">
@@ -437,7 +468,7 @@ onMounted(async () => {
       </button>
       <p v-if="conversationWorkflowId" class="session-hint">当前演示会话已恢复 · 已同步 {{ sessionHistory.length }} 条会话记录</p>
 
-      <section v-if="taskUnderstanding" class="panel task-understanding">
+      <section v-if="taskUnderstanding && activeView === 'pmc'" class="panel task-understanding">
         <h2>AI 解析结果</h2>
         <dl class="task-details">
           <div><dt>产品</dt><dd>{{ taskUnderstanding.product || '待补充' }}</dd></div>
@@ -458,7 +489,44 @@ onMounted(async () => {
       </section>
     </section>
 
-    <template v-if="result">
+    <section v-if="factResult && activeView === 'fact'" class="panel fact-result-panel" aria-label="事实查询结果">
+      <div class="fact-result-heading">
+        <div>
+          <span>已发布事实查询</span>
+          <h2>{{ factResult.kindLabel }}</h2>
+        </div>
+        <strong>{{ factResult.statusLabel }}</strong>
+      </div>
+      <p class="fact-query-object">查询对象：{{ factResult.queryObject }}</p>
+      <div v-if="factResult.metrics.length" class="fact-metrics">
+        <div v-for="item in factResult.metrics" :key="item.label">
+          <span>{{ item.label }}</span><strong>{{ item.value }}</strong>
+        </div>
+      </div>
+      <div v-if="factResult.rows.length" class="fact-rows">
+        <article v-for="(item, index) in factResult.rows" :key="`${item.label}-${index}`">
+          <div><strong>{{ item.label }}</strong><small>{{ item.detail }}</small></div>
+          <span>{{ item.value }}</span>
+        </article>
+      </div>
+      <p v-if="!factResult.metrics.length && !factResult.rows.length" class="fact-empty">
+        当前没有可展示的已发布事实，请核对查询条件或稍后重试。
+      </p>
+      <section v-if="factResult.sources.length" class="fact-provenance" aria-label="数据来源">
+        <h3>数据来源</h3>
+        <dl>
+          <div v-for="source in factResult.sources" :key="source.label">
+            <dt>{{ source.label }}</dt><dd>{{ source.value }}</dd>
+          </div>
+        </dl>
+      </section>
+      <section v-if="factResult.warnings.length" class="fact-warnings" aria-label="数据完整性提示">
+        <h3>数据完整性提示</h3>
+        <ul><li v-for="(warning, index) in factResult.warnings" :key="index">{{ warning }}</li></ul>
+      </section>
+    </section>
+
+    <template v-if="result && activeView === 'pmc'">
       <p class="current-plan-label">{{ currentPlanLabel }}</p>
       <section class="status-grid">
         <article class="status-card" :data-status="result.decision_status || 'unknown'">

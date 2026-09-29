@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:demo-session": "node tests/demoSession.test.mjs",
-    "test:presentation": "node tests/presentation.test.mjs"
+    "test:presentation": "node tests/presentation.test.mjs",
+    "test:agent": "node tests/agentApi.test.mjs && node tests/agentResponse.test.mjs"
   },
   "dependencies": {
     "vue": "^3.5.13"
