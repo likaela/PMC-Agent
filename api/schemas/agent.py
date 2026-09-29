@@ -17,7 +17,7 @@ class UnifiedAgentRequest(BaseModel):
 
 
 class UnifiedAgentResponse(BaseModel):
-    intent: Literal["pmc_analysis", "fact_query", "clarification"]
+    intent: Literal["pmc_analysis", "fact_query", "production_capacity", "clarification"]
     status: str
     answer: str
     structured_data: dict[str, Any] | None

@@ -138,3 +138,72 @@ export function presentFactResult(envelope) {
     warnings,
   }
 }
+
+export function presentProductionCapacityResult(envelope) {
+  if (envelope?.intent !== 'production_capacity') return null
+  const structured = record(envelope.structured_data)
+  const query = record(structured.query)
+  const data = record(structured.data)
+  const provenance = record(envelope.provenance)
+  const bomSource = record(provenance.bom)
+  const inventorySources = Array.isArray(provenance.inventory) ? provenance.inventory.map(record) : []
+  const inboundSources = Array.isArray(provenance.inbound) ? provenance.inbound.map(record) : []
+  const sources = []
+  const addSource = (label, value) => {
+    if (value !== null && value !== undefined && value !== '' && !sources.some((item) => item.label === label && item.value === String(value))) {
+      sources.push({ label, value: String(value) })
+    }
+  }
+  addSource('BOM 来源文件', bomSource.source_file)
+  addSource('BOM 导入批次', bomSource.import_batch_id)
+  addSource('BOM 版本', bomSource.bom_version || query.bom_version)
+  for (const source of inventorySources) {
+    addSource('库存来源文件', source.source_file)
+    addSource('库存导入批次', source.import_batch_id)
+    addSource('库存快照时间', source.snapshot_at)
+  }
+  for (const source of inboundSources) {
+    addSource('在途来源文件', source.source_file)
+    addSource('在途导入批次', source.import_batch_id)
+    addSource('在途观测时间', source.observed_at)
+  }
+  const metrics = []
+  if (envelope.status === 'ok') {
+    addMetric(metrics, '库存理论最大产量', data.max_producible_quantity)
+    if (data.requested_quantity !== null && data.requested_quantity !== undefined) {
+      addMetric(metrics, '询问的生产数量', data.requested_quantity)
+      addMetric(metrics, '当前可用库存是否满足', data.inventory_sufficient_for_requested === true ? '足够' : '不足')
+    }
+  }
+  const visibleMaterials = envelope.status === 'ok'
+    ? data.limiting_materials
+    : data.materials
+  const rows = (Array.isArray(visibleMaterials) ? visibleMaterials : []).map((item) => {
+    const material = record(item)
+    return {
+      label: known(material.material_code),
+      detail: `单位用量 ${known(material.qty_per)} ${known(material.unit)} · 可用 ${known(material.available_qty)} · 缺口 ${known(material.shortage_qty)}`,
+      value: envelope.status === 'ok'
+        ? `限制产量 ${known(material.material_capacity)}`
+        : `需求 ${known(material.required_qty)} ${known(material.unit)}`,
+    }
+  })
+  const fallback = envelope.status === 'invalid_query'
+    ? '请提供产品型号和明确的 BOM 版本，或先完成一轮生产分析。'
+    : envelope.status === 'data_unavailable'
+      ? '当前事实库数据不足，无法确定生产能力；请查看数据完整性提示。'
+      : '生产能力查询暂不可用，请稍后重试。'
+  return {
+    kindLabel: '库存理论产能',
+    statusLabel: envelope.status === 'ok' ? '已完成事实核对' : '数据不足，无法确定',
+    queryObject: [query.product, query.bom_version].filter(Boolean).join(' / ') || '待确认产品',
+    answer: ['ok', 'data_unavailable'].includes(envelope.status)
+      && typeof envelope.answer === 'string'
+      && !/traceback|exception|workflow state/i.test(envelope.answer)
+      ? envelope.answer : fallback,
+    metrics,
+    rows,
+    sources,
+    warnings: Array.isArray(envelope.warnings) ? envelope.warnings.filter((item) => typeof item === 'string') : [],
+  }
+}

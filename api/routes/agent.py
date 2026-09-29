@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from agents.fact_query_agent import run_fact_query_agent
+from agents.production_feasibility_agent import run_production_feasibility_agent
 from api.routes.chat import chat
 from api.schemas.agent import UnifiedAgentRequest, UnifiedAgentResponse
 from api.schemas.chat import ChatClarificationResponse, ChatRequest, ChatResponse
@@ -13,6 +14,7 @@ from services.fact_dialogue_context_service import (
     get_fact_dialogue_context,
     remember_fact_dialogue_context,
 )
+from workflows.pmc_graph import get_pmc_workflow_state
 
 
 router = APIRouter(prefix="/api/v1/agent", tags=["Unified Agent"])
@@ -49,6 +51,7 @@ def unified_agent_query(request: UnifiedAgentRequest) -> UnifiedAgentResponse:
             run_fact_query_agent(request.message, context=fact_context)
             if fact_context else run_fact_query_agent(request.message)
         )
+
         query = result["query"]
         provenance = result["provenance"] if isinstance(result["provenance"], dict) else {}
         material_code = (
@@ -78,6 +81,36 @@ def unified_agent_query(request: UnifiedAgentRequest) -> UnifiedAgentResponse:
                 "tool_name": result["tool_name"],
                 "parser_source": result["parser_source"],
                 "fact_session_id": session_id,
+            },
+            provenance=result["provenance"],
+            warnings=result["warnings"],
+        )
+
+    if decision["intent"] == "production_capacity":
+        task_context = None
+        if request.active_context == "fact_query" and fact_context and fact_context.query_type == "bom":
+            task_context = {"product": fact_context.material_code, "bom_version": fact_context.revision}
+        elif request.workflow_id:
+            try:
+                state = get_pmc_workflow_state(request.workflow_id)
+            except Exception:
+                state = {}
+            if isinstance(state.get("product"), str) and isinstance(state.get("bom_version"), str):
+                task_context = {
+                    "product": state["product"],
+                    "bom_version": state["bom_version"],
+                    "quantity": state.get("quantity"),
+                }
+        result = run_production_feasibility_agent(request.message, task_context=task_context)
+        return UnifiedAgentResponse(
+            intent="production_capacity",
+            status=result["status"],
+            answer=result["answer"],
+            structured_data={
+                "query_type": "production_capacity",
+                "query": result["query"],
+                "data": result["data"],
+                "completeness": result["completeness"],
             },
             provenance=result["provenance"],
             warnings=result["warnings"],

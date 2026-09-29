@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { ApiError, queryAgent, getChatHistory, getDemoStatistics, getPmcWorkflow, submitDemoFeedback } from '../api/pmc'
 import DemoGuide from '../components/DemoGuide.vue'
 import WorkflowTrace from '../components/WorkflowTrace.vue'
-import { extractPmcResponse, isPmcResponseUnavailable, presentFactResult } from '../utils/agentResponse'
+import { extractPmcResponse, isPmcResponseUnavailable, presentFactResult, presentProductionCapacityResult } from '../utils/agentResponse'
 import { normalizeCandidateMessage } from '../utils/chatMessage'
 import { clearDemoSession, loadDemoSession, saveDemoSession } from '../utils/demoSession'
 import {
@@ -265,6 +265,15 @@ async function sendMessage(candidateMessage = message.value, { reuseCurrentWorkf
       activeView.value = 'fact'
       if (envelope.status !== 'query_failed') retryRequest.value = null
       messages.value.push({ role: 'agent', content: fact.answer })
+      return
+    }
+    if (envelope?.intent === 'production_capacity') {
+      const capacity = presentProductionCapacityResult(envelope)
+      if (!capacity) throw new ApiError('生产能力查询暂不可用，请稍后重试。', 500, 'QUERY_UNAVAILABLE')
+      factResult.value = capacity
+      activeView.value = 'fact'
+      if (envelope.status !== 'query_failed') retryRequest.value = null
+      messages.value.push({ role: 'agent', content: capacity.answer })
       return
     }
     const response = extractPmcResponse(envelope)

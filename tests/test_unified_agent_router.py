@@ -80,6 +80,40 @@ class UnifiedAgentRouterTests(unittest.TestCase):
         self.assertEqual(get_pmc_workflow_state(workflow_id)["completed_nodes"].count("bom_analysis"), 1)
         fact_agent.assert_not_called()
 
+    def test_capacity_questions_route_without_entering_pmc_or_fact_agent(self) -> None:
+        result = {
+            "status": "data_unavailable",
+            "query": {"product": "KQ-Z112", "bom_version": "V01", "requested_quantity": None},
+            "data": None, "completeness": {"bom": False}, "provenance": None,
+            "warnings": ["缺少已发布事实"], "answer": "当前事实库数据不足，无法确定产能。",
+        }
+        for message in (
+            "KQ-Z112 V01 最多能生产多少台？",
+            "当前库存够生产多少？",
+            "100台需要哪些物料？",
+            "哪些物料限制产量？",
+        ):
+            with self.subTest(message=message), patch("api.routes.agent.chat") as pmc_chat, patch(
+                "api.routes.agent.run_fact_query_agent"
+            ) as fact_agent, patch(
+                "api.routes.agent.run_production_feasibility_agent", return_value=result
+            ) as capacity_agent:
+                response = self.client.post("/api/v1/agent/query", json={"message": message})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["intent"], "production_capacity")
+            capacity_agent.assert_called_once()
+            pmc_chat.assert_not_called()
+            fact_agent.assert_not_called()
+
+    def test_known_quantity_feasibility_stays_in_pmc_workflow(self) -> None:
+        with patch("api.routes.agent.run_production_feasibility_agent") as capacity_agent:
+            response = self.client.post("/api/v1/agent/query", json={
+                "message": "生产100台KQ-Z112是否可行？",
+            })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["intent"], "pmc_analysis")
+        capacity_agent.assert_not_called()
+
     def test_existing_explanation_and_scenario_context_are_reused(self) -> None:
         initial = self.client.post(
             "/api/v1/agent/query", json={"message": "我要生产100台KQ-Z112"}

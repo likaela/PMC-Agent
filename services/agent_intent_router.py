@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict
 from config import get_llm, get_llm_configuration_status
 
 
-RoutedIntent = Literal["pmc_analysis", "fact_query"]
+RoutedIntent = Literal["pmc_analysis", "fact_query", "production_capacity"]
 
 
 class IntentExtraction(BaseModel):
@@ -31,14 +31,27 @@ _ROUTER_PROMPT = """
 你只做意图分类，不回答问题、不计算业务数值、不调用数据源。
 pmc_analysis：生产任务、开工判断、生产原因追问、产量调整或方案推演。
 fact_query：查询已发布的库存、批次、BOM、在途事实。
+production_capacity：询问最多能生产多少、当前库存是否满足指定数量、哪些物料限制产量。
 只返回符合 schema 的 intent，不返回事实、数量、采购或生产结论。
 """
 _PMC_PATTERN = re.compile(r"生产|开工|减(?:少|量)|调整.*(?:台|件|个)|产量|齐套|缺料|生产方案|哪些物料.*影响")
 _FACT_PATTERN = re.compile(r"库存|批次|库位|BOM|物料清单|物料组成|在途|到货|采购订单", re.IGNORECASE)
 _FACT_FOLLOWUP_PATTERN = re.compile(r"这个|该物料|它|还能|还有|能用|可用|版本|明细|同一|刚才|继续|多少|^\s*V\d+\s*$", re.IGNORECASE)
+_CAPACITY_PATTERN = re.compile(
+    r"(?:最多|最大|至多|极限|理论).*?(?:生产|做|产量).*?(?:多少|几)|"
+    r"(?:当前|现在)?库存.*?(?:够|能).*?(?:生产|做).*?(?:多少|几)|"
+    r"(?:能|可).*?生产.*?(?:多少|几)\s*(?:台|件|套|个)?|"
+    r"哪些物料.*?(?:限制|制约).*?(?:产量|生产)|"
+    r"(?:\d+\s*(?:台|件|套|个)).*?需要哪些物料|"
+    r"(?:当前|现在)?库存够(?:不够|吗|生产)|"
+    r"(?:哪些物料).*?(?:是瓶颈|瓶颈)",
+    re.IGNORECASE,
+)
 
 
 def _rule_classify(message: str) -> RoutedIntent | Literal["ambiguous"] | None:
+    if _CAPACITY_PATTERN.search(message):
+        return "production_capacity"
     pmc = bool(_PMC_PATTERN.search(message))
     fact = bool(_FACT_PATTERN.search(message))
     if pmc and fact:

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-import { extractPmcResponse, isPmcResponseUnavailable, presentFactResult } from '../src/utils/agentResponse.js'
+import { extractPmcResponse, isPmcResponseUnavailable, presentFactResult, presentProductionCapacityResult } from '../src/utils/agentResponse.js'
 
 const inventoryEnvelope = {
   intent: 'fact_query',
@@ -120,5 +120,42 @@ assert.match(chatView, /class="status-grid"/)
 assert.match(chatView, /<WorkflowTrace v-if="activeView === 'pmc'"/)
 assert.match(chatView, /数据来源/)
 assert.match(chatView, /数据完整性提示/)
+
+const capacity = presentProductionCapacityResult({
+  intent: 'production_capacity',
+  status: 'ok',
+  answer: '按已发布事实，理论最多可生产 50 件。',
+  structured_data: {
+    query: { product: 'PARENT-1', bom_version: 'V1' },
+    data: {
+      max_producible_quantity: 50,
+      requested_quantity: 100,
+      inventory_sufficient_for_requested: false,
+      limiting_materials: [{ material_code: 'MAT-A', qty_per: '2', unit: '件', available_qty: '100', shortage_qty: '100', material_capacity: 50 }],
+    },
+  },
+  provenance: {
+    bom: { source_file: 'bom.xlsx', import_batch_id: 'bom-batch', bom_version: 'V1', source_file_id: 'hidden' },
+    inventory: [{ material_code: 'MAT-A', source_file: 'stock.xlsx', import_batch_id: 'stock-batch', snapshot_at: '2026-09-20T00:00:00+00:00', snapshot_id: 'hidden' }],
+    inbound: [],
+  },
+  warnings: ['在途不计入当前可用库存'],
+})
+assert.equal(capacity.kindLabel, '库存理论产能')
+assert.equal(capacity.metrics[0].value, '50')
+assert.equal(capacity.metrics[2].value, '不足')
+assert.equal(capacity.rows[0].label, 'MAT-A')
+assert.ok(capacity.sources.some((item) => item.label === '库存快照时间'))
+assert.ok(!capacity.sources.some((item) => item.value === 'hidden'))
+assert.match(chatView, /envelope\?\.intent === 'production_capacity'/)
+
+const unavailableCapacity = presentProductionCapacityResult({
+  intent: 'production_capacity', status: 'data_unavailable',
+  answer: 'traceback: private database path',
+  structured_data: { query: { product: 'PARENT-1', bom_version: 'V1' }, data: { max_producible_quantity: null } },
+  provenance: null, warnings: [],
+})
+assert.equal(unavailableCapacity.metrics.length, 0)
+assert.doesNotMatch(unavailableCapacity.answer, /traceback|private database path/i)
 
 console.log('agent response presentation tests passed')
