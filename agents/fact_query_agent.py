@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 
 from config import get_llm, get_llm_configuration_status
 from fact_layer.query_models import FactQueryResult
+from services.agent_intent_router import is_standalone_material_code
 from services.fact_dialogue_context_service import FactDialogueContext
 from tools.fact_query_registry import FactQueryKind, get_fact_query_tool
 
@@ -79,7 +80,10 @@ def _rule_intent(message: str) -> FactQueryIntent | None:
         kind = "inbound"
     elif "bom" in lowered or any(word in message for word in ("物料清单", "物料组成", "有哪些物料", "有哪些料")):
         kind = "bom"
-    elif any(word in message for word in ("库存", "现存", "剩余", "余量", "存量", "还有多少", "还剩多少", "有没有")) or "stock" in lowered:
+    elif is_standalone_material_code(message) or any(word in message for word in (
+        "库存", "现存", "剩余", "余量", "存量", "还有多少", "还有几件", "还剩多少",
+        "剩多少", "余多少", "数量多少", "几个", "几件", "有没有",
+    )) or "stock" in lowered:
         kind = "inventory"
     else:
         return None

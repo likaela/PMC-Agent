@@ -40,8 +40,9 @@ _FACT_PATTERN = re.compile(
     r"在途|到货|什么时候到|采购(?:订单|在途|到货|状态|情况)|订单|剩余|余量|存量|还有多少|还剩多少",
     re.IGNORECASE,
 )
-_FACT_FOLLOWUP_PATTERN = re.compile(r"这个|该物料|它|还能|还有|能用|可用|版本|明细|同一|刚才|继续|多少|^\s*V\d+\s*$", re.IGNORECASE)
+_FACT_FOLLOWUP_PATTERN = re.compile(r"这个|该物料|它|还能|还有|能用|可用|版本|明细|同一|刚才|继续|多少|几[个件]|^\s*V\d+\s*$", re.IGNORECASE)
 _EXPLICIT_ITEM_PATTERN = re.compile(r"(?<![A-Za-z0-9])[A-Za-z0-9][A-Za-z0-9_-]{2,}(?![A-Za-z0-9])")
+_RESERVED_ITEM_TOKENS = {"BOM", "FIFO", "PMC", "MRP", "STOCK", "BATCH", "INBOUND"}
 _CAPACITY_PATTERN = re.compile(
     r"(?:最多|最大|至多|极限|理论).*?(?:生产|做|产量).*?(?:多少|几)|"
     r"(?:当前|现在)?库存.*?(?:够|能).*?(?:生产|做).*?(?:多少|几)|"
@@ -52,6 +53,20 @@ _CAPACITY_PATTERN = re.compile(
     r"(?:哪些物料).*?(?:是瓶颈|瓶颈)",
     re.IGNORECASE,
 )
+
+
+def is_standalone_material_code(message: str) -> bool:
+    """只识别明确的编码形态；是否真实存在仍由 item/alias resolver 精确核验。"""
+    token = message.strip()
+    if not _EXPLICIT_ITEM_PATTERN.fullmatch(token) or len(token) > 64:
+        return False
+    if token.upper() in _RESERVED_ITEM_TOKENS or re.fullmatch(r"V\d+", token, re.IGNORECASE):
+        return False
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", token):
+        return False
+    if token.isdigit():
+        return len(token) >= 8
+    return any(char.isdigit() or char in "-_" for char in token) or (token.isupper() and len(token) >= 5)
 
 
 def _rule_classify(message: str) -> RoutedIntent | Literal["ambiguous"] | None:
@@ -65,9 +80,10 @@ def _rule_classify(message: str) -> RoutedIntent | Literal["ambiguous"] | None:
         return "pmc_analysis"
     if fact:
         return "fact_query"
-    if re.search(r"多少|有无|有没有", message) and any(
-        token.upper() not in {"BOM", "FIFO", "PMC", "MRP"}
-        and not re.fullmatch(r"V\d+", token, re.IGNORECASE)
+    if is_standalone_material_code(message):
+        return "fact_query"
+    if re.search(r"多少|有无|有没有|几[个件]", message) and any(
+        is_standalone_material_code(token)
         for token in _EXPLICIT_ITEM_PATTERN.findall(message)
     ):
         return "fact_query"
