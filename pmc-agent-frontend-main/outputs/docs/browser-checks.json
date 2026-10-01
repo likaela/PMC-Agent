@@ -1,0 +1,180 @@
+{
+  "date": "2026-09-30",
+  "method": "Codex in-app browser, actual DOM and native viewport screenshots",
+  "scenarios": [
+    {
+      "id": "production",
+      "title": "主板存在缺口，完整齐套情况待确认",
+      "resultText": "分析结论\n与所选回答同步\n部分数据 · 已知缺料\n项目资料示例\n主板存在缺口，完整齐套情况待确认\n\n生产 1,000 台 ABC-1000，已知主板缺少 200 件。电机与螺丝的库存未提供，暂时无法完整判断物料齐套。\n\n先核实主板补料，再补充其余库存\n\n核查主板 200 件缺口，并补充电机、螺丝的可用库存与来源时间。\n\n使用前请留意\n电机、螺丝库存未提供，不能视为零库存或已满足需求。\n未核实库存口径和发布时间；本结果不构成排产或交期承诺。\n查看本次分析来源与适用条件",
+      "rowsText": [
+        "电机ABC-1000 / 单层 BOM2,000件未提供未提供待补充库存查看来源螺丝ABC-1000 / 单层 BOM8,000件未提供未提供待补充库存查看来源主板ABC-1000 / 单层 BOM1,000件800件200件缺料查看来源"
+      ]
+    },
+    {
+      "id": "inventory",
+      "title": "主板示例库存为 800 件",
+      "resultText": "分析结论\n与所选回答同步\n库存已提供\n项目资料示例\n主板示例库存为 800 件\n\n项目资料示例提供主板库存 800 件，发布时间未提供。库存口径尚待后端确认。\n\n库存数值已提供，时效仍待核实\n\n接入真实后端后，核对可用库存定义、占用情况及发布时间。\n\n使用前请留意\n来源发布时间未提供，请勿将请求时间视为数据发布时间。\n查看本次分析来源与适用条件",
+      "rowsText": [
+        "主板项目资料库存样例未提供800件未提供已提供库存查看来源"
+      ]
+    },
+    {
+      "id": "zero",
+      "title": "演示物料已发布库存为 0 件",
+      "resultText": "分析结论\n与所选回答同步\n库存为零\n人工构造演示样例\n演示物料已发布库存为 0 件\n\n演示连接器库存明确为 0 件，属于已提供的零值，不是库存字段缺失或无已发布事实。\n\n已有库存记录，数值为零\n\n核查补货情况与库存记录的适用条件。\n\n使用前请留意\n人工构造演示样例，仅用于前端状态验证。\n查看本次分析来源与适用条件",
+      "rowsText": [
+        "演示连接器人工构造 / 零库存未提供0件未提供已提供库存查看来源"
+      ]
+    },
+    {
+      "id": "no-facts",
+      "title": "暂无该物料的已发布库存数据",
+      "resultText": "分析结论\n与所选回答同步\n暂无已发布数据\n人工构造演示样例\n暂无该物料的已发布库存数据\n\n演示传感器没有可用的已发布库存事实，不能将其库存视为 0。\n\n缺少事实，无法给出库存数值\n\n请由后端提供并发布适用的库存事实。\n\n使用前请留意\n人工构造演示样例，仅用于前端状态验证。\n查看本次分析来源与适用条件",
+      "rowsText": [
+        "演示传感器人工构造 / 无事实未提供暂无已发布数据未提供无已发布事实查看来源"
+      ]
+    },
+    {
+      "id": "ready",
+      "title": "所列物料满足本次演示需求",
+      "resultText": "分析结论\n与所选回答同步\n所列物料齐套\n人工构造演示样例\n所列物料满足本次演示需求\n\n人工构造结果：DEMO-READY 生产 100 台，所列两种物料满足需求。这不是实际产能或交期承诺。\n\n所列物料条件满足\n\n实际生产仍需后端核实完整 BOM、设备、人力和其他约束。\n\n使用前请留意\n人工构造演示样例，仅用于前端状态验证。\n查看本次分析来源与适用条件",
+      "rowsText": [
+        "演示电机人工构造 / DEMO-READY200件200件0件满足需求查看来源演示主板人工构造 / DEMO-READY100件120件0件满足需求查看来源"
+      ]
+    },
+    {
+      "id": "purchase",
+      "title": "独立样例：建议采购 300 件",
+      "resultText": "分析结论\n与所选回答同步\n独立采购样例\n项目资料示例\n独立样例：建议采购 300 件\n\n资料中的独立采购样例：缺料 200 件，安全库存 100 件，建议采购 300 件。该样例不等同于 ABC-1000 的采购结论。\n\n缺料数量\n200件\n安全库存\n100件\n建议采购\n300件\n\n数值直接来自固定样例，前端未进行采购计算；不产生采购订单。\n\n采购建议需核实适用产品与条件\n\n后续接入采购建议接口，补齐物料标识、约束、供应商和计算依据。\n\n使用前请留意\n独立采购样例，不是 ABC-1000 的真实采购结论。\n查看本次分析来源与适用条件",
+      "rowsText": []
+    },
+    {
+      "id": "conflict",
+      "title": "BOM 适用版本存在冲突",
+      "resultText": "分析结论\n与所选回答同步\n条件冲突\n人工构造演示样例\nBOM 适用版本存在冲突\n\n人工构造场景中存在两个候选 BOM 版本，尚未确定适用版本，不能输出物料需求。\n\n请先确认唯一适用版本\n\n补充 BOM 版本和生效日期，再发起完整查询。\n\n使用前请留意\n人工构造演示样例。\n适用条件存在冲突，本次不展示计算数值。\n查看本次分析来源与适用条件",
+      "rowsText": []
+    },
+    {
+      "id": "uncalculable",
+      "title": "缺少单位换算依据，暂无法计算",
+      "resultText": "分析结论\n与所选回答同步\n无法计算\n人工构造演示样例\n缺少单位换算依据，暂无法计算\n\n需求与库存的单位不一致，且缺少后端确认的换算关系。前端不会自行换算。\n\n补充单位规则后再分析\n\n请后端确认标准单位、转换关系和适用范围。\n\n使用前请留意\n人工构造演示样例，仅用于前端状态验证。\n查看本次分析来源与适用条件",
+      "rowsText": []
+    },
+    {
+      "id": "mapping",
+      "title": "当前结果暂无法完整展示",
+      "resultText": "分析结论\n本次查询\n当前结果暂无法完整展示\n\n模拟响应映射失败。结果未通过展示结构校验，未生成业务结论。\n\nMAPPING\n重试原问题",
+      "rowsText": []
+    },
+    {
+      "id": "network",
+      "title": "请求失败，请重试",
+      "resultText": "分析结论\n本次查询\n请求失败，请重试\n\n模拟网络请求失败。本场景每次重试都会失败；可切换其他演示场景继续体验。\n\nNETWORK\n重试原问题",
+      "rowsText": []
+    }
+  ],
+  "initialViewportChecks": [
+    {
+      "width": 1440,
+      "home": {
+        "scrollWidth": 1440,
+        "width": 1440
+      },
+      "workspace": {
+        "scrollWidth": 1440,
+        "tableScrollWidth": 1108,
+        "tableWidth": 1108,
+        "width": 1440
+      }
+    },
+    {
+      "width": 1280,
+      "home": {
+        "scrollWidth": 1280,
+        "width": 1280
+      },
+      "workspace": {
+        "scrollWidth": 1280,
+        "tableScrollWidth": 948,
+        "tableWidth": 948,
+        "width": 1280
+      }
+    },
+    {
+      "width": 1024,
+      "home": {
+        "scrollWidth": 1024,
+        "width": 1024
+      },
+      "workspace": {
+        "scrollWidth": 1024,
+        "tableScrollWidth": 746,
+        "tableWidth": 746,
+        "width": 1024
+      }
+    },
+    {
+      "width": 390,
+      "home": {
+        "scrollWidth": 390,
+        "width": 390
+      },
+      "workspace": {
+        "scrollWidth": 390,
+        "tableScrollWidth": 720,
+        "tableWidth": 326,
+        "width": 390
+      }
+    },
+    {
+      "width": 320,
+      "home": {
+        "scrollWidth": 320,
+        "width": 320
+      },
+      "workspace": {
+        "scrollWidth": 320,
+        "tableScrollWidth": 720,
+        "tableWidth": 256,
+        "width": 320
+      }
+    }
+  ],
+  "finalViewportChecks": [
+    {
+      "scrollWidth": 1280,
+      "tableScrollWidth": 948,
+      "tableWidth": 948,
+      "width": 1280
+    },
+    {
+      "scrollWidth": 1024,
+      "tableScrollWidth": 746,
+      "tableWidth": 746,
+      "width": 1024
+    },
+    {
+      "scrollWidth": 390,
+      "tableScrollWidth": 720,
+      "tableWidth": 326,
+      "width": 390
+    },
+    {
+      "mobileTable": {
+        "scrollLeft": 0,
+        "scrollWidth": 720,
+        "width": 326
+      }
+    },
+    {
+      "scrollWidth": 320,
+      "tableScrollWidth": 720,
+      "tableWidth": 256,
+      "width": 320
+    }
+  ],
+  "notes": [
+    "Command-line Playwright launch blocked by macOS sandbox; no automated assertions passed.",
+    "Screenshots are viewport captures, not stitched full-page images."
+  ]
+}

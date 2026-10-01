@@ -50,7 +50,17 @@ class ProductionFeasibilityQueryService:
         requested_quantity: int | None = None,
         requested_unit: str | None = None,
         as_of: str | None = None,
+        effective_date: str | None = None,
     ) -> dict[str, Any]:
+        if effective_date is not None:
+            from services.published_planning_service import PublishedPlanningService
+
+            return PublishedPlanningService(self.facts).query(
+                product, bom_version, effective_date,
+                requested_quantity=requested_quantity,
+                requested_unit=requested_unit,
+                as_of=as_of,
+            )
         query = {
             "product": product,
             "bom_version": bom_version,

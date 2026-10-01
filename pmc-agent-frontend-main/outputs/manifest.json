@@ -1,0 +1,220 @@
+{
+  "archive": "PMC-Agent-frontend.zip",
+  "sha256": "7555c4427e5eed4c47c3d98a79535901dcd0b1a69a9654490c50bb61d778b152",
+  "fileCount": 53,
+  "verification": "Desktop migration hash-verified; build passed; dev server HTTP 200; test server stopped; prior in-app browser checks retained; CLI automated browser tests not passed; real backend not available.",
+  "files": [
+    {
+      "path": "frontend/.env.example",
+      "sha256": "e699dde01d5dbd0091f1569852f46cece9ceab2d2db69986db73ce1527acf497"
+    },
+    {
+      "path": "frontend/.gitignore",
+      "sha256": "96e6aa760e1393dd20baa3d4bb14c6a0549c5dd963e32b365fd36069296443a6"
+    },
+    {
+      "path": "frontend/README.md",
+      "sha256": "c54e8d045acf69d0f1537e535ca7239d73d47549787fad0942aa5a52f791b738"
+    },
+    {
+      "path": "frontend/dist/assets/index-B2EcK92a.js",
+      "sha256": "6a39652195c7d451613aea043b77d84da942a1b9c3c6719ff5a27db6a2f5be6c"
+    },
+    {
+      "path": "frontend/dist/assets/index-Ds0ETVRO.css",
+      "sha256": "50c33139c2629185293ee883dd83be475513ea7a805d8dd115d22d4a913d7769"
+    },
+    {
+      "path": "frontend/dist/favicon.svg",
+      "sha256": "53f0069c8e1fce4b113ed3ea2a5bed2d8ff42676dcf33aa011cb369fd6e40f5c"
+    },
+    {
+      "path": "frontend/dist/index.html",
+      "sha256": "482eb6592f2fe454e1e865ec5bfd2f93e86c82235671a60e1e1750e888ef7725"
+    },
+    {
+      "path": "frontend/docs/api-mapping.md",
+      "sha256": "c76d50bd578b66330c80ee5c0417021628cc825cfa286edb3b5cd16b72846646"
+    },
+    {
+      "path": "frontend/docs/browser-checks.json",
+      "sha256": "46050c7ffaff4196bb7bbe8206b0c6dc2b95b557747e8f4c4e580fd6dacdba4b"
+    },
+    {
+      "path": "frontend/docs/browser-extra-checks.json",
+      "sha256": "4f81e055a8dbcc75421f0a4677f8a1dcc8f9474dae843e4d4b1908923561664e"
+    },
+    {
+      "path": "frontend/docs/browser-results.json",
+      "sha256": "840d6651403512615554524aa79ebd82ea074cb68f0f2928e4d7c4471386e60f"
+    },
+    {
+      "path": "frontend/docs/design.md",
+      "sha256": "99113eb69c03192486fa7d7e6c14c1a5af49969d327d322b40ba8f3f383a8fdd"
+    },
+    {
+      "path": "frontend/docs/desktop-migration.md",
+      "sha256": "8836558ba9d2d3b01ddbbf0e0adcf4e5223f564b9550e09a13c60ed4f2027a04"
+    },
+    {
+      "path": "frontend/docs/production-smoke.json",
+      "sha256": "662fb85989f6e7477ce86e76a2a3c4039a7b2fc6dd46b99b7c94a4923c8fc774"
+    },
+    {
+      "path": "frontend/docs/screenshots/desktop-analysis.png",
+      "sha256": "da9c3d48f859defe4d14a0e59026e2b1a5c5a5c241cf547766f50756d66cac38"
+    },
+    {
+      "path": "frontend/docs/screenshots/home-1440.png",
+      "sha256": "eeb47171c3ec78e3848e61a7d0883d714499648f711c2a888d41e7a89866e82c"
+    },
+    {
+      "path": "frontend/docs/screenshots/home-390.png",
+      "sha256": "3eadf7e0ae01b1889cf879bbac4c8c44529eedd498b5eb51eb07b1d7f1ddcb08"
+    },
+    {
+      "path": "frontend/docs/screenshots/mobile-analysis.png",
+      "sha256": "0f19fac5930c0e1f412e89e2576a962c7811f0d4e7753c1a34096c48d3c6711b"
+    },
+    {
+      "path": "frontend/docs/screenshots/sources-1440.png",
+      "sha256": "e99e8387585d5f2495d445f9ee74686be5c425ea56160c3dda82c54eb8937d38"
+    },
+    {
+      "path": "frontend/docs/screenshots/sources-390.png",
+      "sha256": "07b10ecb4e2448cf8efc6a25923447557a0d88a3e59a6256642fd92f928fb246"
+    },
+    {
+      "path": "frontend/docs/screenshots/workspace-1024.png",
+      "sha256": "ed4c72f45ff225ee7d78827c9114ee98f6a62314cfd71f3447132c976419ad8c"
+    },
+    {
+      "path": "frontend/docs/screenshots/workspace-1280.png",
+      "sha256": "21b9b044115b71bf819f60d0f29ec94538e0f1f36ef1ce3dabcc4144be4d5f02"
+    },
+    {
+      "path": "frontend/docs/screenshots/workspace-1440.png",
+      "sha256": "dca6b5a516e07d5ce2663bdc4574ac0af1b07f323499481eafe541f8499fdb80"
+    },
+    {
+      "path": "frontend/docs/screenshots/workspace-320.png",
+      "sha256": "6aa3786885e694c29cb0d1529c8e80339576aab87d49e3a847bc88514dc49a46"
+    },
+    {
+      "path": "frontend/docs/screenshots/workspace-390.png",
+      "sha256": "d4c3b2e804a9941c7ff147ac986a8a28adf1aceef3c6767aa4d7a66323860392"
+    },
+    {
+      "path": "frontend/docs/verification.md",
+      "sha256": "f113c5ff2422ba742f688819d8b80139cd4a273fd4596ef6b7964b63cc3b347d"
+    },
+    {
+      "path": "frontend/index.html",
+      "sha256": "212cfa7067763df795139e02545c3071ea2ec0d9dff914d842f89cdecde2014c"
+    },
+    {
+      "path": "frontend/package-lock.json",
+      "sha256": "c031fc5669bf4d743267fc787746e88371a5dd59c2083509e83b8612960933a1"
+    },
+    {
+      "path": "frontend/package.json",
+      "sha256": "3b723c278cf2ff3683a2d724cef531311f4f42ebbf2969d6b709b829b99825d3"
+    },
+    {
+      "path": "frontend/playwright.config.ts",
+      "sha256": "4fbf53b9ca10722a9efd84ac3ed0b20725b82fd0727f97ede2c53b666c8db558"
+    },
+    {
+      "path": "frontend/public/favicon.svg",
+      "sha256": "53f0069c8e1fce4b113ed3ea2a5bed2d8ff42676dcf33aa011cb369fd6e40f5c"
+    },
+    {
+      "path": "frontend/src/App.vue",
+      "sha256": "994024859f9d3ef9d2ca627562a8860909dca47c06d1a6d75c3011edc289489d"
+    },
+    {
+      "path": "frontend/src/components/Icon.vue",
+      "sha256": "a5ff81e62e9dd0bf4603571585cdb326db63b64cd07019ff0a15e2428d9e1200"
+    },
+    {
+      "path": "frontend/src/components/MaterialTable.vue",
+      "sha256": "f3609c7c4c15a59adba7742335c73cf4e269bb24b8912af7b09829774c292062"
+    },
+    {
+      "path": "frontend/src/components/MessageList.vue",
+      "sha256": "0de6dd8a36b1f21341c716a39379f48ce8e1b76066d9759177df7fc0fba92cde"
+    },
+    {
+      "path": "frontend/src/components/QueryComposer.vue",
+      "sha256": "842a4c1d57f47961908e622e7fa442d225f4a6e457e3935740d2caf33e3a8b45"
+    },
+    {
+      "path": "frontend/src/components/ResultPanel.vue",
+      "sha256": "9ebb6852d6666abaa11f4072b3ca31a06e92ce0776e95cfe5077887f01281f45"
+    },
+    {
+      "path": "frontend/src/components/SourceDetails.vue",
+      "sha256": "b8ce1c9cd7d40ea380120452b60936b7383f1df3e24bdc5dff6010b71c4b4dec"
+    },
+    {
+      "path": "frontend/src/components/StatusBadge.vue",
+      "sha256": "c59c34c23b5ac755b9080dd43f114e1f947f28bd65faaf7bdd43c09e976b7062"
+    },
+    {
+      "path": "frontend/src/components/SummaryCards.vue",
+      "sha256": "eabf0d5e9d7fd34472b2826646d8594ad0dca46e3e58041a2f1e3add4ffd73a7"
+    },
+    {
+      "path": "frontend/src/composables/useAgent.ts",
+      "sha256": "0f88a1c1e821c82bb32d90b887ea5fc720d34bdd04f94807c0a304afd6a1d3bf"
+    },
+    {
+      "path": "frontend/src/data/fixtures.ts",
+      "sha256": "22284506899563819af5284bf7d4359f68e97ddc12c4ff4e2a45ac5aae70abc1"
+    },
+    {
+      "path": "frontend/src/data/model.ts",
+      "sha256": "9fb37de85d5391fbe32d78bdd40ef39863d91a891179fa700b34db292750328f"
+    },
+    {
+      "path": "frontend/src/main.ts",
+      "sha256": "4ffb504251a43decb01a20d3899f98e6b4127df7a31739e6f4b6e97d79d6a78e"
+    },
+    {
+      "path": "frontend/src/services/apiClient.ts",
+      "sha256": "2304e94a6240713856906da7c1c9d281facb3cd0f5300657875b5516fb090161"
+    },
+    {
+      "path": "frontend/src/services/mockService.ts",
+      "sha256": "aed5cf587dde2d044f06365684e594a8660d07aa8162a095e1094771d80fbd84"
+    },
+    {
+      "path": "frontend/src/services/responseAdapter.ts",
+      "sha256": "1e00a97ee79c530ddf5ea7397afcb3f503dac6ab805fdefbc1f5722526810866"
+    },
+    {
+      "path": "frontend/src/styles.css",
+      "sha256": "143e35a1b7037089ac868ceab0924d60e20226a778a20dbe521a41fb203b7f4f"
+    },
+    {
+      "path": "frontend/src/views/HomeView.vue",
+      "sha256": "30acfe70ba2cc6b979939ff5f50287057e2fe40cefbb0465c43d8093d5977793"
+    },
+    {
+      "path": "frontend/src/views/WorkspaceView.vue",
+      "sha256": "6fa915407b424fb5a3cf6d11c3205770dc7eaa2fd357434d440f11aec4d8b5cb"
+    },
+    {
+      "path": "frontend/tests/workflows.spec.ts",
+      "sha256": "6b7ce3b332959f6ae4b8187acfa1a7ae2a1e12b851cf8cde76796d0eb604d636"
+    },
+    {
+      "path": "frontend/tsconfig.json",
+      "sha256": "d02e6621c094e138eac4265ed048712a6b5ec962c6bea4a6ab4b6d83981261fa"
+    },
+    {
+      "path": "frontend/vite.config.ts",
+      "sha256": "a1d0c597b181c7908d5b41bd837f00cb3196060f2b6337e423e2ae78c36484cd"
+    }
+  ]
+}

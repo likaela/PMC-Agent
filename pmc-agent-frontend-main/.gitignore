@@ -1,0 +1,19 @@
+# Local dependencies, generated builds, and browser-test runtime artifacts
+**/node_modules/
+**/dist/
+**/test-results/
+**/playwright-report/
+**/.vite/
+**/*.log
+
+# Local configuration; keep the documented example
+**/.env*
+!**/.env.example
+
+# macOS and Office temporary files
+.DS_Store
+**/.DS_Store
+.~*
+**/.~*
+~$*
+**/~$*

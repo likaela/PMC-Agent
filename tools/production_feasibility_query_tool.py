@@ -18,14 +18,16 @@ def published_production_capacity_query(
     requested_quantity: int | None = None,
     requested_unit: str | None = None,
     as_of: str | None = None,
+    effective_date: str | None = None,
 ) -> dict:
-    """基于已发布一级 BOM 与权威可用库存查询理论产量；在途不计入当前产能。"""
+    """基于已发布 BOM 与权威可用库存查询理论产量；显式生效日期启用多层计算。"""
     query = {
         "product": product,
         "bom_version": bom_version,
         "requested_quantity": requested_quantity,
         "requested_unit": requested_unit,
         "as_of": as_of,
+        "effective_date": effective_date,
     }
     try:
         repository = FactRepository(create_fact_store())
@@ -33,6 +35,7 @@ def published_production_capacity_query(
         return ProductionFeasibilityQueryService(facts).query(
             product, bom_version, requested_quantity=requested_quantity,
             requested_unit=requested_unit, as_of=as_of,
+            effective_date=effective_date,
         )
     except Exception:
         return {

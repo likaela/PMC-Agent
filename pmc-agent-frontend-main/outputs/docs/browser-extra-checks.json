@@ -1,0 +1,30 @@
+{
+  "date": "2026-09-30",
+  "actualChecks": {
+    "unsupportedQuantity": true,
+    "loadingClearsResult": true,
+    "duplicateSendDisabled": true,
+    "cancelFeedback": true,
+    "cancelThenInventory": true,
+    "liveUnconfigured": true,
+    "liveMockSelectorHidden": true,
+    "modeClearsHistory": true,
+    "mobileNav": true,
+    "mobileHorizontalScroll": {
+      "scrollLeft": 120,
+      "scrollWidth": 720,
+      "clientWidth": 326
+    },
+    "filterShortage": true,
+    "filterEmpty": true,
+    "shiftEnterDoesNotSend": true,
+    "enterSends": true,
+    "helpOpensAndEscCloses": true
+  },
+  "notVerified": [
+    "Real backend mapping and requests",
+    "Physical mobile hardware/network",
+    "Actual operating-system Chinese IME composition",
+    "Command-line automated test assertions"
+  ]
+}

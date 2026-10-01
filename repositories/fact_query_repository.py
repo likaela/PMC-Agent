@@ -169,6 +169,41 @@ class FactQueryRepository:
             )
         return {"header": header, "lines": lines}
 
+    def list_published_bom_versions(self, parent_material_code: str) -> list[dict[str, object]]:
+        """仅列出已发布的精确父件版本；生效区间由上层确定性校验。"""
+        with self.store.transaction() as connection:
+            cursor = self.store.execute(
+                connection,
+                "SELECT h.version, h.effective_from, h.effective_to, "
+                "h.import_batch_id, h.source_sheet AS sheet_name, "
+                "sf.original_filename AS source_file, sf.content_sha256 "
+                "FROM bom_headers h JOIN import_batches b ON b.id = h.import_batch_id "
+                "JOIN source_files sf ON sf.id = h.source_file_id "
+                "WHERE h.parent_material_code = ? AND b.status = 'published' "
+                "ORDER BY h.version",
+                (parent_material_code,),
+            )
+            return _cursor_dicts(cursor)
+
+    def list_unit_conversions(self, item_id: str) -> list[dict[str, object]]:
+        """返回已发布的显式换算事实，不从单位名称推导比例。"""
+        with self.store.transaction() as connection:
+            cursor = self.store.execute(
+                connection,
+                "SELECT c.from_unit, c.to_unit, c.factor, c.effective_from, c.effective_to, "
+                "c.import_batch_id, c.source_sheet AS sheet_name, c.source_row_number AS row_number, "
+                "sf.original_filename AS source_file, sf.content_sha256 "
+                "FROM unit_conversions c JOIN import_batches b ON b.id = c.import_batch_id "
+                "JOIN source_files sf ON sf.id = c.source_file_id "
+                "WHERE c.item_id = ? AND b.status = 'published' "
+                "ORDER BY c.from_unit, c.to_unit, c.effective_from",
+                (item_id,),
+            )
+            rows = _cursor_dicts(cursor)
+        for row in rows:
+            row["factor"] = Decimal(str(row["factor"]))
+        return rows
+
     def get_inbound_observation(
         self,
         item_id: str,

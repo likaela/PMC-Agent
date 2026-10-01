@@ -272,6 +272,7 @@ class PostgreSQLFactStoreIntegrationTests(unittest.TestCase):
                 "001_controlled_fact_layer",
                 "002_source_audit_and_item_history",
                 "003_inventory_and_inbound_facts",
+                "004_multilevel_bom_planning",
             ],
         )
 
@@ -284,8 +285,13 @@ class PostgreSQLFactStoreIntegrationTests(unittest.TestCase):
                 connection,
                 "SELECT to_regclass('inbound_supply_facts')",
             ).fetchone()
+            unit_conversion_table = self.store.execute(
+                connection,
+                "SELECT to_regclass('unit_conversions')",
+            ).fetchone()
         self.assertIsNotNone(inventory_table[0])
         self.assertIsNotNone(inbound_table[0])
+        self.assertIsNotNone(unit_conversion_table[0])
 
         rollback_id = str(uuid4())
         with self.assertRaises(RuntimeError):
