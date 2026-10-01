@@ -274,6 +274,7 @@ class PostgreSQLFactStoreIntegrationTests(unittest.TestCase):
                 "003_inventory_and_inbound_facts",
                 "004_multilevel_bom_planning",
                 "005_inventory_analysis",
+                "006_published_purchase_planning",
             ],
         )
 
@@ -295,10 +296,13 @@ class PostgreSQLFactStoreIntegrationTests(unittest.TestCase):
                 "SELECT to_regclass('inventory_risk_policies')",
             ).fetchone()
             self.store.execute(connection, "SELECT last_movement_at FROM inventory_facts LIMIT 1")
+            purchase_parameter_table = self.store.execute(connection, "SELECT to_regclass('purchase_parameter_facts')").fetchone()
+            self.store.execute(connection, "SELECT unit, supplier_code, effective_to FROM price_records LIMIT 1")
         self.assertIsNotNone(inventory_table[0])
         self.assertIsNotNone(inbound_table[0])
         self.assertIsNotNone(unit_conversion_table[0])
         self.assertIsNotNone(inventory_policy_table[0])
+        self.assertIsNotNone(purchase_parameter_table[0])
 
         rollback_id = str(uuid4())
         with self.assertRaises(RuntimeError):
