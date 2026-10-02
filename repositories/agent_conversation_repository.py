@@ -25,13 +25,14 @@ class AgentConversationRepository:
     def __init__(self, store: PersistentFactStore) -> None:
         self.store = store
 
-    def create_session(self) -> dict:
+    def create_session(self, *, initial_context: dict | None = None) -> dict:
         session_id, conversation_id = str(uuid4()), str(uuid4())
         now = datetime.now(UTC).isoformat()
         with self.store.transaction(write_lock=True) as connection:
             self.store.execute(connection,
                 "INSERT INTO agent_sessions (id, created_at, updated_at, context_json) VALUES (?, ?, ?, ?)",
-                (session_id, now, now, _json({"fact": {}, "production": {}, "active_domain": None})))
+                (session_id, now, now, _json(initial_context if initial_context is not None else
+                                          {"fact": {}, "production": {}, "active_domain": None})))
             self.store.execute(connection,
                 "INSERT INTO agent_conversations (id, session_id, created_at) VALUES (?, ?, ?)",
                 (conversation_id, session_id, now))

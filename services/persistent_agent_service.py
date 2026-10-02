@@ -1,6 +1,6 @@
 """持久企业问答：理解参数 -> 白名单 Tool -> 确定性答复 -> 问答/来源原子保存。
 
-不访问 Demo、不运行 MemorySaver、不包含 BOM/MRP/采购业务算法。
+默认企业路径不访问 Demo；可显式注入隔离场景 Tool。不运行 MemorySaver，不包含业务算法。
 """
 
 from __future__ import annotations
@@ -8,7 +8,7 @@ from __future__ import annotations
 import copy
 import logging
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -168,8 +168,11 @@ def _answer(kind: str, result: dict) -> str:
 
 
 class PersistentAgentService:
-    def __init__(self, repository: AgentConversationRepository) -> None:
+    def __init__(self, repository: AgentConversationRepository, *, tool_resolver: Callable | None = None,
+                 response_adapter: Callable | None = None) -> None:
         self.repository = repository
+        self.tool_resolver = tool_resolver
+        self.response_adapter = response_adapter
 
     def query(self, session_id: str, message: str) -> dict:
         session = self.repository.get_session(session_id)
@@ -200,6 +203,8 @@ class PersistentAgentService:
                 response = self._needs_input(intent, missing, parser_source)
             else:
                 tool, args = self._tool(intent)
+                if self.tool_resolver is not None:
+                    tool = self.tool_resolver(intent.query_type)
                 try:
                     result = tool.invoke(args)
                     if not isinstance(result, Mapping) or not all(
@@ -235,6 +240,8 @@ class PersistentAgentService:
                 context["active_domain"] = domain
         response["session_id"] = session_id
         response["conversation_id"] = session["conversation_id"]
+        if self.response_adapter is not None:
+            response = self.response_adapter(response)
         turn_id = self.repository.append_turn(session, message, response, context, references)
         response["turn_id"] = turn_id
         return response

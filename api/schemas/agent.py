@@ -7,6 +7,9 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
+ScenarioId = Literal["demo_scenario_50_vs_100"]
+
+
 class UnifiedAgentRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
@@ -16,10 +19,11 @@ class UnifiedAgentRequest(BaseModel):
     active_context: Literal["pmc_analysis", "fact_query"] | None = None
     session_id: str | None = Field(default=None, min_length=1, max_length=64)
     persist_session: bool = False
+    scenario_id: ScenarioId | None = None
 
     @model_validator(mode="after")
     def isolate_published_session(self):
-        if (self.session_id or self.persist_session) and (self.workflow_id or self.fact_session_id or self.active_context):
+        if (self.session_id or self.persist_session or self.scenario_id) and (self.workflow_id or self.fact_session_id or self.active_context):
             raise ValueError("持久企业会话不接受旧Demo/内存会话上下文")
         return self
 
@@ -35,6 +39,12 @@ class UnifiedAgentResponse(BaseModel):
     session_id: str | None = None
     conversation_id: str | None = None
     turn_id: str | None = None
+    scenario_id: ScenarioId | None = None
+
+
+class AgentSessionCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    scenario_id: ScenarioId | None = None
 
 
 class AgentSessionResponse(BaseModel):
@@ -44,6 +54,7 @@ class AgentSessionResponse(BaseModel):
     updated_at: str
     context_version: int
     context: dict[str, Any]
+    scenario_id: ScenarioId | None = None
 
 
 class AgentFactReference(BaseModel):
@@ -67,4 +78,4 @@ class AgentSessionHistory(AgentSessionResponse):
 
 
 __all__ = ["UnifiedAgentRequest", "UnifiedAgentResponse", "AgentSessionResponse",
-           "AgentFactReference", "AgentTurn", "AgentSessionHistory"]
+           "AgentFactReference", "AgentTurn", "AgentSessionHistory", "AgentSessionCreate", "ScenarioId"]

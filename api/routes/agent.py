@@ -8,7 +8,8 @@ from fastapi.responses import JSONResponse
 from agents.fact_query_agent import run_fact_query_agent
 from agents.production_feasibility_agent import run_production_feasibility_agent
 from api.routes.chat import chat
-from api.schemas.agent import (UnifiedAgentRequest, UnifiedAgentResponse, AgentSessionResponse, AgentSessionHistory)
+from api.schemas.agent import (UnifiedAgentRequest, UnifiedAgentResponse, AgentSessionResponse, AgentSessionHistory,
+                               AgentSessionCreate, ScenarioId)
 from api.schemas.chat import ChatClarificationResponse, ChatRequest, ChatResponse
 from services.agent_intent_router import route_agent_message
 from services.fact_dialogue_context_service import (
@@ -24,7 +25,10 @@ from services.persistent_agent_service import PersistentAgentService
 router = APIRouter(prefix="/api/v1/agent", tags=["Unified Agent"])
 
 
-def _persistent_service() -> PersistentAgentService:
+def _persistent_service(scenario_id: ScenarioId | None = None) -> PersistentAgentService:
+    if scenario_id is not None:
+        from services.demo_scenario_agent_service import build_demo_scenario_agent
+        return build_demo_scenario_agent()
     # 部署时显式 migrate；问答请求不改变企业事实/数据库结构。
     return PersistentAgentService(AgentConversationRepository(create_fact_store()))
 
@@ -36,16 +40,17 @@ def _session_error(error: Exception) -> JSONResponse:
 
 
 @router.post("/sessions", response_model=AgentSessionResponse)
-def create_agent_session():
-    """创建 published-only 企业持久会话；不初始化或重建 Demo Workflow。"""
-    return _persistent_service().repository.create_session()
+def create_agent_session(request: AgentSessionCreate | None = None):
+    """创建企业会话或显式独立场景会话；不初始化或重建旧 Demo Workflow。"""
+    return _persistent_service(request.scenario_id if request else None).repository.create_session()
 
 
 @router.get("/sessions/{session_id}", response_model=AgentSessionHistory)
-def get_agent_session(session_id: str, after: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200)):
+def get_agent_session(session_id: str, after: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200),
+                      scenario_id: ScenarioId | None = Query(None)):
     """分页恢复问答、上下文及每次调用的来源证据；不重新查询/计算历史事实。"""
     try:
-        return _persistent_service().repository.history(session_id, after=after, limit=limit)
+        return _persistent_service(scenario_id).repository.history(session_id, after=after, limit=limit)
     except SessionNotFound as error:
         return _session_error(error)
 
@@ -53,8 +58,8 @@ def get_agent_session(session_id: str, after: int = Query(0, ge=0), limit: int =
 @router.post("/query", response_model=UnifiedAgentResponse)
 def unified_agent_query(request: UnifiedAgentRequest) -> UnifiedAgentResponse:
     """统一自然语言入口，不改变旧 Chat、Demo 或 LangGraph 执行链。"""
-    if request.session_id or request.persist_session:
-        service = _persistent_service()
+    if request.session_id or request.persist_session or request.scenario_id:
+        service = _persistent_service(request.scenario_id)
         session_id = request.session_id or service.repository.create_session()["session_id"]
         try:
             return UnifiedAgentResponse.model_validate(service.query(session_id, request.message))

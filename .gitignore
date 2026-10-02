@@ -21,6 +21,7 @@ data/raw/
 
 # Local fact database and immutable private source copies
 data/facts/
+data/demo/demo_scenario_50_vs_100/.runtime/
 
 # Real enterprise private data
 data/normalized/
