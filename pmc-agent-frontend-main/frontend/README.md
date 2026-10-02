@@ -7,12 +7,13 @@
 在本目录执行（Node.js 22.12+）：
 
 ```powershell
-npm ci
-Copy-Item .env.example .env.local
+npm install
 npm run dev
 ```
 
-`.env.local` 配置：
+这是主项目当前比赛展示入口；根目录 `frontend/` 为 legacy，不是本目录的依赖。
+默认在线 API 地址为 `http://127.0.0.1:8000`，无需 `.env.local` 也可启动。
+若需要自定义配置，先执行 `Copy-Item .env.example .env.local`，再修改：
 
 ```ini
 VITE_DATA_MODE=live
@@ -61,7 +62,7 @@ npm run test:e2e
 
 ## 当前限制
 
-- 接入测试采用符合现有后端契约的 mock HTTP 响应；上线前仍需真实部署环境验收。
+- 前端回归采用符合后端契约的 mock HTTP 响应；独立 Demo 已完成本机真实 HTTP 联调（50/100 台、采购、刷新恢复），不等同于公开部署验收。
 - API 是一次性 JSON 响应，没有 SSE 阶段流；页面只展示等待状态，不伪造执行过程。
 - 停止等待不会取消服务端计算。超时/取消后优先恢复历史，避免盲目重复发送；当前没有服务器级幂等取消协议。
 - 企业事实持久路径与旧 pmc_analysis 响应不同；旧路径仅保留回答文本，不将未知 report 字段猜测映射为卡片。

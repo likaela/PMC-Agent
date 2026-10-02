@@ -28,9 +28,13 @@ router = APIRouter(prefix="/api/v1/agent", tags=["Unified Agent"])
 def _persistent_service(scenario_id: ScenarioId | None = None) -> PersistentAgentService:
     if scenario_id is not None:
         from services.demo_scenario_agent_service import build_demo_scenario_agent
-        return build_demo_scenario_agent()
+        service = build_demo_scenario_agent()
+        service.enable_orchestrator()
+        return service
     # 部署时显式 migrate；问答请求不改变企业事实/数据库结构。
-    return PersistentAgentService(AgentConversationRepository(create_fact_store()))
+    service = PersistentAgentService(AgentConversationRepository(create_fact_store()))
+    service.enable_orchestrator()
+    return service
 
 
 def _session_error(error: Exception) -> JSONResponse:

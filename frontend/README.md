@@ -1,4 +1,10 @@
-# PMC-Agent Vue Dashboard
+# PMC-Agent Legacy Vue Dashboard
+
+本目录 `frontend/` 保留为 legacy，供兼容功能回归使用，不是当前比赛展示入口。
+默认启动请在项目根目录运行 `start-frontend.bat`，或进入
+`pmc-agent-frontend-main/frontend/` 执行 `npm install`、`npm run dev`。
+详见 [当前前端启动指南](../docs/frontend_startup.md)。
+以下为旧界面的独立使用说明；启动旧界面前须停止占用 5173 的新前端。
 
 该界面只展示 FastAPI 的确定性 PMC 工作流结果，不在浏览器中计算 BOM、缺料、齐套率、风险、采购量或生产决策。
 

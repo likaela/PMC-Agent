@@ -51,7 +51,7 @@ quantity 是原文的生产数量，可把中文整数规范化，不能计算�
 只返回 schema 字段，不返回事实、生产结论或建议。"""
 
 
-def parse_enterprise_query(message: str) -> tuple[EnterpriseQueryIntent, str]:
+def parse_enterprise_query(message: str, *, allow_llm: bool = True) -> tuple[EnterpriseQueryIntent, str]:
     """规则优先；LLM 只可辅助分类，所有标识和数值均由原文核验。"""
     if re.search(r"(?:-\s*\d+|\d+\.\d+)\s*(?:台|件|个|套)", message):
         raise ValueError("生产数量必须是正整数")
@@ -77,7 +77,7 @@ def parse_enterprise_query(message: str) -> tuple[EnterpriseQueryIntent, str]:
     if fields["material_code"] in {fields["as_of"], fields["effective_date"], fields["start_date"]}:
         fields["material_code"] = None
     rule = EnterpriseQueryIntent.model_validate(fields)
-    if kind != "clarification":
+    if kind != "clarification" or not allow_llm:
         return rule, "rule"
     try:
         if get_llm_configuration_status()["status"] == "ok":
@@ -173,8 +173,33 @@ class PersistentAgentService:
         self.repository = repository
         self.tool_resolver = tool_resolver
         self.response_adapter = response_adapter
+        self.orchestrator = None
+
+    def enable_orchestrator(self) -> None:
+        """Opt-in API integration; direct legacy service users keep their existing path."""
+        from agents.orchestrator import AgentOrchestrator
+        from agents.planner import AgentPlanner
+        from agents.response_generator import ResponseGenerator
+        from agents.tool_registry import ToolRegistry
+        scope = getattr(getattr(self.repository, "manifest", None), "scenario_id", "enterprise")
+        resolver = self.tool_resolver or (lambda kind: self._tool(EnterpriseQueryIntent(query_type=kind))[0])
+        llm_options = dict(llm_factory=lambda: get_llm(), llm_status=lambda: get_llm_configuration_status())
+        self.orchestrator = AgentOrchestrator(ToolRegistry(resolver=resolver, scope=scope or "enterprise"),
+            planner=AgentPlanner(**llm_options), response_generator=ResponseGenerator(formatter=_answer, **llm_options))
 
     def query(self, session_id: str, message: str) -> dict:
+        if self.orchestrator is not None:
+            session = self.repository.get_session(session_id)
+            turn = self.orchestrator.run(message, session["context"])
+            if turn is not None:
+                response = {**turn.response, "session_id": session_id, "conversation_id": session["conversation_id"]}
+                if self.response_adapter is not None:
+                    response = self.response_adapter(response)
+                response["turn_id"] = self.repository.append_turn(session, message, response, turn.context, turn.references)
+                return response
+        return self._legacy_query(session_id, message)
+
+    def _legacy_query(self, session_id: str, message: str) -> dict:
         session = self.repository.get_session(session_id)
         context = copy.deepcopy(session["context"])
         references: list[dict] = []

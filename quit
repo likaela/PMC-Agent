@@ -1,0 +1,41 @@
+warning: in the working copy of 'pmc-agent-frontend-main/frontend/.env.example', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pmc-agent-frontend-main/frontend/.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pmc-agent-frontend-main/frontend/README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pmc-agent-frontend-main/frontend/docs/api-mapping.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pmc-agent-frontend-main/frontend/playwright.config.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pmc-agent-frontend-main/frontend/src/App.vue', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pmc-agent-frontend-main/frontend/src/components/MaterialTable.vue', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pmc-agent-frontend-main/frontend/src/components/MessageList.vue', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pmc-agent-frontend-main/frontend/src/components/QueryComposer.vue', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pmc-agent-frontend-main/frontend/src/components/ResultPanel.vue', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pmc-agent-frontend-main/frontend/src/components/SourceDetails.vue', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pmc-agent-frontend-main/frontend/src/components/SummaryCards.vue', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pmc-agent-frontend-main/frontend/src/composables/useAgent.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pmc-agent-frontend-main/frontend/src/data/fixtures.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pmc-agent-frontend-main/frontend/src/data/model.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pmc-agent-frontend-main/frontend/src/services/apiClient.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pmc-agent-frontend-main/frontend/src/services/responseAdapter.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pmc-agent-frontend-main/frontend/src/views/HomeView.vue', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pmc-agent-frontend-main/frontend/src/views/WorkspaceView.vue', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pmc-agent-frontend-main/frontend/tests/workflows.spec.ts', LF will be replaced by CRLF the next time Git touches it
+ pmc-agent-frontend-main/frontend/.env.example      |   7 [32m+[m[31m-[m
+ pmc-agent-frontend-main/frontend/.gitignore        |   3 [32m+[m
+ pmc-agent-frontend-main/frontend/README.md         | 106 [32m++[m[31m---[m
+ .../frontend/docs/api-mapping.md                   |  80 [32m++[m[31m--[m
+ .../frontend/playwright.config.ts                  |  12 [32m+[m[31m-[m
+ pmc-agent-frontend-main/frontend/src/App.vue       |  42 [32m+[m[31m-[m
+ .../frontend/src/components/MaterialTable.vue      |  56 [32m++[m[31m-[m
+ .../frontend/src/components/MessageList.vue        |   6 [32m+[m[31m-[m
+ .../frontend/src/components/QueryComposer.vue      |   2 [32m+[m[31m-[m
+ .../frontend/src/components/ResultPanel.vue        |  95 [32m++++[m[31m-[m
+ .../frontend/src/components/SourceDetails.vue      |  41 [32m+[m[31m-[m
+ .../frontend/src/components/SummaryCards.vue       |  12 [32m+[m[31m-[m
+ .../frontend/src/composables/useAgent.ts           | 268 [32m+++++++++++[m[31m--[m
+ .../frontend/src/data/fixtures.ts                  |  36 [32m+[m[31m-[m
+ pmc-agent-frontend-main/frontend/src/data/model.ts | 141 [32m++++++[m[31m-[m
+ .../frontend/src/services/apiClient.ts             | 229 [32m+++++++++[m[31m--[m
+ .../frontend/src/services/responseAdapter.ts       | 429 [32m++++++++++++++++++++[m[31m-[m
+ .../frontend/src/views/HomeView.vue                |  42 [32m+[m[31m-[m
+ .../frontend/src/views/WorkspaceView.vue           |  53 [32m++[m[31m-[m
+ .../frontend/tests/workflows.spec.ts               |  15 [32m+[m[31m-[m
+ 20 files changed, 1393 insertions(+), 282 deletions(-)

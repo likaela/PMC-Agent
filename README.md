@@ -1,4 +1,8 @@
-# PMC-Agent v1.5-beta Demo Release
+# PMC-Agent — v1.14 后端 / v1.14.1 比赛展示前端
+
+默认开发与比赛展示入口为 `pmc-agent-frontend-main/frontend/`，通过统一 Agent API 访问后端。
+根目录 `frontend/` 保留为 **legacy**，不是默认启动入口；两套前端不要同时占用 5173。
+Windows 启动脚本与配置说明见 [前端启动指南](docs/frontend_startup.md)。
 
 面向制造业 PMC 场景的智能生产决策 Agent。它将自然语言生产任务转换为受控参数，
 再由确定性工作流完成 BOM 展开、MRP 齐套分析、采购参数检查、生产决策与结构化报告。
@@ -11,18 +15,24 @@
 - 可追踪 Agent：展示输入校验、BOM、MRP、采购、生产决策和报告工具的调用状态；不暴露思维链。
 - 主动追问：采购参数缺失时，明确列出需要业务人员补充的物料和字段。
 - 确定性业务：BOM、库存、缺料、采购量、风险和生产结论全部由 Python Service 计算。
-- 双入口演示：保留表单式 PMC Dashboard，并提供自然语言 Chat Agent。
-- Demo 体验：内置 KQ-Z112 / V01 快捷案例、当前进程内体验统计和可选文字反馈。
+- 当前入口：自然语言查询工作台、结构化结果、物料明细及来源引用。
+- 独立比赛 Demo：`DEMO-PMC-01 / V01` 的 50 台齐套、100 台缺料与采购建议，不修改真实企业数据。
+- Legacy 兼容：原表单 Dashboard、KQ-Z112 Chat 与反馈功能仍保留在旧前端及兼容接口中。
 
 ## 系统架构
 
 ```text
-Vue Dashboard / Chat
+新 Vue Agent 客户端（pmc-agent-frontend-main/frontend）
         ↓ HTTP
-FastAPI API
+FastAPI 统一 Agent API（/api/v1/agent/query）
         ↓
-Task Parser（仅提取 product / bom_version / quantity）
+Agent Router（理解与参数校验）
         ↓
+Published Fact Query / Production Feasibility / Purchase Planning
+        ↓
+Fact Layer（SQLite / PostgreSQL，来源审计、持久会话）
+
+兼容生产分析路径（保持不变）：
 LangGraph Workflow（只负责编排）
         ↓
 LangChain Tools（参数适配）
@@ -48,21 +58,41 @@ Copy-Item .env.example .env
 另开 PowerShell：
 
 ```powershell
-Set-Location frontend
-Copy-Item .env.example .env.local
+Set-Location pmc-agent-frontend-main/frontend
 npm install
 npm run dev
 ```
 
-访问 `http://localhost:5173`，在“自然语言 Agent”页面选择 Demo 案例或直接输入任务。
+访问 `http://127.0.0.1:5173`，进入新前端首页或“分析工作台”。
 API 文档位于 `http://localhost:8000/docs`。
 
-数据源默认使用 `PMC_DATA_SOURCE=auto`：本机 `data/raw/` 三个企业文件齐全时读取真实数据，
+双击根目录 `start-backend.bat` 和 `start-frontend.bat` 也可分别启动；脚本不自动安装依赖。
+新前端默认使用在线模式及 `http://127.0.0.1:8000` API，无需复制旧前端配置。
+需要覆盖地址时，在新前端目录执行 `Copy-Item .env.example .env.local` 并修改配置，再重启 Vite。
+`VITE_*` 是公开浏览器配置，禁止放入密钥。若 5173 已被旧前端占用，先在旧终端按 Ctrl+C 停止旧前端。
+
+兼容生产分析路径的数据源默认使用 `PMC_DATA_SOURCE=auto`：本机 `data/raw/` 三个企业文件齐全时读取真实数据，
 否则自动使用仓库内 `data/demo/kq_z112_demo.json` 的纯合成演示数据。公开仓库不得提交
 真实企业 Excel。`GET /health?details=true` 可检查数据、工作流、LLM 与 CORS 就绪状态，
 响应不会返回密钥或本机绝对路径。
 
+新前端的“企业事实”模式读取 published facts；“合成 Demo”显式携带
+`scenario_id=demo_scenario_50_vs_100`，两者不由上述 legacy 数据源开关混为一套数据。
+
 ## Demo 使用方法
+
+### 当前比赛展示入口
+
+1. 打开新前端，选择“在线 Agent / 合成 Demo”。
+2. 发送“生产50台DEMO-PMC-01”：库存齐套，缺口为 0。
+3. 发送“生产100台DEMO-PMC-01”：4 项物料缺料。
+4. 同一会话发送“采购建议”：展示建议量、成本、风险和来源；建议不表示已到货。
+5. 刷新页面：从服务端恢复同一持久会话与历史回答。
+
+亦可通过首页快捷入口进入独立 Demo。该合成案例理论最大生产数量为 75 台，
+50 台库存齐套不等于开工许可或交付承诺。
+
+### Legacy KQ-Z112 Demo（非默认入口）
 
 首次打开“自然语言 Agent”会显示项目简介、支持能力与推荐演示顺序。默认案例为
 `KQ-Z112 / V01`，按下列顺序点击即可，无需手动组织复杂参数：
@@ -77,13 +107,12 @@ API 文档位于 `http://localhost:8000/docs`。
 
 ## 比赛演示流程
 
-1. 打开“自然语言 Agent”，点击“单台开工分析”。
-2. Agent 展示解析结果、执行工具轨迹和生产决策。
-3. 观察阻塞物料、建议行动和采购参数待补充清单。
-4. 切换回 PMC Dashboard，补充明确的采购参数并恢复同一工作流。
-5. 强调：生成采购建议不等于物料已到货，系统不会直接改判为可开工。
+默认使用上面的独立 50/100 台演示。新前端等待一次性 JSON 响应，不伪造逐节点执行过程。
+需要展示原 KQ-Z112 工作流轨迹或人工补参时，可单独启动 legacy 前端；后端原功能没有删除。
 
 ## 示例
+
+以下为保留的 legacy 生产分析示例，不是独立 50/100 台 Demo 的产品编码。
 
 输入：
 
@@ -104,6 +133,9 @@ API 文档位于 `http://localhost:8000/docs`。
 | 接口 | 作用 |
 | --- | --- |
 | `GET /health` | 健康检查 |
+| `POST /api/v1/agent/query` | 新前端统一生产/事实查询入口，支持 session_id / scenario_id |
+| `POST /api/v1/agent/sessions` | 创建持久会话 |
+| `GET /api/v1/agent/sessions/{session_id}` | 分页恢复持久会话与来源 |
 | `POST /api/v1/pmc/analyze` | 表单方式启动 PMC 分析 |
 | `GET /api/v1/pmc/{workflow_id}` | 查询当前进程内工作流状态 |
 | `POST /api/v1/pmc/{workflow_id}/purchase-parameters` | 补参并从采购节点恢复 |
@@ -117,13 +149,13 @@ API 文档位于 `http://localhost:8000/docs`。
 
 ```powershell
 .\venv\Scripts\python.exe -m unittest discover -s tests -v
-Set-Location frontend
+Set-Location pmc-agent-frontend-main/frontend
 npm run build
 ```
 
 ## 当前限制
 
-- 工作流 checkpoint 仅存在当前进程内，未接入数据库持久化。
+- 统一 Agent 会话已持久化；兼容 LangGraph 工作流 checkpoint 仍仅存在当前进程内，二者不要混淆。
 - Demo 反馈与统计同样只在当前进程可见，服务重启后会清空；它们不适合作为正式运营数据。
 - 不包含用户、权限、ERP、MES、WMS 或复杂 APS 排产。
 - 真实原始企业数据保持在 `data/raw/` 本地忽略目录，不应提交到版本库。
