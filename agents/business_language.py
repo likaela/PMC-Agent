@@ -1,0 +1,77 @@
+"""Agent-only language rules. User constraints are requests, never published facts."""
+
+from __future__ import annotations
+
+import re
+
+
+_ABBREVIATIONS = r"MOQ|LT|BOM|FIFO|MRP|PMC|PCS|ERP|WMS|APS"
+_CONSTRAINT = re.compile(r"(?<![A-Za-z0-9_-])(MOQ|LT)\s*[:：=]?\s*(\d+)(?![\d.])", re.I)
+_REFRESH = re.compile(r"重新计算|重新分析|按最新库存|再查一次|重新查|刷新库存")
+
+
+def refresh_requested(message: str) -> bool:
+    # Negated instructions must not trigger refresh.
+    message = re.sub(r"(?:不要|不用|无需|不必)\s*(?:重新计算|重新分析|再查一次|重新查)", "", message)
+    return bool(_REFRESH.search(message))
+
+
+def operation(message: str) -> str:
+    if re.search(r"外部.*风险|供应链风险|政策.*风险|政策.*断供|外部供应|新闻.*供应", message):
+        return "external_risk"
+    if re.search(r"邮件|email", message, re.I) and re.search(r"写|草稿|生成|起草", message):
+        return "email_draft"
+    if re.search(r"FIFO|批次.*(?:优先|先用)|优先.*批次|先用.*库存|库存.*先用", message, re.I):
+        return "fifo"
+    if re.search(r"临期|快过期|快到期|过期风险", message):
+        return "expiry"
+    if re.search(r"呆滞|积压", message):
+        return "stagnation"
+    if "安全库存" in message:
+        return "safety"
+    if re.search(r"库存.*(?:问题|健康|诊断)|(?:分析|诊断).*库存.*风险", message):
+        return "inventory_health"
+    if not refresh_requested(message) and re.search(r"为什么|原因|限制|哪些物料.*影响|怎么回事", message):
+        return "explain"
+    return "query"
+
+
+def intent_override(message: str, local_kind: str) -> str:
+    action = operation(message)
+    if action == "external_risk":
+        return "clarification"
+    if action == "email_draft":
+        # Retain public contract: standalone draft vs an explicit procurement-plan draft.
+        return "purchase_planning" if re.search(r"采购建议|采购计划", message) else "clarification"
+    if action == "fifo":
+        return "inventory_batches"
+    if action in {"inventory_health", "stagnation", "safety"}:
+        return "inventory"
+    if action == "expiry":
+        return "inventory" if local_kind != "clarification" else local_kind
+    # Arrival/transport questions precede general purchase language.
+    if re.search(r"什么时候到|到货|运输|已采购|预计交付|在途|采购订单", message):
+        return "inbound"
+    if re.search(r"采购|买|下单|补货|缺料采购|MOQ|成本|供应商", message, re.I):
+        return "purchase_planning"
+    return local_kind
+
+
+def identifier_message(message: str) -> str:
+    """Protect unquoted manufacturing terms and their parameter values from code regex."""
+    message = _CONSTRAINT.sub("", message)
+    return re.sub(rf"(?<![A-Za-z0-9_\-\"“‘])(?:{_ABBREVIATIONS})(?![A-Za-z0-9_\-\"”’])", "", message, flags=re.I)
+
+
+def constraints(message: str) -> list[dict]:
+    return [{"type": match.group(1).upper(), "value": int(match.group(2))}
+            for match in _CONSTRAINT.finditer(message)]
+
+
+def inventory_request(message: str) -> dict:
+    qty = re.search(r"(?:领用|使用|用|需求|扣减|分配)\s*(\d+(?:\.\d+)?)\s*(?:件|个|kg|g|PCS)", message, re.I)
+    expiry = re.search(r"临期(?:阈值)?\s*[:：]?\s*(\d+)\s*天", message)
+    stagnant = re.search(r"呆滞(?:阈值)?\s*[:：]?\s*(\d+)\s*天", message)
+    return dict(required_qty=qty.group(1) if qty else None,
+                expiry_warning_days=int(expiry.group(1)) if expiry else None,
+                stagnant_days=int(stagnant.group(1)) if stagnant else None)

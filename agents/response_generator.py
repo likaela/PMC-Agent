@@ -69,5 +69,12 @@ class ResponseGenerator:
         except Exception:
             return fallback, "rule_fallback"
 
+    def draft_email(self, records: list[Evidence], kinds: list[str]) -> tuple[str, str]:
+        # LLM arranges bounded, prevalidated draft statements, not arbitrary facts or promises.
+        from agents.business_formatter import format_purchase_email
+        generator = ResponseGenerator(llm_factory=self.llm_factory, llm_status=self.llm_status,
+                                      formatter=format_purchase_email)
+        return generator.generate(records, kinds)
+
 
 __all__ = ["ResponseGenerator", "GroundedReply", "NO_EVIDENCE"]

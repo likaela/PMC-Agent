@@ -12,30 +12,47 @@ TOOL_KINDS = MappingProxyType({
     "bom_query": "bom",
     "production_analysis": "production_capacity",
     "purchase_plan": "purchase_planning",
+    "inventory_risk_analysis": "inventory",
+    "inventory_risk": "inventory",
+    "inventory_fifo": "inventory_batches",
 })
-PRIMARY_TOOLS = MappingProxyType({kind: name for name, kind in TOOL_KINDS.items()})
+PRIMARY_TOOLS = MappingProxyType({kind: name for name, kind in TOOL_KINDS.items()
+                                if name not in {"inventory_risk_analysis", "inventory_risk", "inventory_fifo"}})
 REQUIRED_PARAMETERS = MappingProxyType({
     "inventory_query": ("material_code",),
     "batch_inventory_query": ("material_code",),
     "bom_query": ("material_code", "revision"),
     "production_analysis": ("material_code", "revision", "effective_date"),
     "purchase_plan": ("material_code", "revision", "effective_date", "quantity", "start_date"),
+    "inventory_risk_analysis": ("material_code", "as_of"),
+    "inventory_risk": ("material_code", "as_of"),
+    "inventory_fifo": ("material_code", "as_of", "required_qty"),
 })
 
 
 class ToolRegistry:
-    def __init__(self, *, resolver: Callable | None = None, scope: str = "enterprise") -> None:
+    def __init__(self, *, resolver: Callable | None = None, scope: str = "enterprise", analysis_resolver: Callable | None = None) -> None:
         if scope != "enterprise" and resolver is None:
             raise ValueError("An isolated scope requires its own bound tool resolver")
         self.scope = scope
         self._resolver = resolver
+        self._analysis_resolver = analysis_resolver
 
     @property
     def names(self) -> tuple[str, ...]:
-        return tuple(TOOL_KINDS)
+        return tuple(name for name in TOOL_KINDS if self.scope == "enterprise" or name not in {"inventory_risk_analysis", "inventory_risk", "inventory_fifo"})
 
     def resolve(self, name: str):
         kind = TOOL_KINDS[name]  # Closed whitelist; never eval/import a model-provided name.
+        if name in {"inventory_risk_analysis", "inventory_risk", "inventory_fifo"}:
+            if self.scope != "enterprise":
+                raise ValueError("Enterprise analysis tools are not enabled in Demo")
+            if self._analysis_resolver is not None:
+                return self._analysis_resolver(name)
+            from tools.inventory_analysis_tools import published_inventory_risk_analysis, published_inventory_fifo_plan
+            return {"inventory_risk_analysis": published_inventory_risk_analysis,
+                    "inventory_risk": published_inventory_risk_analysis,
+                    "inventory_fifo": published_inventory_fifo_plan}[name]
         if self._resolver is not None:
             return self._resolver(kind)
         if kind in {"inventory", "inventory_batches", "bom"}:
@@ -55,6 +72,13 @@ class ToolRegistry:
         if missing:
             raise ValueError("Missing required tool parameters")
         code, revision = entities.get("material_code"), entities.get("revision")
+        if name in {"inventory_risk_analysis", "inventory_risk", "inventory_fifo"}:
+            args = dict(material_code=code, as_of=entities.get("as_of"))
+            if name == "inventory_fifo":
+                args["required_qty"] = entities["required_qty"]
+            else:
+                args.update(expiry_warning_days=entities.get("expiry_warning_days"), stagnant_days=entities.get("stagnant_days"))
+            return args
         if name in {"inventory_query", "batch_inventory_query"}:
             return dict(material_code=code, as_of=entities.get("as_of"))
         if name == "bom_query":
