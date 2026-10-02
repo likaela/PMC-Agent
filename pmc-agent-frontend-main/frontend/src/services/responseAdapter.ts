@@ -240,7 +240,17 @@ export function adaptBackendResponse(payload: unknown): FrontendViewModel {
       spec: text(child.specification) ?? "",
       required: decimal(row.required_qty),
       available: decimal(row.available_qty),
-      shortage: decimal(row.shortage_qty ?? row.shortage),
+      onHand: decimal(row.on_hand_qty),
+      reserved: decimal(row.reserved_qty),
+      shortage: decimal(
+        row.shortage_qty !== undefined ? row.shortage_qty : row.shortage,
+      ),
+      purchaseQty: decimal(
+        row.suggested_purchase_qty !== undefined
+          ? row.suggested_purchase_qty
+          : row.purchase_qty,
+      ),
+      completeness: object(row.completeness),
       unit: text(row.unit ?? child.unit) ?? "",
       state: "unknown",
       sourceIds: sourceIds(code),
@@ -349,8 +359,14 @@ export function adaptBackendResponse(payload: unknown): FrontendViewModel {
     vm.purchases = list(data.recommendations).map((row): PurchaseView => ({
       material: text(row.material) ?? "物料未提供",
       unit: text(row.unit) ?? "",
-      shortage: decimal(row.shortage_qty ?? row.shortage),
-      suggested: decimal(row.suggested_purchase_qty),
+      shortage: decimal(
+        row.shortage_qty !== undefined ? row.shortage_qty : row.shortage,
+      ),
+      suggested: decimal(
+        row.suggested_purchase_qty !== undefined
+          ? row.suggested_purchase_qty
+          : row.purchase_qty,
+      ),
       cost: decimal(row.purchase_cost),
       currency: text(row.currency),
       supplier: text(row.supplier),
@@ -362,7 +378,23 @@ export function adaptBackendResponse(payload: unknown): FrontendViewModel {
       reasons: strings(row.reason),
       missingFields: strings(row.missing_fields),
     }));
-    vm.materials = list(data.recommendations).map((row) => material(row));
+    vm.materials = list(data.recommendations).map((row) => {
+      const m = material(row);
+      // Display the returned shortage only; never subtract stock from demand,
+      // substitute on-hand for available, or use a purchase quantity as stock.
+      if (m.available !== null) {
+        const coefficient = m.shortage?.split(/[eE]/)[0];
+        m.state =
+          coefficient == null
+            ? "published"
+            : !/[1-9]/.test(coefficient)
+              ? "sufficient"
+              : !coefficient.startsWith("-")
+                ? "shortage"
+                : "published";
+      }
+      return m;
+    });
     metric("总采购成本", decimal(data.total_purchase_cost));
     metric("成本币种", text(data.total_cost_currency));
   } else if (kind === "inventory_batches") {

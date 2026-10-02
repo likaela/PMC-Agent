@@ -99,7 +99,7 @@ test("在线库存查询使用 Agent API，null 不变零且可展示来源", as
     page.getByRole("heading", { name: "物料库存事实" }),
   ).toBeVisible();
   await expect(page.locator("tbody")).toContainText("100.000");
-  await expect(page.locator("tbody")).toContainText("未提供");
+  await expect(page.locator("tbody")).toContainText("未知");
   expect(backend.requests[0]).toMatchObject({
     message: "查询MAT-001库存",
     session_id: "session-1",

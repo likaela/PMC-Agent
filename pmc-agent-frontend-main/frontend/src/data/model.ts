@@ -78,6 +78,8 @@ export interface Material {
   qtyPer?: DecimalText | null;
   onHand?: DecimalText | null;
   reserved?: DecimalText | null;
+  purchaseQty?: DecimalText | null;
+  completeness?: JsonObject;
   unit: string;
   state: MaterialState;
   sourceIds: string[];
@@ -196,7 +198,7 @@ export const statusText: Record<ResultStatus, string> = {
 };
 export const materialText: Record<MaterialState, string> = {
   shortage: "缺料",
-  unknown: "待补充库存",
+  unknown: "可用库存未知",
   sufficient: "满足需求",
   published: "已提供库存",
   "no-facts": "无已发布事实",

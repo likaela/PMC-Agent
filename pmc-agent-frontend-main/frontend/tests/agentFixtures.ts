@@ -116,6 +116,8 @@ export function purchase(): BackendResponse {
           material: "DEMO-BOARD-01",
           unit: "pcs",
           required_qty: "100",
+          on_hand_qty: "80.000",
+          reserved_qty: "5.000",
           available_qty: "75",
           shortage_qty: "25",
           suggested_purchase_qty: "30",

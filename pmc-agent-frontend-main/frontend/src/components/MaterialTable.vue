@@ -8,6 +8,15 @@ defineEmits<{ source: [ids: string[]] }>();
 const filter = ref("all");
 const search = ref("");
 const ascending = ref<boolean | null>(null);
+const showStockDetails = computed(() =>
+  ["inventory", "purchase_planning"].includes(props.result?.queryType ?? ""),
+);
+const showPurchase = computed(
+  () => props.result?.queryType === "purchase_planning",
+);
+function inventoryQuantity(value: string | null | undefined): string {
+  return value == null ? "未知" : formatNumber(value);
+}
 watch(
   () => props.result,
   () => {
@@ -66,7 +75,7 @@ const rows = computed(() =>
           >
             <option value="all">全部物料</option>
             <option value="shortage">仅看缺料</option>
-            <option value="unknown">库存待补充</option>
+            <option value="unknown">可用库存未知</option>
           </select></label
         >
       </div>
@@ -107,13 +116,10 @@ const rows = computed(() =>
                 {{ result?.queryType === "bom" ? "单位用量" : "需求数量" }}
               </th>
               <th class="numeric">可用库存</th>
-              <th v-if="result?.queryType === 'inventory'" class="numeric">
-                在库数量
-              </th>
-              <th v-if="result?.queryType === 'inventory'" class="numeric">
-                预留数量
-              </th>
+              <th v-if="showStockDetails" class="numeric">在库数量</th>
+              <th v-if="showStockDetails" class="numeric">预留数量</th>
               <th class="numeric">缺口数量</th>
+              <th v-if="showPurchase" class="numeric">建议采购量</th>
               <th>物料状态</th>
               <th>数据来源</th>
             </tr>
@@ -158,16 +164,20 @@ const rows = computed(() =>
                 {{
                   row.state === "no-facts"
                     ? "暂无已发布数据"
-                    : formatNumber(row.available)
+                    : inventoryQuantity(row.available)
                 }}<small v-if="row.available != null">{{
                   " " + row.unit
                 }}</small>
               </td>
-              <td v-if="result?.queryType === 'inventory'" class="numeric">
-                {{ formatNumber(row.onHand) }} {{ row.unit }}
+              <td v-if="showStockDetails" class="numeric">
+                {{ inventoryQuantity(row.onHand)
+                }}<small v-if="row.onHand != null">{{ " " + row.unit }}</small>
               </td>
-              <td v-if="result?.queryType === 'inventory'" class="numeric">
-                {{ formatNumber(row.reserved) }} {{ row.unit }}
+              <td v-if="showStockDetails" class="numeric">
+                {{ inventoryQuantity(row.reserved)
+                }}<small v-if="row.reserved != null">{{
+                  " " + row.unit
+                }}</small>
               </td>
               <td
                 class="numeric"
@@ -178,6 +188,19 @@ const rows = computed(() =>
               >
                 {{ formatNumber(row.shortage)
                 }}<small v-if="row.shortage != null">{{
+                  " " + row.unit
+                }}</small>
+              </td>
+              <td
+                v-if="showPurchase"
+                class="numeric"
+                :class="{ 'missing-value': row.purchaseQty == null }"
+              >
+                {{
+                  row.purchaseQty == null
+                    ? "未知"
+                    : formatNumber(row.purchaseQty)
+                }}<small v-if="row.purchaseQty != null">{{
                   " " + row.unit
                 }}</small>
               </td>
@@ -207,7 +230,9 @@ const rows = computed(() =>
             </tr>
             <tr v-if="!rows.length">
               <td
-                :colspan="result?.queryType === 'inventory' ? 8 : 6"
+                :colspan="
+                  6 + (showStockDetails ? 2 : 0) + (showPurchase ? 1 : 0)
+                "
                 class="filter-empty"
               >
                 没有匹配的物料，请调整搜索或筛选。

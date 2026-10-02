@@ -52,13 +52,25 @@ test("首页场景进入工作台，资料缺口和缺失库存保持真实边�
       .getByRole("row")
       .filter({ hasText: "电机" })
       .getByRole("cell", { name: "未提供", exact: true }),
-  ).toHaveCount(2);
+  ).toHaveCount(1);
+  await expect(
+    page
+      .getByRole("row")
+      .filter({ hasText: "电机" })
+      .getByRole("cell", { name: "未知", exact: true }),
+  ).toHaveCount(1);
   await expect(
     page
       .getByRole("row")
       .filter({ hasText: "螺丝" })
       .getByRole("cell", { name: "未提供", exact: true }),
-  ).toHaveCount(2);
+  ).toHaveCount(1);
+  await expect(
+    page
+      .getByRole("row")
+      .filter({ hasText: "螺丝" })
+      .getByRole("cell", { name: "未知", exact: true }),
+  ).toHaveCount(1);
   await page.getByRole("button", { name: "查看主板来源", exact: true }).click();
   await expect(
     page.getByText(
