@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
+from fastapi.responses import JSONResponse
 
 from agents.fact_query_agent import run_fact_query_agent
 from agents.production_feasibility_agent import run_production_feasibility_agent
 from api.routes.chat import chat
-from api.schemas.agent import UnifiedAgentRequest, UnifiedAgentResponse
+from api.schemas.agent import (UnifiedAgentRequest, UnifiedAgentResponse, AgentSessionResponse, AgentSessionHistory)
 from api.schemas.chat import ChatClarificationResponse, ChatRequest, ChatResponse
 from services.agent_intent_router import route_agent_message
 from services.fact_dialogue_context_service import (
@@ -15,14 +16,50 @@ from services.fact_dialogue_context_service import (
     remember_fact_dialogue_context,
 )
 from workflows.pmc_graph import get_pmc_workflow_state
+from repositories.agent_conversation_repository import AgentConversationRepository, SessionNotFound, SessionConflict
+from repositories.fact_store import create_fact_store
+from services.persistent_agent_service import PersistentAgentService
 
 
 router = APIRouter(prefix="/api/v1/agent", tags=["Unified Agent"])
 
 
+def _persistent_service() -> PersistentAgentService:
+    # 部署时显式 migrate；问答请求不改变企业事实/数据库结构。
+    return PersistentAgentService(AgentConversationRepository(create_fact_store()))
+
+
+def _session_error(error: Exception) -> JSONResponse:
+    if isinstance(error, SessionNotFound):
+        return JSONResponse(status_code=404, content={"code": "SESSION_NOT_FOUND", "user_message": "当前企业会话不存在，请重新创建会话。"})
+    return JSONResponse(status_code=409, content={"code": "SESSION_CONFLICT", "user_message": "当前会话已有新消息，请刷新后重试。"})
+
+
+@router.post("/sessions", response_model=AgentSessionResponse)
+def create_agent_session():
+    """创建 published-only 企业持久会话；不初始化或重建 Demo Workflow。"""
+    return _persistent_service().repository.create_session()
+
+
+@router.get("/sessions/{session_id}", response_model=AgentSessionHistory)
+def get_agent_session(session_id: str, after: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200)):
+    """分页恢复问答、上下文及每次调用的来源证据；不重新查询/计算历史事实。"""
+    try:
+        return _persistent_service().repository.history(session_id, after=after, limit=limit)
+    except SessionNotFound as error:
+        return _session_error(error)
+
+
 @router.post("/query", response_model=UnifiedAgentResponse)
 def unified_agent_query(request: UnifiedAgentRequest) -> UnifiedAgentResponse:
     """统一自然语言入口，不改变旧 Chat、Demo 或 LangGraph 执行链。"""
+    if request.session_id or request.persist_session:
+        service = _persistent_service()
+        session_id = request.session_id or service.repository.create_session()["session_id"]
+        try:
+            return UnifiedAgentResponse.model_validate(service.query(session_id, request.message))
+        except (SessionNotFound, SessionConflict) as error:
+            return _session_error(error)
     fact_context = get_fact_dialogue_context(request.fact_session_id)
     fact_active = bool(fact_context and request.active_context != "pmc_analysis")
     pmc_active = bool(request.workflow_id and request.active_context == "pmc_analysis")

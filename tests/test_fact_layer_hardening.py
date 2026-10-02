@@ -275,6 +275,7 @@ class PostgreSQLFactStoreIntegrationTests(unittest.TestCase):
                 "004_multilevel_bom_planning",
                 "005_inventory_analysis",
                 "006_published_purchase_planning",
+                "007_agent_conversations",
             ],
         )
 
@@ -303,6 +304,17 @@ class PostgreSQLFactStoreIntegrationTests(unittest.TestCase):
         self.assertIsNotNone(unit_conversion_table[0])
         self.assertIsNotNone(inventory_policy_table[0])
         self.assertIsNotNone(purchase_parameter_table[0])
+        from repositories.agent_conversation_repository import AgentConversationRepository
+        conversations = AgentConversationRepository(self.store)
+        session = conversations.create_session()
+        response = {"intent": "inventory", "status": "data_unavailable", "answer": "没有已发布库存数据",
+                    "structured_data": None, "provenance": None, "warnings": []}
+        reference = {"tool_name": "published_inventory_query", "query": {"material_code": "M-0001"},
+                     "result": {"status": "data_unavailable", "provenance": None, "data": None}}
+        turn_id = conversations.append_turn(session, "查询库存", response, session["context"], [reference])
+        recovered_turn = AgentConversationRepository(self.store).history(session["session_id"])["turns"][0]
+        self.assertEqual(recovered_turn["response"], {**response, "turn_id": turn_id})
+        self.assertEqual(recovered_turn["fact_references"][0]["result"], reference["result"])
 
         rollback_id = str(uuid4())
         with self.assertRaises(RuntimeError):
