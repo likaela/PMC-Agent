@@ -9,16 +9,34 @@ import ResultPanel from "../components/ResultPanel.vue";
 import MaterialTable from "../components/MaterialTable.vue";
 import SourceDetails from "../components/SourceDetails.vue";
 import { scenarios } from "../data/fixtures";
+import { demoScenarios, DEMO_SCENARIO_ID } from "../data/demoScenarios";
 import { useAgent } from "../composables/useAgent";
 const route = useRoute();
 const router = useRouter();
-const { mode, draft, pending, result, messages, notice, reset, send } =
-  useAgent();
+const {
+  mode,
+  scenario,
+  draft,
+  pending,
+  result,
+  messages,
+  notice,
+  reset,
+  send,
+  setScenario,
+  restoreSession,
+} = useAgent();
 const scenarioId = ref("production");
 const sources = ref<InstanceType<typeof SourceDetails>>();
 watch(
   () => route.query.scenario,
   (value) => {
+    const online = demoScenarios.find((s) => s.id === value);
+    if (online && mode.value === "live") {
+      setScenario(DEMO_SCENARIO_ID);
+      draft.value = online.prompt;
+      return;
+    }
     const scenario = scenarios.find((s) => s.id === value);
     if (scenario && mode.value === "mock") {
       scenarioId.value = scenario.id;
@@ -41,13 +59,11 @@ function newAnalysis() {
 }
 async function focusResult() {
   await nextTick();
-  document
-    .getElementById("analysis-result")
-    ?.scrollIntoView({
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "instant"
-        : "smooth",
-    });
+  document.getElementById("analysis-result")?.scrollIntoView({
+    behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? "instant"
+      : "smooth",
+  });
 }
 </script>
 <template>
@@ -58,6 +74,14 @@ async function focusResult() {
         <h1>分析工作台<span class="heading-dot"></span></h1>
         <p>提出一个问题，让物料、结论与依据清晰呈现。</p>
       </div>
+      <button
+        v-if="mode === 'live'"
+        class="text-button"
+        :disabled="pending"
+        @click="restoreSession()"
+      >
+        恢复会话
+      </button>
       <button
         class="secondary-button"
         :disabled="pending || !messages.length"
@@ -113,6 +137,17 @@ async function focusResult() {
               填入问题<Icon name="arrow" :size="14" />
             </button>
           </div>
+        </div>
+        <div v-if="mode === 'live' && scenario" class="quick-questions">
+          <span>独立合成 Demo</span>
+          <button
+            v-for="demo in demoScenarios"
+            :key="demo.id"
+            :disabled="pending"
+            @click="send(demo.prompt)"
+          >
+            {{ demo.label }}<Icon name="arrow" :size="15" />
+          </button>
         </div>
         <MessageList />
         <div v-if="!messages.length && mode === 'mock'" class="quick-questions">

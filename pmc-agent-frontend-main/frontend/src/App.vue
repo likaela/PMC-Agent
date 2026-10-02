@@ -3,9 +3,9 @@ import { ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import Icon from "./components/Icon.vue";
 import { useAgent } from "./composables/useAgent";
-import type { DataMode } from "./data/model";
+import type { DataMode, ScenarioId } from "./data/model";
 const route = useRoute();
-const { mode, setMode } = useAgent();
+const { mode, scenario, pending, setMode, setScenario } = useAgent();
 const menuOpen = ref(false);
 const help = ref<HTMLDialogElement>();
 function focusMain() {
@@ -77,7 +77,7 @@ watch(
           ><Icon name="chevron" :size="16" />
         </button>
         <div class="sidebar-footer">
-          <span class="status-dot"></span>前端演示版 <span>v0.1</span>
+          <span class="status-dot"></span>Agent 客户端 <span>v1.14.1</span>
         </div>
       </div>
     </aside>
@@ -98,8 +98,24 @@ watch(
               setMode(($event.target as HTMLSelectElement).value as DataMode)
             "
           >
-            <option value="mock">演示模式</option>
-            <option value="live">真实接口</option>
+            <option value="mock">离线样例</option>
+            <option value="live">在线 Agent</option>
+          </select>
+          <label v-if="mode === 'live'" for="data-space">数据空间</label>
+          <select
+            v-if="mode === 'live'"
+            id="data-space"
+            :value="scenario ?? ''"
+            :disabled="pending"
+            @change="
+              setScenario(
+                (($event.target as HTMLSelectElement).value || undefined) as
+                  ScenarioId | undefined,
+              )
+            "
+          >
+            <option value="">企业事实</option>
+            <option value="demo_scenario_50_vs_100">合成 Demo</option>
           </select>
         </div>
       </div>
@@ -111,12 +127,14 @@ watch(
           <Icon :name="mode === 'mock' ? 'info' : 'link'" :size="16" /><span>{{
             mode === "mock"
               ? "演示数据 · 未连接真实后端"
-              : "真实接口模式 · 接口尚未配置"
+              : scenario
+                ? "在线 Agent · 独立合成 Demo"
+                : "在线 Agent · 企业已发布事实"
           }}</span
           ><small>{{
             mode === "mock"
               ? "固定场景，仅用于功能演示"
-              : "需核验后端契约后接入"
+              : "后端查询与计算 · 未知不补零"
           }}</small>
         </div>
         <RouterView />
@@ -152,13 +170,14 @@ watch(
         <li>
           <strong>选择演示场景</strong>
           <p>
-            首页提供生产分析、库存查询和独立采购样例。工作台还可选择零库存、无事实和异常状态。
+            在线模式可查询企业事实或进入独立合成
+            Demo。离线模式保留固定库存、采购与异常交互样例。
           </p>
         </li>
         <li>
           <strong>阅读结论与物料明细</strong>
           <p>
-            输入完整示例问题后发送。点击历史回答，可切换到对应的结果、警告和来源。
+            描述查询需求后发送；按提示补充缺失条件。点击历史回答，可查看对应结果、警告和来源。
           </p>
         </li>
         <li>
@@ -172,8 +191,9 @@ watch(
       <div class="soft-note">
         <Icon name="info" />
         <p>
-          当前不支持真实产能、多层
-          BOM、批次与自动排产。等待后端契约核验后接入。切换数据模式会清除当前对话。
+          在线模式支持已发布库存、批次、BOM、生产能力与采购查询，并保存会话。
+          独立 Demo 使用合成事实；库存齐套不代表设备产能、质量放行或交期承诺。
+          前端不执行业务计算，切换数据空间会清理当前展示。
         </p>
       </div>
       <button class="primary-button full-width" @click="help?.close()">

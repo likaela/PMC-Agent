@@ -47,7 +47,7 @@ defineExpose({ reveal });
           ><strong>数据来源与适用条件</strong
           ><small>{{
             result
-              ? `${result.sources.length} 项分析来源 · ${mode === "mock" ? "演示数据" : "接口数据"}`
+              ? `${result.sources.length} 项分析来源 · ${mode === "mock" ? "离线样例" : result.backend?.scenario_id ? "合成 Demo" : "已发布事实"}`
               : "结论的依据，与结论一样重要"
           }}</small></span
         ></span
@@ -61,7 +61,9 @@ defineExpose({ reveal });
         <Icon name="info" :size="16" />{{
           mode === "mock"
             ? "演示数据 · 未连接真实后端。以下内容不属于当前企业实时事实。"
-            : "真实接口模式。只有经适配确认的来源才会在此显示。"
+            : result?.backend?.scenario_id
+              ? "独立合成演示事实，通过后端查询，不代表企业真实数据。"
+              : "仅展示后端返回的来源，数据时点不等于请求时间。"
         }}
       </p>
       <div v-if="!result?.sources.length" class="source-no-data">
@@ -83,7 +85,12 @@ defineExpose({ reveal });
         <dl>
           <div>
             <dt>引用范围</dt>
-            <dd>{{ source.scope }}（未提供字段级原始定位）</dd>
+            <dd>
+              {{ source.scope
+              }}{{
+                source.sheet || source.row ? "" : "（未提供字段级原始定位）"
+              }}
+            </dd>
           </div>
           <div>
             <dt>来源文件 / 记录</dt>
@@ -96,6 +103,34 @@ defineExpose({ reveal });
           <div>
             <dt>来源发布时间</dt>
             <dd>{{ source.publishedAt ?? "未提供" }}</dd>
+          </div>
+          <div v-if="source.snapshotAt">
+            <dt>库存快照时点</dt>
+            <dd>{{ source.snapshotAt }}</dd>
+          </div>
+          <div v-if="source.observedAt">
+            <dt>数据观察时间</dt>
+            <dd>{{ source.observedAt }}</dd>
+          </div>
+          <div v-if="source.effectiveFrom">
+            <dt>生效日期</dt>
+            <dd>{{ source.effectiveFrom }}</dd>
+          </div>
+          <div v-if="source.importBatch">
+            <dt>导入批次参考</dt>
+            <dd>{{ source.importBatch.slice(-8) }}</dd>
+          </div>
+          <div v-if="source.sheet">
+            <dt>工作表</dt>
+            <dd>{{ source.sheet }}</dd>
+          </div>
+          <div v-if="source.row">
+            <dt>来源行号</dt>
+            <dd>{{ source.row }}</dd>
+          </div>
+          <div v-if="source.sha256">
+            <dt>文件校验摘要</dt>
+            <dd>{{ source.sha256.slice(0, 12) }}</dd>
           </div>
           <div class="full-row">
             <dt>适用条件</dt>

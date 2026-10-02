@@ -1,92 +1,68 @@
-# PMC-Agent 制造业智能计划助手
+# PMC-Agent v1.14.1 — 新前端 Agent 客户端
 
-独立运行的 Vue 3 + TypeScript + Vite 前端。首页与分析工作台采用蓝白 Dashboard 风格；默认使用明确标注的固定演示数据。当前没有后端契约，不声称已完成真实 API 联调。
+保留 Vue 3 + TypeScript + Vite 的首页、对话工作台、结果卡片、物料表格和来源详情。在线模式通过现有后端 API 查询 published facts；前端不计算 BOM、库存、缺口、产能或采购量，也不调用 LLM。
 
-## 安装、启动与构建
+## 安装与 Windows 启动
 
-需要 Node.js 22.12+（本机验证 Node 24.21.0 / npm 11.19.0）。
+在本目录执行（Node.js 22.12+）：
 
-```bash
-cd /Users/aaronzhu/Desktop/agent设计/frontend
+```powershell
 npm ci
+Copy-Item .env.example .env.local
 npm run dev
 ```
 
-默认地址：<http://127.0.0.1:5173/>。开发服务绑定本机回环地址；端口占用会明确报错，不偷偷切换。要在同一局域网真机访问时，自行启动 `npm run dev -- --host 0.0.0.0` 并使用电脑局域网 IP。本轮只完成浏览器窄屏验证，不声称完成真实手机/局域网验证。
+`.env.local` 配置：
 
-```bash
-npm run typecheck
-npm run build
-npm run preview
+```ini
+VITE_DATA_MODE=live
+VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_SCENARIO_ID=
 ```
 
-构建输出 `dist/`，生产预览默认 <http://127.0.0.1:4173/>。使用 Hash 路由，静态服务无需额外页面回退规则。部署到域名子路径时，按实际路径设置 Vite `base` 后重新构建。
+后端须按主项目已有启动说明另行启动并准备好事实库；本前端不执行后端迁移或导入。前端地址为 http://127.0.0.1:5173，严格使用该端口。预览默认 4173，或部署到其他域名时，应由后端管理员配置对应 CORS origin。VITE_* 是浏览器公开配置，禁止放入 API Key。
 
-工程采用 [Vue 官方推荐的 Vite 项目方式](https://vuejs.org/guide/quick-start.html)；命令行为依据 [Vite 官方文档](https://vite.dev/guide/)。实际版本以 package-lock.json 为准。
+## 在线企业事实与独立 Demo
 
-## 桌面位置与端口占用
+- 企业事实：页头选择“在线 Agent / 企业事实”，自然语言查询库存、批次、BOM、在途、生产能力和采购建议。缺版本、生效日、开工日等条件时继续按回答补充，不默认猜测。
+- 独立 Demo：选择“在线 Agent / 合成 Demo”，或点击首页在线场景。使用后端 `demo_scenario_50_vs_100`，产品 `DEMO-PMC-01 / V01`；不是 KQ-Z112 的真实企业数据。
+- 依次发送“生产50台DEMO-PMC-01”“生产100台DEMO-PMC-01”“采购建议”，结果全部来自后端。采购建议不等于物料到货，库存齐套不等于开工许可。
+- “新建分析”清除当前浏览器会话指针和展示，下次创建新会话，不删除后端历史。
 
-工程已移动到 `/Users/aaronzhu/Desktop/agent设计/frontend`，交付文件位于同级 `outputs/`。2026-09-30 移动前后核验了文件哈希与符号链接，原始项目资料仍与工程放在同一目标文件夹。
+## 持久会话
 
-此前 `Port 5173 is already in use` 是上一轮启动的本项目开发服务仍在运行。本次已关闭旧开发服务与生产预览服务，并验证新位置可构建、可启动。完成启动验证后停止测试服务，留出 5173 供你手动启动。
+客户端先创建 session，再调用统一 query，确保等待超时或刷新时仍可用已有 session 恢复服务端记录。浏览器 sessionStorage 只保存 opaque session_id、数据空间及显示模式，不缓存企业事实或问答正文；正文由后端持久化。页面刷新自动分页恢复，亦可点击“恢复会话”。本地指针按 API 地址及 scenario 隔离。
 
-需要重新启动时，先在原服务的终端按 `Ctrl+C`，再运行 `npm run dev`。如要有意同时运行第二个实例，可用 `npm run dev -- --port 5174`，浏览器打开终端打印的新地址。保留 strictPort，避免端口被占用时悄悄换地址。
+关闭标签页可能丢失浏览器指针，但不会删除后端记录。当前不提供跨设备会话列表、登录或鉴权。点击历史回答仅切换展示，不改写当前后端上下文。
 
-`npm ci` 中的 `install-scripts` 提示与这次端口错误无关；本机已在当前依赖安装状态下通过构建，无需为解决端口问题修改 npm 的脚本许可设置。
+## 离线模式
 
-## 体验路径
+选择“离线样例”使用原 fixtures.ts / mockService.ts 的固定示例，非企业事实。仅用于离线 UI 验证；不支持任意数量计算或连续追问。API 超时、异常 JSON、网络或服务错误不会自动回退到 mock。
 
-1. 首页点击生产场景，完整示例问题会填入工作台；点击发送。
-2. 查看 ABC-1000 / 1,000 台结论：主板需求 1,000 件、库存 800 件、缺口 200 件；电机和螺丝库存、缺口仍为“未提供”。
-3. 展开结论或物料的来源，核对本次分析级引用、发布时间缺失与适用条件。
-4. 选择“主板库存查询”，查看 800 件固定库存；点击历史助手消息切换对应结果。
-5. 选择其他状态，体验错误、取消/重试，以及 mock/live 隔离。
+## 接口与适配
 
-## 10 个固定演示场景
+- POST `/api/v1/agent/query`
+- POST `/api/v1/agent/sessions`
+- GET `/api/v1/agent/sessions/{session_id}`（分页恢复）
 
-| 场景 | 完整示例问题 | 数据性质 |
-|---|---|---|
-| 生产物料分析 / 部分数据 | 生产 1,000 台 ABC-1000，物料够吗？ | 项目资料示例 |
-| 库存查询 | 查询主板库存 | 项目资料示例 |
-| 独立采购建议 | 查看独立采购建议样例 | 项目资料独立样例；不等同于 ABC-1000 结论 |
-| 所列物料齐套 | 查看所列物料齐套演示 | 人工构造 |
-| 库存明确为 0 | 查看零库存演示 | 人工构造 |
-| 无事实 | 查看无已发布事实演示 | 人工构造 |
-| 条件冲突 | 查看条件冲突演示 | 人工构造 |
-| 无法计算 | 查看无法计算演示 | 人工构造 |
-| 请求错误 | 模拟请求失败与重试 | 人工构造；每次重试均失败，可切换其他场景恢复 |
-| 映射错误 | 模拟响应映射失败 | 人工构造；不生成数字或结论 |
+请求只发送 message、session_id、scenario_id、persist_session；不混入旧 workflow_id / fact_session_id。响应通过运行时验证，再按查询类型映射展示。Decimal 字符串不转换 Number，null 不补 0；没有结构化依据的卡片不从 answer 填充。详见 [API 映射](docs/api-mapping.md)。
 
-文本匹配只忽略空格、数字分隔逗号与句末问号/句号。型号、数量或其他文本不同即拒绝，不作为业务计算器，不继承追问条件。请求延迟 750ms 仅用于演示加载/取消，不代表后端性能。
+## 测试与构建
 
-## 模式与接入
-
-复制 `.env.example` 为 `.env.local`，设置 `VITE_DATA_MODE=mock|live` 和未来的 `VITE_API_BASE_URL`。默认 mock。页头模式切换只影响当前页面，清空旧对话/结果并中止在途请求。
-
-接入点：`src/services/apiClient.ts`、`src/services/responseAdapter.ts`、`src/composables/useAgent.ts`。目前 live 明确返回“接口尚未配置”；不会猜测请求体、调用模型服务或回退 mock。详见 [api-mapping.md](docs/api-mapping.md)。
-
-## 文件清单
-
-- `src/App.vue`、`src/styles.css`：应用壳、导航、帮助、数据模式、视觉 tokens 与响应式样式。
-- `src/views/HomeView.vue`、`WorkspaceView.vue`：首页与分析工作台。
-- `src/components/`：Icon、StatusBadge、SummaryCards、MessageList、QueryComposer、ResultPanel、MaterialTable、SourceDetails。
-- `src/data/model.ts`、`fixtures.ts`：前端展示模型与集中固定场景。
-- `src/services/`：演示服务、真实请求接入框架、待实现的真实响应适配器。
-- `src/composables/useAgent.ts`：会话状态、请求序号、AbortController、历史结果绑定和模式隔离。
-- `src/main.ts`、`public/favicon.svg`、`index.html`：入口、路由和图标。
-- `package.json`、`package-lock.json`、`tsconfig.json`、`vite.config.ts`、`.env.example`、`.gitignore`：可复现的工程配置。
-- `playwright.config.ts`、`tests/workflows.spec.ts`：16 项浏览器自动回归定义。
-- `docs/design.md`、`docs/api-mapping.md`、`docs/verification.md`：设计、接入与实际验证范围。
-
-本轮从空目录新建；无已有源码、用户修改或 Git 历史可保留。全部工程改动在 frontend/；未创建提交、推送、部署或修改后端。交付 ZIP 和关键截图另存于项目 outputs/。
-
-## 自动回归
-
-```bash
-npx playwright install chromium
+```powershell
+npm run typecheck
+npm run build
+# 已安装 Google Chrome 的 Windows 环境
+$env:PLAYWRIGHT_CHANNEL='chrome'
 npm run test:e2e
 ```
 
-已安装 Chrome 的环境可用 `PLAYWRIGHT_CHANNEL=chrome npm run test:e2e`。本轮此命令在浏览器启动阶段被当前 macOS 沙箱限制（SIGABRT / EPERM），16 项用例没有运行到页面断言；不能算通过。已使用 Codex 内置浏览器完成场景实测及五种宽度检查，详见验证记录。输入法组合事件的自动用例尚未执行；真实中文 IME 待实机核验。
+没有 Chrome 时可自行准备 Playwright Chromium 后执行同一测试命令。测试服务使用 5173，需先停止手动启动的 Vite。测试网络全部用 HTTP 响应夹具拦截，不连接企业数据库或 DeepSeek。新增契约/浏览器测试与原离线 UI 回归共同执行，覆盖来源、会话恢复、数据隔离及 unknown/zero 区分。
 
-对话只保存在内存，刷新清空。不存储用户问题，不上传演示数据，不使用外部字体或图片网络服务。
+## 当前限制
+
+- 接入测试采用符合现有后端契约的 mock HTTP 响应；上线前仍需真实部署环境验收。
+- API 是一次性 JSON 响应，没有 SSE 阶段流；页面只展示等待状态，不伪造执行过程。
+- 停止等待不会取消服务端计算。超时/取消后优先恢复历史，避免盲目重复发送；当前没有服务器级幂等取消协议。
+- 企业事实持久路径与旧 pmc_analysis 响应不同；旧路径仅保留回答文本，不将未知 report 字段猜测映射为卡片。
+- 采购缺价格、单位或约束时保持未知，不能把部分金额当完整成本。

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { useRouter } from "vue-router";
+import { computed } from "vue";
 import Icon from "../components/Icon.vue";
 import StatusBadge from "../components/StatusBadge.vue";
 import { useAgent } from "../composables/useAgent";
+import { demoScenarios } from "../data/demoScenarios";
 const { mode } = useAgent();
 const router = useRouter();
-const cards = [
+const offlineCards = [
   {
     id: "production",
     index: "01",
@@ -34,6 +36,15 @@ const cards = [
     tag: "独立采购样例",
   },
 ];
+const cards = computed(() =>
+  mode.value === "mock"
+    ? offlineCards
+    : demoScenarios.map((s, index) => ({
+        ...s,
+        index: `0${index + 1}`,
+        tag: "后端独立合成 Demo",
+      })),
+);
 function openScenario(id: string) {
   router.push({ path: "/workspace", query: { scenario: id } });
 }
@@ -66,15 +77,28 @@ function openScenario(id: string) {
         <div class="floating-tag tag-top">
           <span class="tag-icon"><Icon name="layers" :size="19" /></span>
           <div>
-            <small>生产目标</small><strong>ABC-1000 <em>× 1,000 台</em></strong>
+            <small>示例生产目标</small
+            ><strong
+              >{{ mode === "mock" ? "ABC-1000" : "DEMO-PMC-01" }}
+              <em>{{
+                mode === "mock" ? "× 1,000 台" : "× 50 / 100 台"
+              }}</em></strong
+            >
           </div>
         </div>
         <div class="visual-cube"><Icon name="cube" :size="84" /></div>
         <div class="floating-tag tag-bottom">
           <span class="tag-icon orange"><Icon name="alert" :size="19" /></span>
           <div>
-            <small>项目资料示例 · 已知缺口</small
-            ><strong>主板 <em>200 件</em></strong>
+            <small>{{
+              mode === "mock"
+                ? "项目资料示例 · 已知缺口"
+                : "独立合成场景 · 后端分析"
+            }}</small
+            ><strong
+              >{{ mode === "mock" ? "主板" : "查询后展示" }}
+              <em>{{ mode === "mock" ? "200 件" : "结果与来源" }}</em></strong
+            >
           </div>
           <span class="mini-line"></span>
         </div>
@@ -87,7 +111,7 @@ function openScenario(id: string) {
         <p>选择场景，体验完整的查询与分析流程</p>
       </div>
       <span class="subtle-label">{{
-        mode === "mock" ? "预设演示场景" : "真实接口待接入"
+        mode === "mock" ? "离线固定样例" : "在线独立 Demo · 结果由后端生成"
       }}</span>
     </div>
     <section class="scenario-cards" aria-label="演示场景">
@@ -131,11 +155,13 @@ function openScenario(id: string) {
       <div class="card boundary-card">
         <div class="card-heading">
           <h2>当前能力边界</h2>
-          <StatusBadge tone="blue">前端演示</StatusBadge>
+          <StatusBadge tone="blue">{{
+            mode === "mock" ? "离线样例" : "事实查询"
+          }}</StatusBadge>
         </div>
         <p>
-          已提供单层物料、库存与独立采购样例。产能、多层
-          BOM、批次和排产等待后端核验后接入。
+          在线查询支持库存、批次、已发布 BOM、多层 BOM 生产能力与采购建议。
+          信息不足时请求补充或明确拒答，不估算未知库存；不执行排产或采购下单。
         </p>
         <div class="boundary-note">
           <Icon name="shield" :size="16" />演示结果不构成真实生产或采购决策

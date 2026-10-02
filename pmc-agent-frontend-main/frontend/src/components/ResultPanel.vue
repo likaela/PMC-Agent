@@ -10,6 +10,10 @@ const errorTitles = {
   mapping: "当前结果暂无法完整展示",
   unconfigured: "接口尚未配置",
   unsupported: "请选择已提供的演示场景",
+  timeout: "等待结果超时",
+  session: "请恢复或新建会话",
+  invalid: "请检查查询条件",
+  server: "分析服务暂不可用",
 };
 </script>
 <template>
@@ -42,8 +46,7 @@ const errorTitles = {
       /></span>
       <h3>{{ errorTitles[selected.error.code] }}</h3>
       <p>{{ selected.error.message }}</p>
-      <span class="diagnostic">{{ selected.error.code.toUpperCase() }}</span
-      ><button
+      <button
         v-if="selected.error.code !== 'unsupported'"
         class="secondary-button"
         @click="retry()"
@@ -63,7 +66,7 @@ const errorTitles = {
       <p>
         {{
           selected?.state === "cancelled"
-            ? "没有生成新结论，可以重新发送原问题。"
+            ? "已停止等待，在线请求请先恢复会话确认服务端结果。"
             : "发送问题后，查看分析结论、物料缺口和可追溯的数据来源。"
         }}
       </p>
@@ -86,9 +89,14 @@ const errorTitles = {
           :tone="
             result.status === 'ready'
               ? 'green'
-              : ['partial', 'zero', 'conflict', 'uncalculable'].includes(
-                    result.status,
-                  )
+              : [
+                    'partial',
+                    'blocked',
+                    'zero',
+                    'conflict',
+                    'uncalculable',
+                    'no-facts',
+                  ].includes(result.status)
                 ? 'orange'
                 : 'blue'
           "
@@ -97,6 +105,81 @@ const errorTitles = {
       </div>
       <h3>{{ result.title }}</h3>
       <p class="result-explanation">{{ result.answer }}</p>
+      <div v-if="result.metrics?.length" class="purchase-grid">
+        <div v-for="metric in result.metrics" :key="metric.label">
+          <span>{{ metric.label }}</span
+          ><strong>{{ metric.value ?? "未提供" }}</strong>
+        </div>
+      </div>
+      <div
+        v-if="result.purchases?.length"
+        class="table-scroll"
+        aria-label="采购建议表"
+      >
+        <table>
+          <thead>
+            <tr>
+              <th>物料</th>
+              <th>缺口</th>
+              <th>建议采购</th>
+              <th>成本 / 币种</th>
+              <th>供应商 / 交期</th>
+              <th>风险与依据</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(purchase, index) in result.purchases" :key="index">
+              <td>{{ purchase.material }}</td>
+              <td>{{ formatNumber(purchase.shortage) }} {{ purchase.unit }}</td>
+              <td>
+                {{ formatNumber(purchase.suggested) }} {{ purchase.unit }}
+              </td>
+              <td>
+                {{ formatNumber(purchase.cost) }}
+                {{ purchase.currency ?? "币种未提供" }}
+              </td>
+              <td>
+                {{ purchase.supplier ?? "未提供" }} /
+                {{ purchase.leadTime ?? "未提供" }} 天
+              </td>
+              <td>
+                {{ purchase.risk ?? "风险未知" }}
+                <p>{{ purchase.reasons.join("；") }}</p>
+                <p v-if="purchase.missingFields.length">
+                  部分采购事实待补充，不能估算缺失数据。
+                </p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div
+        v-if="result.detailTable"
+        class="table-scroll"
+        aria-label="事实明细表"
+      >
+        <table>
+          <thead>
+            <tr>
+              <th v-for="column in result.detailTable.columns" :key="column">
+                {{ column }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(row, index) in result.detailTable.rows" :key="index">
+              <td v-for="(cell, column) in row" :key="column">
+                {{ cell ?? "未提供" }}
+              </td>
+            </tr>
+            <tr v-if="!result.detailTable.rows.length">
+              <td :colspan="result.detailTable.columns.length">
+                暂无可展示明细。
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <div v-if="result.purchase" class="purchase-grid">
         <div>
           <span>缺料数量</span

@@ -22,7 +22,7 @@ watch(
           告诉我你想分析的生产目标或物料问题，我会把结论和依据整理在分析结论区。
         </p>
         <span class="welcome-label">{{
-          mode === "mock" ? "当前使用固定演示场景" : "真实接口等待接入"
+          mode === "mock" ? "当前使用离线固定样例" : "在线查询 · 服务端持久会话"
         }}</span>
       </div>
     </div>
@@ -52,11 +52,11 @@ watch(
             正在等待分析结果<span class="loading-dots">···</span>
           </p>
           <p v-else-if="message.state === 'cancelled'">
-            请求已取消，未生成分析结论。
+            已停止等待；在线请求可恢复会话确认结果。
           </p>
           <p v-else-if="message.error">{{ message.error.message }}</p>
           <p v-else>{{ message.result?.answer }}</p>
-          <small v-if="message.result"
+          <small v-if="message.result?.sources.length"
             ><Icon name="link" :size="12" />{{
               message.result.sources[0]?.kind
             }}

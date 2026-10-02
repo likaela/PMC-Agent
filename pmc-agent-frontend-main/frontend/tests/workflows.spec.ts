@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-const screenshots = "docs/screenshots";
+const screenshots = "test-results/screenshots";
 mkdirSync(screenshots, { recursive: true });
 async function scenario(page: Page, id: string) {
   await page.getByLabel("演示场景", { exact: true }).selectOption(id);
@@ -132,7 +132,7 @@ test("条件冲突、无法计算、映射失败不输出错误数字", async ({
     ).toBeVisible();
     await expect(page.locator("tbody")).toHaveCount(0);
   }
-  await expect(page.locator(".diagnostic")).toHaveText("MAPPING");
+  await expect(page.locator(".diagnostic")).toHaveCount(0);
 });
 test("网络错误可重试原问题，并可切换成功场景", async ({ page }) => {
   await start(page);
@@ -193,10 +193,9 @@ test("新请求清除旧结果，取消后旧请求不覆盖新结果", async ({
   ).toBeVisible();
   await expect(page.locator(".user-message")).toHaveCount(3);
 });
-test("模式切换中止请求并隔离演示，live 不发猜测请求或回退 mock", async ({
-  page,
-}) => {
+test("模式切换中止请求并隔离演示，live 失败不回退 mock", async ({ page }) => {
   const apiRequests: string[] = [];
+  await page.route("http://127.0.0.1:8000/api/**", (route) => route.abort());
   page.on("request", (request) => {
     if (request.url().includes("/api/")) apiRequests.push(request.url());
   });
@@ -213,16 +212,16 @@ test("模式切换中止请求并隔离演示，live 不发猜测请求或回退
   await page.getByLabel("输入分析问题").fill("查询主板库存");
   await page.getByRole("button", { name: "发送问题", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "接口尚未配置", exact: true }),
+    page.getByRole("heading", { name: "请求失败，请重试", exact: true }),
   ).toBeVisible();
   await expect(page.locator("tbody")).toHaveCount(0);
-  await expect(page.locator(".mode-banner")).toContainText("真实接口模式");
+  await expect(page.locator(".mode-banner")).toContainText("在线 Agent");
   await page.getByLabel("数据模式").selectOption("mock");
   await expect(page.locator(".message-pair")).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "让每个问题都有清晰的落点" }),
   ).toBeVisible();
-  expect(apiRequests).toEqual([]);
+  expect(apiRequests.length).toBeGreaterThan(0);
 });
 test("物料筛选、搜索、排序与新建分析", async ({ page }) => {
   await start(page);

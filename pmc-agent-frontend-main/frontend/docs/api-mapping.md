@@ -1,57 +1,53 @@
-# 真实接口接入说明
+# v1.14.1 后端契约适配
 
-当前没有后端仓库、schema 或可调用的真实响应。**已验证的后端字段映射：0 项。** 本轮只验证前端展示模型和固定 fixtures。前端模型不是后端真实 schema，不能据此要求后端改契约。
+## 边界
 
-## 接入位置
+仅修改新前端。本 API client 不连接模型 API，不访问数据库，不读取 Excel。所有业务数值来自 structured_data，answer 只作文本展示。
 
-| 文件 | 职责 | 本轮状态 |
-|---|---|---|
-| `src/data/model.ts` | `AgentQueryService`、`AgentResult` 展示模型、显式空值与错误类型 | 已实现 |
-| `src/data/fixtures.ts` | 集中固定场景及 provenance | 已实现；不计算业务值 |
-| `src/services/mockService.ts` | 完整示例匹配、固定延迟、演示错误 | 已实现 |
-| `src/services/apiClient.ts` | `createLiveService(transport, adapter)`、取消、异常处理 | transport 等待真实契约；默认拒绝未配置请求 |
-| `src/services/responseAdapter.ts` | 未知真实响应 → 展示模型 | 明确抛出未配置映射错误，等待真实样例 |
-| `src/composables/useAgent.ts` | 绑定服务、会话页面状态、请求隔离 | 已实现；需在这里为 liveService 注入核验后的 transport/adapter |
+## 请求
 
-`.env.example` 默认 `VITE_DATA_MODE=mock`，可设置为 `live`。`VITE_API_BASE_URL` 仅为接入配置入口；仅填写 URL 不会启用猜测的端点。配置变更后重启 Vite。页面顶部模式选择器可临时切换并清空对话，不写入持久存储，不改变环境配置。
+queryAgent → POST `/api/v1/agent/query`：
 
-真实请求失败必须保留真实错误，不自动切回 mock。前端不接触模型 API 或模型密钥。不要把任何密钥放进 `VITE_*`，它们会进入浏览器资源。
+```json
+{
+  "message": "生产50台DEMO-PMC-01",
+  "session_id": "服务端会话标识",
+  "scenario_id": "demo_scenario_50_vs_100",
+  "persist_session": true
+}
+```
 
-## 文档线索与待确认路径
+企业查询省略 scenario_id；不混用旧 workflow_id / fact_session_id / active_context。客户端先用 createSession 调用 POST `/api/v1/agent/sessions` 保存指针，再 query。首次 API 调用亦支持仅传 persist_session，由后端自动建会话。
 
-| 文档线索 | 后端真实路径 | 前端展示模型 | 使用组件 / 空值处理 |
-|---|---|---|---|
-| POST `/api/v1/agent/query` | 待核验；当前未发起该请求 | `QueryInput.text` 是内部参数 | 请求体、HTTP 方法、认证、错误体待确认 |
-| `intent` | 待确认枚举和路径 | 决定可显示的结果类型 | ResultPanel；未知枚举不得猜测业务语义 |
-| `status` | 待确认枚举和语义 | `AgentResult.status` | 状态标签；HTTP 成功与业务受阻分开 |
-| `answer` | 待确认类型和路径 | `answer` | MessageList / ResultPanel；按文本安全插值，不使用 v-html |
-| `structured_data` | 所有嵌套字段均待确认 | product / quantity / materials / purchase | SummaryCards / MaterialTable；不可从回答提取数字补表 |
-| `provenance` | 标识、引用层级和发布时间待确认 | sources / sourceIds | SourceDetails；缺版本、时间显示“未提供”；只有响应级依据时不伪造字段级引用 |
-| `warnings` | 结构和级别待确认 | warnings | 结论旁可见列表，不静默丢弃 |
+getSession → GET `/api/v1/agent/sessions/{session_id}?after=0&limit=200`；Demo 查询和历史恢复均显式带 scenario_id。只恢复保存的 responses，不重新调用 Tool 计算历史。
 
-## 已验证的前端映射（仅演示）
+## 模型与映射
 
-| 固定 fixture | 页面验证结果 |
-|---|---|
-| ABC-1000 / 1,000 台，主板 1,000 / 800 / 200 件 | 任务卡与需求/库存/缺口列保持原值 |
-| 电机 2,000 件、螺丝 8,000 件，available 与 shortage 为 null | 库存和缺口均显示“未提供”，未补 0 |
-| `zero` 的 available=0 | 显示 0 件，仍具有明确库存记录状态 |
-| `no-facts` 的 available=null、state=no-facts | 显示“暂无已发布数据”，与缺失字段区别 |
-| 独立采购 200 / 100 / 300 | 只在 purchase fixture 展示，不嵌入生产分析 |
-| 来源 version/publishedAt=null | 显示“未提供”，不以请求时间填充 |
+BackendResponse 保留 intent、status、answer、structured_data、provenance、warnings 与会话标识。FrontendViewModel 是独立展示对象，附带原 BackendResponse，供恢复与可追溯核对。
 
-## 组员需提供的最小资料
+| 查询类型                          | 后端已验证路径                                                                                                                                     | 展示                                                |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| inventory                         | structured_data.data.canonical_item / on_hand_qty / available_qty / reserved_qty / batch_count / location_count / query_snapshot_at                | 查询对象、独立库存字段、批次与时点                  |
+| inventory_batches                 | structured_data.data.batches                                                                                                                       | 批次、库位、在库数量、收货时间、有效期、质量状态    |
+| bom                               | structured_data.data.parent_item / revision / effective_from / lines                                                                               | 子件、qty_per、单位、行级来源；单位用量不当作总需求 |
+| production_capacity               | structured_data.data.product / requested_quantity / theoretical_max_quantity / inventory_sufficient_for_requested / materials / limiting_materials | 齐套结果、缺口、理论最大数量、限制物料              |
+| purchase_planning                 | structured_data.data.recommendations / total_purchase_cost / total_cost_currency                                                                   | 多项建议量、成本、供应商、交期、风险、缺失提示      |
+| clarification / needs_input       | structured_data.query / missing_fields                                                                                                             | 保留已识别对象并提示补充；无依据不显示结果数值      |
+| data_unavailable / item_not_found | status，及可能存在的部分 structured_data                                                                                                           | 无事实或数据不足提示，未知保持 null                 |
+| 旧 pmc_analysis                   | 旧 ChatResponse 结构                                                                                                                               | 回答文本；不猜测为 published-fact 卡片              |
 
-1. 后端仓库/分支或 OpenAPI、实际启动地址与方法路径。
-2. 请求体字段、必填项、认证、CORS、是否支持会话/追问以及会话生命周期。
-3. 至少一份脱敏成功响应和一份部分数据响应；另提供零库存、无事实、冲突、无法计算及 HTTP 错误样例。
-4. intent/status 枚举；物料标识、需求、可用库存、缺口的精确嵌套路径、单位与空值约定。采购数量应由后端返回。
-5. provenance 的引用粒度、记录 ID、版本、适用条件和发布时间；warnings 的实际结构。
+completeness 保留字段级结构，已知缺失字段以中文提示；未知枚举不推断业务含义。status=ok 只是查询成功，不是可生产。生产卡片只显示后端明确的库存齐套 bool；不据此承诺排程或开工。
 
-拿到资料后：先对照真实响应编写 adapter 的运行时校验和单元测试，再实现 transport，注入 useAgent，开启 live，逐场景做真实联调。不实现前端 BOM 展开、单位换算、齐套、产能、缺口或采购计算。
+Decimal 值须为合法数值字符串，保留精度和尾随小数，不转 Number。计数及生产数量等后端整数字段经验证后仅转成显示字符串。null/缺字段始终保持未知，不补零。比例展示后端的 0–1 原值，不重新计算齐套率。
 
-若后端只有自然语言：只展示 answer、已提供的 warnings 和 sources，隐藏没有结构化依据的数字模块。部分结构无法映射时须保留已验证内容及可诊断提示，不能输出错误业务结论。
+## 来源
 
-## 尚未启用
+provenance 支持对象、数组及嵌套 BOM/库存/参数/价格来源。保留来源文件、hash、import batch、快照、观察时间、BOM 版本、工作表、行号；物料来源按对应 material_code 关联。没有行级定位时明确标注，而不是伪造定位。文件显示名去掉本机目录，数据库标识不直接渲染；批次/hash 提供短参考，完整值仍保存在原响应中。
 
-真实产能、多层 BOM、批次、自动排产、ERP、上传/发布事实、采购下单、会话记忆均未核实。首页只说明接入状态，无可误认为已实现的业务操作。
+## 错误、取消与隔离
+
+HTTP 400/422 显示输入提示，404/409 显示会话提示，5xx 显示服务异常，网络/超时分别处理。原始错误 body、exception 和 traceback 不进入界面。HTTP 200 的业务数据不足不归类为网络故障。
+
+停止等待只取消浏览器接收，不保证停止服务端业务。重试不确定请求前先恢复会话，已保存的回答不重复发送。sessionStorage 只缓存会话指针与模式，按 base URL + scenario 隔离。
+
+离线固定 fixtures 不删除，但只能由 offline 模式调用；live 不自动回退 mock。首页在线 Demo 只保存问题和 scenario 标识，结果由隔离后端事实空间产生。

@@ -21,7 +21,7 @@ const rows = computed(() =>
     .filter(
       (row) =>
         (filter.value === "all" || row.state === filter.value) &&
-        `${row.name} ${row.spec}`
+        `${row.name} ${row.code ?? ""} ${row.spec}`
           .toLowerCase()
           .includes(search.value.toLowerCase()),
     )
@@ -43,7 +43,13 @@ const rows = computed(() =>
             result?.materials.length ?? 0
           }}</span>
         </h2>
-        <p>需求、库存与缺口，放在一起核对</p>
+        <p>
+          {{
+            result?.queryType === "bom"
+              ? "单位用量不等于生产总需求"
+              : "需求、可用库存与缺口，放在一起核对"
+          }}
+        </p>
       </div>
       <div class="table-controls">
         <label class="table-search"
@@ -97,8 +103,16 @@ const rows = computed(() =>
                   />
                 </button>
               </th>
-              <th class="numeric">需求数量</th>
-              <th class="numeric">库存数量</th>
+              <th class="numeric">
+                {{ result?.queryType === "bom" ? "单位用量" : "需求数量" }}
+              </th>
+              <th class="numeric">可用库存</th>
+              <th v-if="result?.queryType === 'inventory'" class="numeric">
+                在库数量
+              </th>
+              <th v-if="result?.queryType === 'inventory'" class="numeric">
+                预留数量
+              </th>
               <th class="numeric">缺口数量</th>
               <th>物料状态</th>
               <th>数据来源</th>
@@ -117,7 +131,7 @@ const rows = computed(() =>
                   /></span>
                   <div>
                     <strong>{{ row.name }}</strong
-                    ><small>{{ row.spec }}</small>
+                    ><small>{{ row.code }} {{ row.spec }}</small>
                   </div>
                 </div>
               </td>
@@ -125,8 +139,17 @@ const rows = computed(() =>
                 class="numeric"
                 :class="{ 'missing-value': row.required == null }"
               >
-                {{ formatNumber(row.required)
-                }}<small v-if="row.required != null"> {{ row.unit }}</small>
+                {{
+                  formatNumber(
+                    result?.queryType === "bom" ? row.qtyPer : row.required,
+                  )
+                }}<small
+                  v-if="
+                    (result?.queryType === 'bom' ? row.qtyPer : row.required) !=
+                    null
+                  "
+                  >{{ " " + row.unit }}</small
+                >
               </td>
               <td
                 class="numeric"
@@ -136,7 +159,15 @@ const rows = computed(() =>
                   row.state === "no-facts"
                     ? "暂无已发布数据"
                     : formatNumber(row.available)
-                }}<small v-if="row.available != null"> {{ row.unit }}</small>
+                }}<small v-if="row.available != null">{{
+                  " " + row.unit
+                }}</small>
+              </td>
+              <td v-if="result?.queryType === 'inventory'" class="numeric">
+                {{ formatNumber(row.onHand) }} {{ row.unit }}
+              </td>
+              <td v-if="result?.queryType === 'inventory'" class="numeric">
+                {{ formatNumber(row.reserved) }} {{ row.unit }}
               </td>
               <td
                 class="numeric"
@@ -146,7 +177,9 @@ const rows = computed(() =>
                 }"
               >
                 {{ formatNumber(row.shortage)
-                }}<small v-if="row.shortage != null"> {{ row.unit }}</small>
+                }}<small v-if="row.shortage != null">{{
+                  " " + row.unit
+                }}</small>
               </td>
               <td>
                 <StatusBadge
@@ -173,7 +206,10 @@ const rows = computed(() =>
               </td>
             </tr>
             <tr v-if="!rows.length">
-              <td colspan="6" class="filter-empty">
+              <td
+                :colspan="result?.queryType === 'inventory' ? 8 : 6"
+                class="filter-empty"
+              >
                 没有匹配的物料，请调整搜索或筛选。
               </td>
             </tr>

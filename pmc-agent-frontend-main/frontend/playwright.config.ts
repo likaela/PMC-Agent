@@ -7,7 +7,10 @@ export default defineConfig({
   retries: 0,
   timeout: 30000,
   expect: { timeout: 6000 },
-  reporter: [["list"], ["json", { outputFile: "docs/browser-results.json" }]],
+  reporter: [
+    ["list"],
+    ["json", { outputFile: "test-results/browser-results.json" }],
+  ],
   use: {
     baseURL: "http://127.0.0.1:5173",
     channel: process.env.PLAYWRIGHT_CHANNEL || undefined,
@@ -19,6 +22,11 @@ export default defineConfig({
   webServer: {
     command: "npm run dev",
     url: "http://127.0.0.1:5173",
-    reuseExistingServer: true,
+    reuseExistingServer: false,
+    env: {
+      VITE_DATA_MODE: "mock",
+      VITE_API_BASE_URL: "http://127.0.0.1:8000",
+      VITE_SCENARIO_ID: "",
+    },
   },
 });
