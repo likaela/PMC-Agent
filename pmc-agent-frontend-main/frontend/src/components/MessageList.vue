@@ -2,7 +2,7 @@
 import { ref, watch, nextTick } from "vue";
 import { useAgent } from "../composables/useAgent";
 import Icon from "./Icon.vue";
-const { messages, selectedId, pending, select, mode } = useAgent();
+const { messages, selectedId, pending, select, scenario } = useAgent();
 const list = ref<HTMLElement>();
 watch(
   () => [messages.value.length, pending.value],
@@ -19,10 +19,16 @@ watch(
       <div>
         <strong>你好，我是 PMC-Agent</strong>
         <p>
-          告诉我你想分析的生产目标或物料问题，我会把结论和依据整理在分析结论区。
+          {{
+            !scenario
+              ? "请先输入企业产品编码和生产数量，也可以输入物料编码查询库存。分析结论和来源会在右侧展示。"
+              : "告诉我你想分析的生产目标或物料问题，我会把结论和依据整理在分析结论区。"
+          }}
         </p>
         <span class="welcome-label">{{
-          mode === "mock" ? "当前使用离线固定样例" : "在线查询 · 服务端持久会话"
+          scenario
+            ? "独立合成 Demo · 与企业事实隔离"
+            : "企业分析 · 输入产品编码开始"
         }}</span>
       </div>
     </div>

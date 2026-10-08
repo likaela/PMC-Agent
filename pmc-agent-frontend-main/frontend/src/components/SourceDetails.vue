@@ -47,7 +47,7 @@ defineExpose({ reveal });
           ><strong>数据来源与适用条件</strong
           ><small>{{
             result
-              ? `${result.sources.length} 项分析来源 · ${mode === "mock" ? "离线样例" : result.backend?.scenario_id ? "合成 Demo" : "已发布事实"}`
+              ? `${result.sources.length} 项分析来源 · ${result.backend?.scenario_id ? "合成 Demo" : "已发布事实"}`
               : "结论的依据，与结论一样重要"
           }}</small></span
         ></span
@@ -59,11 +59,9 @@ defineExpose({ reveal });
     <div v-if="open" id="source-details" class="source-details">
       <p class="source-disclaimer">
         <Icon name="info" :size="16" />{{
-          mode === "mock"
-            ? "演示数据 · 未连接真实后端。以下内容不属于当前企业实时事实。"
-            : result?.backend?.scenario_id
-              ? "独立合成演示事实，通过后端查询，不代表企业真实数据。"
-              : "仅展示后端返回的来源，数据时点不等于请求时间。"
+          result?.backend?.scenario_id
+            ? "独立合成演示事实，通过后端查询，不代表企业真实数据。"
+            : "仅展示后端返回的来源，数据时点不等于请求时间。"
         }}
       </p>
       <div v-if="!result?.sources.length" class="source-no-data">

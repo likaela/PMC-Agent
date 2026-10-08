@@ -4,7 +4,7 @@ import Icon from "./Icon.vue";
 import StatusBadge from "./StatusBadge.vue";
 import { useAgent } from "../composables/useAgent";
 import { formatNumber, statusText } from "../data/model";
-const { result, pending, selected, mode } = useAgent();
+const { result, pending, selected, scenario } = useAgent();
 const stateLabel = computed(() =>
   pending.value
     ? "正在分析"
@@ -60,16 +60,9 @@ const stateLabel = computed(() =>
         数据来源<Icon name="database" :size="18" />
       </div>
       <strong class="summary-mode">{{
-        mode === "mock"
-          ? "离线样例"
-          : result?.backend?.scenario_id
-            ? "合成 Demo"
-            : "企业事实接口"
+        result?.backend?.scenario_id || scenario ? "合成 Demo" : "企业事实接口"
       }}</strong
-      ><small>{{
-        result?.sources[0]?.kind ??
-        (mode === "mock" ? "固定场景 · 未连接真实后端" : "等待已发布事实查询")
-      }}</small>
+      ><small>{{ result?.sources[0]?.kind ?? "等待已发布事实查询" }}</small>
     </article>
   </section>
 </template>

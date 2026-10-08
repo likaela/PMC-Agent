@@ -211,6 +211,8 @@ for (const sample of cases) {
 test("恢复采购历史仍正确映射库存、缺口、采购量与来源", async ({ page }) => {
   const queryCount = await onlinePurchase(page, responseWith());
   await page.reload();
+  await expect(page.getByLabel("数据空间")).toHaveValue("");
+  await page.getByLabel("数据空间").selectOption("demo_scenario_50_vs_100");
   await expect(
     page.getByRole("heading", { name: "已发布事实采购建议" }),
   ).toBeVisible();

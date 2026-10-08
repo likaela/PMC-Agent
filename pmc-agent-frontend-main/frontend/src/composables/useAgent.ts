@@ -6,7 +6,6 @@ import {
   type ScenarioId,
   type BackendTurn,
 } from "../data/model";
-import { createMockService } from "../services/mockService";
 import { createAgentClient, configuredBaseUrl } from "../services/apiClient";
 import { adaptBackendResponse } from "../services/responseAdapter";
 import {
@@ -16,6 +15,7 @@ import {
   clearSession,
   readPreference,
   savePreference,
+  readInitialScenario,
 } from "../services/sessionStorage";
 
 interface Message {
@@ -30,21 +30,20 @@ interface Message {
   uncertain?: boolean;
 }
 const initialStorage = storage();
-const preference = initialStorage
-  ? readPreference(initialStorage, configuredBaseUrl())
-  : null;
-const mode = ref<DataMode>(
-  preference?.mode ??
-    (import.meta.env.VITE_DATA_MODE === "mock" ? "mock" : "live"),
+// Legacy offline preferences must never choose the production transport.
+if (initialStorage) readPreference(initialStorage, configuredBaseUrl());
+const mode = ref<DataMode>("live");
+const isReload =
+  (
+    performance.getEntriesByType("navigation")[0] as
+      PerformanceNavigationTiming | undefined
+  )?.type === "reload";
+const scenario = ref<ScenarioId | null>(
+  initialStorage
+    ? readInitialScenario(initialStorage, configuredBaseUrl(), isReload)
+    : null,
 );
-const scenario = ref<ScenarioId | undefined>(
-  preference
-    ? preference.scenario_id
-    : import.meta.env.VITE_SCENARIO_ID === "demo_scenario_50_vs_100"
-      ? "demo_scenario_50_vs_100"
-      : undefined,
-);
-const sessionId = ref<string>();
+const sessionId = ref<string | null>(null);
 const messages = ref<Message[]>([]);
 const selectedId = ref<number | null>(null);
 const pending = ref(false);
@@ -54,12 +53,11 @@ const controller = shallowRef<AbortController>();
 let sequence = 0;
 let messageId = 0;
 let initialized = false;
-const mockService = createMockService();
 const client = createAgentClient();
 const selected = computed(() =>
   messages.value.find((m) => m.id === selectedId.value),
 );
-const result = computed(() => selected.value?.result);
+const result = computed(() => selected.value?.result ?? null);
 function storage() {
   try {
     return window.sessionStorage;
@@ -84,12 +82,13 @@ function rememberPreference() {
     savePreference(s, configuredBaseUrl(), {
       mode: mode.value,
       scenario_id: scenario.value,
+      demo_selected: scenario.value !== null,
     });
 }
 function forget() {
   const s = storage();
   if (s) clearSession(s, key());
-  sessionId.value = undefined;
+  sessionId.value = null;
 }
 function cancel() {
   if (!pending.value) return;
@@ -98,13 +97,10 @@ function cancel() {
   const active = messages.value.find((m) => m.state === "pending");
   if (active) {
     active.state = "cancelled";
-    active.uncertain = mode.value === "live";
+    active.uncertain = true;
   }
   pending.value = false;
-  notice.value =
-    mode.value === "live"
-      ? "已停止等待；服务端可能仍在分析，请先恢复会话确认结果。"
-      : "已取消本次离线请求，可以修改问题或重试。";
+  notice.value = "已停止等待；服务端可能仍在分析，请先恢复会话确认结果。";
 }
 function reset() {
   cancel();
@@ -114,32 +110,39 @@ function reset() {
   draft.value = "";
   notice.value = "";
 }
-function setMode(value: DataMode) {
-  if (mode.value === value) return;
+function startEnterpriseAnalysis() {
   reset();
-  mode.value = value;
+  mode.value = "live";
+  scenario.value = null;
+  // Start blank, not by restoring an earlier enterprise or Demo conversation.
+  // Only browser pointers are cleared; backend history and facts are untouched.
+  forget();
   rememberPreference();
-  notice.value = "查询模式已切换，当前展示已清除。";
-  if (value === "live") void restoreSession();
+}
+function setMode(value: DataMode) {
+  // Compatibility setter: there is no local response mode in the application.
+  if (value === "live") mode.value = "live";
 }
 function setScenario(value: ScenarioId | undefined) {
-  if (scenario.value === value) return;
+  if (scenario.value === (value ?? null)) return;
   reset();
-  scenario.value = value;
+  scenario.value = value ?? null;
   rememberPreference();
   notice.value = value
     ? "已切换到独立合成 Demo，不会修改企业事实。"
     : "已切换到企业事实查询。";
-  if (mode.value === "live") void restoreSession();
+  void restoreSession();
 }
 async function restoreSession(): Promise<BackendTurn[] | null> {
-  if (mode.value !== "live" || pending.value) return null;
+  if (pending.value) return null;
   if (!sessionId.value) {
     const s = storage();
     const pointer = s ? readSession(s, key(), scenario.value) : null;
-    sessionId.value = pointer?.session_id;
+    sessionId.value = pointer?.session_id ?? null;
   }
   if (!sessionId.value) return null;
+  const restoringId = sessionId.value;
+  const restoringScenario = scenario.value;
   const token = ++sequence;
   const abort = new AbortController();
   controller.value = abort;
@@ -150,18 +153,26 @@ async function restoreSession(): Promise<BackendTurn[] | null> {
     // Paginate saved responses; never rerun historical tools or calculations.
     for (;;) {
       const page = await client.getSession(
-        sessionId.value,
-        scenario.value,
+        restoringId,
+        restoringScenario ?? undefined,
         after,
         abort.signal,
       );
       if (
-        page.session_id !== sessionId.value ||
-        (page.scenario_id ?? undefined) !== scenario.value
+        page.session_id !== restoringId ||
+        (page.scenario_id ?? null) !== restoringScenario
       )
-        throw new QueryError("mapping", "会话来源不一致，请重新开始分析。");
+        throw new QueryError("session", "会话来源不一致，请重新开始分析。");
       if (!page.turns.length) break;
       for (const turn of page.turns) {
+        if (
+          turn.response.session_id !== restoringId ||
+          (turn.response.scenario_id ?? null) !== restoringScenario
+        )
+          throw new QueryError(
+            "session",
+            "会话来源不一致，请新建企业分析或选择原数据空间。",
+          );
         if (turn.sequence_no <= after)
           throw new QueryError("mapping", "会话顺序暂无法确认。");
         after = turn.sequence_no;
@@ -217,39 +228,39 @@ async function send(candidate: unknown = draft.value) {
   notice.value = "";
   draft.value = "";
   try {
-    let data: AgentResult;
-    if (mode.value === "mock") {
-      data = await mockService.query({ text }, abort.signal);
-    } else {
-      // Create and save the pointer before querying so timeout/refresh can recover the server turn.
-      if (!sessionId.value) {
-        const session = await client.createSession(
-          scenario.value,
-          abort.signal,
-        );
-        if (token !== sequence || abort.signal.aborted) return;
-        sessionId.value = session.session_id;
-        remember();
-      }
-      const response = await client.queryAgent(
-        {
-          message: text,
-          session_id: sessionId.value,
-          scenario_id: scenario.value,
-          persist_session: true,
-        },
+    // Create and save the pointer before querying so timeout/refresh can recover the server turn.
+    if (!sessionId.value) {
+      const session = await client.createSession(
+        scenario.value ?? undefined,
         abort.signal,
       );
       if (token !== sequence || abort.signal.aborted) return;
-      if (
-        response.session_id !== sessionId.value ||
-        (response.scenario_id ?? undefined) !== scenario.value
-      )
-        throw new QueryError("mapping", "会话来源不一致，请恢复会话后重试。");
-      data = adaptBackendResponse(response);
-      message.sequenceNo = (message.attemptAfter ?? 0) + 1;
+      if ((session.scenario_id ?? null) !== scenario.value)
+        throw new QueryError(
+          "mapping",
+          "会话来源不一致，未发送分析请求，请新建分析。",
+        );
+      sessionId.value = session.session_id;
       remember();
     }
+    const response = await client.queryAgent(
+      {
+        message: text,
+        session_id: sessionId.value,
+        scenario_id: scenario.value ?? undefined,
+        persist_session: true,
+      },
+      abort.signal,
+    );
+    if (token !== sequence || abort.signal.aborted) return;
+    if (
+      response.session_id !== sessionId.value ||
+      (response.scenario_id ?? null) !== scenario.value
+    )
+      throw new QueryError("mapping", "会话来源不一致，请恢复会话后重试。");
+    const data = adaptBackendResponse(response);
+    message.sequenceNo = (message.attemptAfter ?? 0) + 1;
+    remember();
     if (token !== sequence || abort.signal.aborted) return;
     const current = messages.value.find((m) => m.id === message.id)!;
     current.result = data;
@@ -262,7 +273,7 @@ async function send(candidate: unknown = draft.value) {
         ? error
         : new QueryError("network", "请求失败，请检查连接后重试。");
     current.state = "error";
-    current.uncertain = mode.value === "live";
+    current.uncertain = true;
     draft.value = text;
   } finally {
     if (token === sequence) pending.value = false;
@@ -277,7 +288,7 @@ function select(id: number) {
 async function retry() {
   const previous = selected.value;
   if (!previous || pending.value) return;
-  if (mode.value === "live" && previous.uncertain && sessionId.value) {
+  if (previous.uncertain && sessionId.value) {
     const turns = await restoreSession();
     if (turns === null) return;
     if (
@@ -296,7 +307,7 @@ async function retry() {
 export function useAgent() {
   if (!initialized) {
     initialized = true;
-    void restoreSession();
+    if (isReload) void restoreSession();
   }
   return {
     mode,
@@ -313,6 +324,7 @@ export function useAgent() {
     retry,
     cancel,
     reset,
+    startEnterpriseAnalysis,
     setMode,
     setScenario,
     restoreSession,

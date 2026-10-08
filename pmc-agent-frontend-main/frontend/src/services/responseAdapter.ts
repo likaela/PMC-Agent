@@ -428,6 +428,18 @@ export function adaptBackendResponse(payload: unknown): FrontendViewModel {
         text(row.committed_date),
       ]),
     };
+  } else if (kind === "fact_query" && Array.isArray(data.products)) {
+    vm.title = "已发布产品目录";
+    vm.conclusion = "已发布BOM不代表库存齐套或可以开工。";
+    vm.nextAction = "选择产品编码并补充生产数量后，再核验齐套情况。";
+    vm.detailTable = {
+      columns: ["产品编码", "产品名称", "BOM状态", "已发布版本"],
+      rows: list(data.products).map((row) => [
+        text(row.product_code), text(row.product_name),
+        row.published_bom_status === "published" ? "已发布" : "未知",
+        list(row.revisions).map((version) => text(version.revision)).filter(Boolean).join("、") || null,
+      ]),
+    };
   } else if (kind === "pmc_analysis") {
     // Legacy responses are not the published-fact contract. Keep prose only until a dedicated mapping exists.
     vm.title = "生产分析回答";
@@ -447,7 +459,11 @@ export function adaptBackendResponse(payload: unknown): FrontendViewModel {
     vm.status = "uncalculable";
     vm.title = "结果状态暂无法确认";
   }
-  if (backend.intent === "clarification" || backend.status === "needs_input") {
+  if (backend.intent === "clarification" && backend.status === "ok" && structured.operation === "conversation") {
+    vm.title = "企业助手能力介绍";
+    vm.conclusion = "可先查看已发布产品，再描述生产需求。";
+    vm.nextAction = "试着问“有哪些产品”，或输入产品编码和生产数量。";
+  } else if (backend.intent === "clarification" || backend.status === "needs_input") {
     vm.status = "clarification";
     vm.title = "需要补充查询信息";
     const fields = strings(structured.missing_fields);

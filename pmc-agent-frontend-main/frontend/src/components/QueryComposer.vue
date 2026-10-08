@@ -2,7 +2,7 @@
 import { ref } from "vue";
 import { useAgent } from "../composables/useAgent";
 import Icon from "./Icon.vue";
-const { draft, pending, send, cancel, mode } = useAgent();
+const { draft, pending, send, cancel } = useAgent();
 const composing = ref(false);
 function onKey(event: KeyboardEvent) {
   if (
@@ -27,11 +27,7 @@ function onKey(event: KeyboardEvent) {
         :disabled="pending"
         maxlength="2000"
         rows="2"
-        :placeholder="
-          mode === 'mock'
-            ? '选择示例，或输入完整示例问题…'
-            : '请输入产品、数量与适用条件…'
-        "
+        placeholder="请输入产品编码和生产数量，或物料编码与查询问题…"
         @keydown="onKey"
         @compositionstart="composing = true"
         @compositionend="composing = false"
@@ -59,11 +55,7 @@ function onKey(event: KeyboardEvent) {
       </div>
     </div>
     <p class="composer-hint">
-      {{
-        mode === "mock"
-          ? "演示仅匹配固定示例，不自动推断追问条件。"
-          : "服务端保存会话；缺少版本、日期或数量时将请求补充。"
-      }}
+      请填写产品编码；会话自动保存，必要信息不足时 Agent 会请求补充。
     </p>
   </form>
 </template>

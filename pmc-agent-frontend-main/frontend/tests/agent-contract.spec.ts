@@ -11,6 +11,7 @@ import {
   clearSession,
   readPreference,
   savePreference,
+  readInitialScenario,
 } from "../src/services/sessionStorage";
 import {
   inventory,
@@ -21,6 +22,27 @@ import {
   session,
   scenarioId,
 } from "./agentFixtures";
+
+test("普通问候展示能力介绍，不伪装缺参数或业务结果", () => {
+  const vm = adaptBackendResponse(envelope("clarification", null, {
+    answer: "您好，我是PMC助手。", structured_data: { operation: "conversation", completed_steps: [] },
+  }));
+  expect(vm.title).toBe("企业助手能力介绍");
+  expect(vm.status).toBe("result");
+  expect(vm.materials).toEqual([]);
+});
+
+test("已发布产品目录只映射结构化数据，不将产品发现当成可生产", () => {
+  const vm = adaptBackendResponse(envelope("fact_query", {
+    products: [{ product_code: "KQ-Z112", product_name: null,
+      published_bom_status: "published", revisions: [{ revision: "V01" }] }],
+  }, { answer: "文本包含不存在的产品FAKE-999", provenance: { bom_sources: [source] } }));
+  expect(vm.title).toBe("已发布产品目录");
+  expect(vm.detailTable?.rows).toEqual([["KQ-Z112", null, "已发布", "V01"]]);
+  expect(vm.conclusion).toContain("不代表");
+  expect(vm.sources[0]?.reference).toBe("inventory_facts.json");
+  expect(vm.materials).toEqual([]);
+});
 
 test("库存响应映射：Decimal 字符串精度与 null 原样保留", () => {
   const result = adaptBackendResponse(
@@ -256,6 +278,118 @@ test("session_id 可保存恢复，按地址与场景隔离，不缓存业务结
   clearSession(storage, key);
   expect(readSession(storage, key, scenarioId)).toBeNull();
 });
+for (const sample of [
+  {
+    name: "旧 Demo 偏好不是主动选择",
+    reload: true,
+    marker: undefined,
+    mode: "live",
+    pointer: scenarioId,
+    expected: null,
+  },
+  {
+    name: "首次导航不自动恢复 Demo",
+    reload: false,
+    marker: true,
+    mode: "live",
+    pointer: scenarioId,
+    expected: null,
+  },
+  {
+    name: "即使主动选择过 Demo 刷新也先回企业空间",
+    reload: true,
+    marker: true,
+    mode: "live",
+    pointer: scenarioId,
+    expected: null,
+  },
+  {
+    name: "未创建会话不从偏好注入 Demo",
+    reload: true,
+    marker: true,
+    mode: "live",
+    pointer: undefined,
+    expected: null,
+  },
+  {
+    name: "指针场景错配拒绝恢复",
+    reload: true,
+    marker: true,
+    mode: "live",
+    pointer: null,
+    expected: null,
+  },
+  {
+    name: "未主动选择标记拒绝恢复",
+    reload: true,
+    marker: false,
+    mode: "live",
+    pointer: scenarioId,
+    expected: null,
+  },
+  {
+    name: "离线偏好不能自动恢复在线 Demo",
+    reload: true,
+    marker: true,
+    mode: "mock",
+    pointer: scenarioId,
+    expected: null,
+  },
+] as const) {
+  test(`初始化隔离：${sample.name}`, () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        values.set(key, value);
+      },
+      removeItem: (key: string) => {
+        values.delete(key);
+      },
+    };
+    savePreference(storage, "http://localhost:8000", {
+      mode: sample.mode,
+      scenario_id: scenarioId,
+      demo_selected: sample.marker,
+    });
+    if (sample.pointer !== undefined)
+      saveSession(storage, sessionKey("http://localhost:8000", scenarioId), {
+        session_id: "saved-demo",
+        scenario_id: sample.pointer,
+      });
+    expect(
+      readInitialScenario(storage, "http://localhost:8000", sample.reload),
+    ).toBe(sample.expected);
+    expect(
+      readInitialScenario(storage, "http://localhost:8001", sample.reload),
+    ).toBeNull();
+  });
+}
+
+test("企业指针的 null 与省略场景等价，但不能恢复 Demo 指针", () => {
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      values.set(key, value);
+    },
+    removeItem: (key: string) => {
+      values.delete(key);
+    },
+  };
+  const key = sessionKey("http://localhost:8000", null);
+  saveSession(storage, key, { session_id: "enterprise", scenario_id: null });
+  expect(readSession(storage, key)?.session_id).toBe("enterprise");
+  saveSession(storage, key, { session_id: "enterprise" });
+  expect(readSession(storage, key, null)?.session_id).toBe("enterprise");
+  saveSession(storage, key, {
+    session_id: "wrong-space",
+    scenario_id: scenarioId,
+  });
+  expect(readSession(storage, key, null)).toBeNull();
+  expect(storage.getItem(key)).toBeNull();
+});
+
 test("HTTP 内部异常脱敏且 live 失败不能回退 mock", async () => {
   const service = createLiveService({
     baseUrl: "http://localhost:8000",

@@ -98,7 +98,6 @@ watch(
               setMode(($event.target as HTMLSelectElement).value as DataMode)
             "
           >
-            <option value="mock">离线样例</option>
             <option value="live">在线 Agent</option>
           </select>
           <label v-if="mode === 'live'" for="data-space">数据空间</label>
@@ -124,18 +123,12 @@ watch(
           class="mode-banner"
           :class="{ 'mode-banner--live': mode === 'live' }"
         >
-          <Icon :name="mode === 'mock' ? 'info' : 'link'" :size="16" /><span>{{
-            mode === "mock"
-              ? "演示数据 · 未连接真实后端"
-              : scenario
-                ? "在线 Agent · 独立合成 Demo"
-                : "在线 Agent · 企业已发布事实"
+          <Icon name="link" :size="16" /><span>{{
+            scenario
+              ? "在线 Agent · 独立合成 Demo"
+              : "在线 Agent · 企业已发布事实"
           }}</span
-          ><small>{{
-            mode === "mock"
-              ? "固定场景，仅用于功能演示"
-              : "后端查询与计算 · 未知不补零"
-          }}</small>
+          ><small>后端查询与计算 · 未知不补零</small>
         </div>
         <RouterView />
       </main>
@@ -168,10 +161,11 @@ watch(
       </div>
       <ol class="help-steps">
         <li>
-          <strong>选择演示场景</strong>
+          <strong>输入企业产品编码</strong>
           <p>
-            在线模式可查询企业事实或进入独立合成
-            Demo。离线模式保留固定库存、采购与异常交互样例。
+            点击“开始分析”或“新建分析”，输入产品编码和生产数量。默认查询企业已发布事实；
+            合成 Demo 需要主动选择，数据空间保持隔离；所有回答均通过后端 API
+            获取。
           </p>
         </li>
         <li>

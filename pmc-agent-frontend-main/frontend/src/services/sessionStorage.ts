@@ -1,7 +1,7 @@
 import type { ScenarioId } from "../data/model";
 export interface SessionPointer {
   session_id: string;
-  scenario_id?: ScenarioId;
+  scenario_id?: ScenarioId | null;
 }
 export interface PointerStorage {
   getItem(key: string): string | null;
@@ -10,7 +10,8 @@ export interface PointerStorage {
 }
 export interface SessionPreference {
   mode: "mock" | "live";
-  scenario_id?: ScenarioId;
+  scenario_id?: ScenarioId | null;
+  demo_selected?: boolean;
 }
 export function preferenceKey(baseUrl: string): string {
   return sessionKey(baseUrl) + ":preference";
@@ -21,17 +22,30 @@ export function readPreference(
 ): SessionPreference | null {
   try {
     const p = JSON.parse(storage.getItem(preferenceKey(baseUrl)) ?? "null");
+    if (p?.mode === "mock") {
+      // Discard obsolete offline selection, not backend Demo history pointers.
+      storage.removeItem(preferenceKey(baseUrl));
+      return null;
+    }
     if (
       !p ||
-      !["mock", "live"].includes(p.mode) ||
-      (p.scenario_id !== undefined &&
-        p.scenario_id !== "demo_scenario_50_vs_100")
+      p.mode !== "live" ||
+      (p.scenario_id != null && p.scenario_id !== "demo_scenario_50_vs_100") ||
+      (p.demo_selected !== undefined && typeof p.demo_selected !== "boolean")
     )
       return null;
     return p;
   } catch {
     return null;
   }
+}
+// Every page entry is enterprise. Demo history needs a new explicit user selection.
+export function readInitialScenario(
+  _storage: PointerStorage,
+  _baseUrl: string,
+  _isReload: boolean,
+): ScenarioId | null {
+  return null;
 }
 export function savePreference(
   storage: PointerStorage,
@@ -44,7 +58,10 @@ export function savePreference(
     /* Optional browser cache. */
   }
 }
-export function sessionKey(baseUrl: string, scenarioId?: ScenarioId): string {
+export function sessionKey(
+  baseUrl: string,
+  scenarioId?: ScenarioId | null,
+): string {
   return `pmc-agent:v1.14.1:${baseUrl.replace(/\/+$/, "")}:${scenarioId ?? "enterprise"}`;
 }
 // Cache only an opaque pointer; facts and answers remain in the backend conversation store.
@@ -62,7 +79,7 @@ export function saveSession(
 export function readSession(
   storage: PointerStorage,
   key: string,
-  scenarioId?: ScenarioId,
+  scenarioId?: ScenarioId | null,
 ): SessionPointer | null {
   try {
     const value = storage.getItem(key);
@@ -72,7 +89,7 @@ export function readSession(
       !p ||
       typeof p.session_id !== "string" ||
       !p.session_id ||
-      p.scenario_id !== scenarioId
+      (p.scenario_id ?? null) !== (scenarioId ?? null)
     ) {
       storage.removeItem(key);
       return null;
