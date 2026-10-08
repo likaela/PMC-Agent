@@ -91,12 +91,30 @@ class StagedBomRow:
 
 
 @dataclass(frozen=True)
+class StagedBomHeader:
+    """Import policy and parent metadata, persisted before controlled publication."""
+
+    import_batch_id: str
+    source_file_id: str
+    sheet_name: str
+    source_row_number: int
+    parent_material_code: str
+    version: str
+    price_policy: str = "required"
+    publish_parent_item: bool = False
+    parent_unit: str | None = None
+    confirmations: tuple[dict[str, object], ...] = ()
+    unit_policy: str = "required"
+    publication_scope: str = "full"
+
+
+@dataclass(frozen=True)
 class Item:
     id: str
     material_code: str
     name: str | None
     specification: str | None
-    unit: str
+    unit: str | None
     import_batch_id: str
     source_file_id: str
     source_sheet: str
@@ -111,7 +129,7 @@ class ItemRevision:
     item_id: str
     name: str | None
     specification: str | None
-    unit: str
+    unit: str | None
     import_batch_id: str
     source_file_id: str
     source_sheet: str
@@ -123,7 +141,7 @@ class BomHeader:
     id: str
     parent_material_code: str
     version: str
-    effective_from: date
+    effective_from: date | None
     import_batch_id: str
     source_file_id: str
     source_sheet: str
@@ -135,7 +153,7 @@ class BomLine:
     bom_header_id: str
     item_id: str
     quantity: Decimal
-    unit: str
+    unit: str | None
     import_batch_id: str
     source_file_id: str
     source_sheet: str
@@ -163,6 +181,8 @@ class ImportResult:
     error_count: int
     pending_confirmation_fields: tuple[str, ...] = ()
     errors: tuple[RowValidationError, ...] = field(default_factory=tuple)
+    warnings: tuple[str, ...] = ()
+    completeness: dict[str, bool] = field(default_factory=dict)
 
 
 class ItemMatchStatus(StrEnum):

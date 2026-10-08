@@ -510,7 +510,7 @@ class PublishedPurchasePlanningTests(unittest.TestCase):
             store.execute(connection,
                 "INSERT INTO price_records (id, item_id, tax_included_unit_price, currency, effective_from, import_batch_id, source_file_id, source_sheet, source_row_number) "
                 "VALUES ('old-price', ?, '1.25', 'CNY', '2026-09-01', ?, ?, '价格', 2)", (item, batch, source))
-        self.assertEqual(facts.migrate(), ["006_published_purchase_planning", "007_agent_conversations"])
+        self.assertEqual(facts.migrate(), ["006_published_purchase_planning", "007_agent_conversations", "008_bom_import_context", "009_incomplete_bom_units", "010_structural_bom_publication"])
         self.assertEqual(facts.migrate(), [])
         with store.transaction() as connection:
             row = store.execute(connection, "SELECT tax_included_unit_price, unit, supplier_code, effective_to FROM price_records").fetchone()

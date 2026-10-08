@@ -56,6 +56,22 @@ class InventoryWorkbookRepository:
     header_scan_limit = 30
     scan_column_limit = 64
 
+    def __init__(self, *, optional_column_aliases: dict[str, tuple[str, ...]] | None = None):
+        self.optional_column_aliases = optional_column_aliases or {}
+        if not isinstance(self.optional_column_aliases, dict):
+            raise ValueError("可用量和预留量映射必须为字段字典")
+        if set(self.optional_column_aliases) - {"available_qty", "reserved_qty"}:
+            raise ValueError("仅支持显式声明的可用量和预留量映射")
+        used_labels = {_label(alias) for aliases in INVENTORY_COLUMN_ALIASES.values() for alias in aliases}
+        for aliases in self.optional_column_aliases.values():
+            if (not isinstance(aliases, (list, tuple)) or not aliases
+                    or any(not isinstance(alias, str) or not _label(alias) for alias in aliases)):
+                raise ValueError("库存字段映射必须为明确的非空列名列表")
+            labels = {_label(alias) for alias in aliases}
+            if labels & used_labels:
+                raise ValueError("库存字段映射不得把同一来源列解释为不同数量事实")
+            used_labels.update(labels)
+
     def map_workbook(self, file_path: str | Path) -> InventoryWorkbookResult:
         source = Path(file_path)
         if source.suffix.lower() == ".xlsx":
@@ -104,7 +120,7 @@ class InventoryWorkbookRepository:
     ) -> tuple[list[MappedInventoryRow], int]:
         alias_lookup = {
             _label(alias): field_name
-            for field_name, aliases in INVENTORY_COLUMN_ALIASES.items()
+            for field_name, aliases in {**INVENTORY_COLUMN_ALIASES, **self.optional_column_aliases}.items()
             for alias in aliases
         }
         header_indexes: dict[str, int] | None = None

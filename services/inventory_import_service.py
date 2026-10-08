@@ -91,7 +91,10 @@ class InventoryImportService:
         source_kind: SourceKind | str = SourceKind.LOCAL,
         source_uri: str | None = None,
         immutable_storage: ImmutableSourceFileStorage | None = None,
+        material_scope: set[str] | None = None,
     ) -> InventoryImportResult:
+        if material_scope is not None and not material_scope:
+            raise ValueError("库存导入范围不能为空")
         observed = _aware_datetime(observed_at) or datetime.now(UTC)
         snapshot = _aware_datetime(snapshot_at)
         prepared = prepare_source_file(
@@ -169,9 +172,12 @@ class InventoryImportService:
                 )
             )
 
+        selected_rows = tuple(row for row in mapped.rows if material_scope is None
+            or _text(row.values.get("material_code")) is None
+            or _text(row.values.get("material_code")) in material_scope)
         cleaned_codes = {
             code
-            for row in mapped.rows
+            for row in selected_rows
             if (code := _text(row.values.get("material_code"))) is not None
         }
         item_ids = self.inventory_repository.resolve_item_ids(cleaned_codes)
@@ -185,7 +191,7 @@ class InventoryImportService:
         batches: set[str] = set()
         locations: set[str] = set()
 
-        for mapped_row in mapped.rows:
+        for mapped_row in selected_rows:
             row_errors: list[RowValidationError] = []
             material_code = _text(mapped_row.values.get("material_code"))
             if not material_code:
@@ -221,6 +227,21 @@ class InventoryImportService:
                 )
                 on_hand_qty = None
 
+            optional_quantities = {}
+            for field in ("available_qty", "reserved_qty"):
+                try:
+                    value = _quantity(mapped_row.values.get(field))
+                    if value is not None and value < 0:
+                        raise InvalidOperation
+                    optional_quantities[field] = value
+                except InvalidOperation:
+                    optional_quantities[field] = None
+                    row_errors.append(self._error(batch.id, source_file.id,
+                        mapped_row.sheet_name, mapped_row.source_row_number,
+                        f"{field.upper()}_INVALID", field,
+                        "明确提供的库存数量必须是非负确定性数值",
+                        _text(mapped_row.values.get(field))))
+
             site = _text(mapped_row.values.get("site"))
             location = _text(mapped_row.values.get("location"))
             batch_no = _text(mapped_row.values.get("batch_no"))
@@ -250,8 +271,8 @@ class InventoryImportService:
                     location=location,
                     batch_no=batch_no,
                     on_hand_qty=on_hand_qty,
-                    available_qty=None,
-                    reserved_qty=None,
+                    available_qty=optional_quantities["available_qty"],
+                    reserved_qty=optional_quantities["reserved_qty"],
                     quality_status=None,
                     received_at=None,
                     expiry_date=None,
@@ -291,6 +312,16 @@ class InventoryImportService:
             batches,
             len(locations),
         )
+        if material_scope is not None:
+            quality["scope"] = {
+                "material_codes": sorted(material_scope),
+                "expected_material_count": len(material_scope),
+                "source_matched_material_count": len(material_scope & unique_codes),
+                "missing_material_codes": sorted(material_scope - unique_codes),
+                "selected_row_count": len(selected_rows),
+                "excluded_out_of_scope_row_count": len(mapped.rows) - len(selected_rows),
+                "is_full_workbook_import": False,
+            }
         self.inventory_repository.save_staging_result(
             batch.id,
             source_file.id,
@@ -367,7 +398,8 @@ class InventoryImportService:
                 {error.source_row_number for error in errors if error.source_row_number is not None}
             ),
             "excluded_data_sources": list(EXCLUDED_INVENTORY_SOURCES),
-            "unavailable_fields": list(UNAVAILABLE_INVENTORY_FIELDS),
+            "unavailable_fields": [field for field in UNAVAILABLE_INVENTORY_FIELDS
+                if not rows or any(getattr(row, field) is None for row in rows)],
             "inbound_facts_available": False,
             "assumptions": [
                 "库存表是一期唯一库存事实来源",

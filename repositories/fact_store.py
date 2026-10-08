@@ -60,6 +60,12 @@ class PersistentFactStore(ABC):
     def _split_migration(self, sql: str) -> list[str]:
         return [statement.strip() for statement in sql.split("-- statement-break") if statement.strip()]
 
+    @contextmanager
+    def migration_transaction(self) -> Iterator[Any]:
+        """Execute migrations atomically; dialects may enable safe table rebuilds."""
+        with self.transaction(write_lock=True) as connection:
+            yield connection
+
     def migrate(self) -> list[str]:
         """按文件名顺序应用本方言尚未执行的迁移。"""
         migration_dir = MIGRATIONS_ROOT / self.dialect
@@ -67,7 +73,7 @@ class PersistentFactStore(ABC):
             raise RuntimeError(f"缺少 {self.dialect} 事实层迁移目录")
 
         applied: list[str] = []
-        with self.transaction() as connection:
+        with self.migration_transaction() as connection:
             applied_at_type = "TIMESTAMPTZ" if self.dialect == "postgresql" else "TEXT"
             self.execute(
                 connection,
@@ -112,6 +118,29 @@ class SQLiteFactStore(PersistentFactStore):
     def begin_transaction(self, connection: sqlite3.Connection, *, write_lock: bool) -> None:
         if write_lock:
             connection.execute("BEGIN IMMEDIATE")
+
+    @contextmanager
+    def migration_transaction(self) -> Iterator[sqlite3.Connection]:
+        """SQLite rebuilds must disable FK enforcement before starting a transaction.
+
+        All migrated facts are checked before commit. Ordinary connections continue
+        to enforce foreign keys, and a failed rebuild rolls back the entire migration.
+        """
+        connection = self.connect()
+        try:
+            connection.execute("PRAGMA foreign_keys = OFF")
+            connection.execute("BEGIN IMMEDIATE")
+            yield connection
+            violations = connection.execute("PRAGMA foreign_key_check").fetchall()
+            if violations:
+                raise RuntimeError("事实层迁移外键校验失败，已回滚")
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.close()
 
 
 class PostgreSQLFactStore(PersistentFactStore):

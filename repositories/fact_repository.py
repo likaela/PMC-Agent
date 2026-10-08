@@ -18,6 +18,7 @@ from fact_layer.models import (
     RowValidationError,
     SourceFile,
     SourceKind,
+    StagedBomHeader,
     StagedBomRow,
 )
 from repositories.fact_store import PersistentFactStore
@@ -214,9 +215,20 @@ class FactRepository:
         status: ImportBatchStatus,
         pending_confirmation_fields: tuple[str, ...],
         raw_payloads: dict[str, dict[str, object]] | None = None,
+        header: StagedBomHeader | None = None,
     ) -> None:
         raw_payloads = raw_payloads or {}
         with self.store.transaction() as connection:
+            if header is not None:
+                self.store.execute(connection,
+                    "INSERT INTO staged_bom_headers "
+                    "(import_batch_id, source_file_id, sheet_name, source_row_number, "
+                    "parent_material_code, version, price_policy, publish_parent_item, parent_unit, confirmations_json, unit_policy, publication_scope) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (header.import_batch_id, header.source_file_id, header.sheet_name,
+                     header.source_row_number, header.parent_material_code, header.version,
+                     header.price_policy, int(header.publish_parent_item), header.parent_unit,
+                     json.dumps(header.confirmations, ensure_ascii=False), header.unit_policy, header.publication_scope))
             for row in rows:
                 self.store.execute(
                     connection,
@@ -279,6 +291,160 @@ class FactRepository:
                     batch_id,
                 ),
             )
+            completeness, warnings, capabilities = self._bom_quality(rows, header)
+            self.store.execute(connection,
+                "INSERT INTO import_quality_reports (id, import_batch_id, fact_type, report_json, created_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (_new_id(), batch_id, "bom", json.dumps({
+                    "line_count": len(rows), "error_count": len(errors),
+                    "completeness": completeness, "warnings": warnings,
+                    "capabilities": capabilities,
+                    "pending_confirmation_fields": list(pending_confirmation_fields),
+                }, ensure_ascii=False), datetime.now(UTC).isoformat()))
+
+    def get_staged_header(self, batch_id: str, connection: Any = None) -> StagedBomHeader | None:
+        if connection is None:
+            with self.store.transaction() as current:
+                return self.get_staged_header(batch_id, current)
+        cursor = self.store.execute(connection,
+            "SELECT import_batch_id, source_file_id, sheet_name, source_row_number, "
+            "parent_material_code, version, price_policy, publish_parent_item, parent_unit, confirmations_json, unit_policy "
+            ", publication_scope FROM staged_bom_headers WHERE import_batch_id = ?", (batch_id,))
+        rows = _cursor_dicts(cursor)
+        if not rows:
+            return None
+        value = rows[0]
+        return StagedBomHeader(
+            import_batch_id=str(value["import_batch_id"]), source_file_id=str(value["source_file_id"]),
+            sheet_name=str(value["sheet_name"]), source_row_number=int(value["source_row_number"]),
+            parent_material_code=str(value["parent_material_code"]), version=str(value["version"]),
+            price_policy=str(value["price_policy"]), publish_parent_item=bool(value["publish_parent_item"]),
+            parent_unit=value["parent_unit"], confirmations=tuple(json.loads(value["confirmations_json"])),
+            unit_policy=str(value["unit_policy"]), publication_scope=str(value["publication_scope"]))
+
+    @staticmethod
+    def _has_publication_confirmation(header: StagedBomHeader, effective_from: date | None = None) -> bool:
+        for audit in header.confirmations:
+            if not isinstance(audit, dict) or not all(
+                isinstance(audit.get(field), str) and audit[field].strip()
+                for field in ("confirmed_by", "reason", "confirmed_at")
+            ):
+                continue
+            fields = audit.get("fields")
+            if not isinstance(fields, dict):
+                continue
+            if header.publication_scope == "structure":
+                if fields.get("publication_scope") == "structure":
+                    return True
+                continue
+            try:
+                confirmed_date = date.fromisoformat(str(fields.get("effective_from")))
+            except ValueError:
+                continue
+            if effective_from is None or confirmed_date == effective_from:
+                return True
+        return False
+
+    @staticmethod
+    def _bom_quality(rows: list[StagedBomRow], header: StagedBomHeader | None, *, published: bool = False):
+        completeness = {
+            "unit": bool(rows) and all(bool(row.unit) for row in rows),
+            "parent_unit": bool(header and header.parent_unit),
+            "price": bool(rows) and not (header and header.publication_scope == "structure") and all(row.tax_included_unit_price is not None for row in rows),
+            "effective_from": bool(rows) and all(row.effective_from is not None for row in rows),
+        }
+        warnings = []
+        if not completeness["unit"] or (header and header.publish_parent_item and not completeness["parent_unit"]):
+            warnings.append("unit_missing：BOM数量关系已保留，但计量单位尚未由业务方确认，仅可用于结构查询，不能用于确定性数量计算")
+        if not completeness["price"]:
+            warnings.append("price_missing：BOM价格未知，不生成零价格或虚构成本")
+        if header and header.publication_scope == "structure" and any(row.tax_included_unit_price is not None for row in rows):
+            warnings.append("price_unpublished：原始金额保留在暂存审计，未确认币种/价格有效期，不发布为可计算价格事实")
+        if not completeness["effective_from"]:
+            warnings.append("effective_date_missing：BOM生效日期未确认，仅发布结构，不声明当前有效或用于生产计算")
+        capabilities = {
+            "product_discovery": published and bool(header and header.publish_parent_item),
+            "bom_structure_query": published and bool(rows),
+            "price_analysis": published and completeness["price"] and completeness["unit"],
+            # BOM publication alone never establishes inventory/production readiness.
+            "inventory_feasibility": False,
+            "deterministic_production_analysis": False,
+        }
+        return completeness, warnings, capabilities
+
+    @staticmethod
+    def _row_pending(row: StagedBomRow, price_policy: str, unit_policy: str = "required", publication_scope: str = "full") -> list[str]:
+        if publication_scope == "structure":
+            return []
+        pending = []
+        if not row.unit and unit_policy == "required":
+            pending.append("unit")
+        if row.effective_from is None:
+            pending.append("effective_from")
+        if (price_policy == "required" or row.tax_included_unit_price is not None) and not row.currency:
+            pending.append("currency")
+        return pending
+
+    def _refresh_bom_pending(self, connection: Any, batch_id: str) -> None:
+        header = self.get_staged_header(batch_id, connection)
+        policy = header.price_policy if header else "required"
+        unit_policy = header.unit_policy if header else "required"
+        scope = header.publication_scope if header else "full"
+        cursor = self.store.execute(connection,
+            "SELECT id, import_batch_id, source_file_id, sheet_name, source_row_number, "
+            "parent_material_code, version, material_code, material_name, specification, quantity, "
+            "tax_included_unit_price, source_total_price, unit, currency, effective_from, "
+            "validation_status, pending_fields_json FROM staged_bom_rows WHERE import_batch_id = ?", (batch_id,))
+        pending = set()
+        rows = _staged_rows_from_dicts(_cursor_dicts(cursor))
+        for row in rows:
+            fields = self._row_pending(row, policy, unit_policy, scope)
+            pending.update(fields)
+            self.store.execute(connection, "UPDATE staged_bom_rows SET pending_fields_json = ? WHERE id = ?",
+                (json.dumps(fields), row.id))
+        if header and header.publish_parent_item and not header.parent_unit and unit_policy == "required":
+            pending.add("parent_unit")
+        if header and header.publish_parent_item and unit_policy == "optional_for_structure" and not self._has_publication_confirmation(header):
+            pending.add("publication_confirmation")
+        status = ImportBatchStatus.PENDING_CONFIRMATION if pending else ImportBatchStatus.READY_TO_PUBLISH
+        self.store.execute(connection,
+            "UPDATE import_batches SET status = ?, pending_confirmation_fields_json = ? WHERE id = ? AND error_count = 0",
+            (status.value, json.dumps(sorted(pending)), batch_id))
+        report_row = self.store.execute(connection,
+            "SELECT report_json FROM import_quality_reports WHERE import_batch_id = ?", (batch_id,)).fetchone()
+        if report_row:
+            report = json.loads(report_row[0])
+            completeness, warnings, capabilities = self._bom_quality(rows, header)
+            report.update(status=status.value, pending_confirmation_fields=sorted(pending),
+                          confirmations=list(header.confirmations) if header else [],
+                          completeness=completeness, warnings=warnings, capabilities=capabilities)
+            self.store.execute(connection,
+                "UPDATE import_quality_reports SET report_json = ? WHERE import_batch_id = ?",
+                (json.dumps(report, ensure_ascii=False), batch_id))
+
+    def confirm_parent_unit(self, batch_id: str, unit: str, *, confirmed_by: str, reason: str) -> ImportBatch:
+        if not all(isinstance(value, str) and value.strip() for value in (unit, confirmed_by, reason)):
+            raise ValueError("父项单位、确认人和确认依据必须明确提供")
+        with self.store.transaction(write_lock=True) as connection:
+            query = "SELECT status, error_count FROM import_batches WHERE id = ?"
+            if self.store.dialect == "postgresql":
+                query += " FOR UPDATE"
+            state = self.store.execute(connection, query, (batch_id,)).fetchone()
+            if not state:
+                raise KeyError("导入批次不存在")
+            if state[0] not in {"pending_confirmation", "ready_to_publish"} or state[1]:
+                raise ValueError("当前批次不允许人工确认")
+            header = self.get_staged_header(batch_id, connection)
+            if header is None or not header.publish_parent_item:
+                raise ValueError("该批次不支持父项发布")
+            confirmations = [*header.confirmations, {"field": "parent_unit", "value": unit.strip(),
+                "confirmed_by": confirmed_by.strip(), "reason": reason.strip(),
+                "confirmed_at": datetime.now(UTC).isoformat()}]
+            self.store.execute(connection,
+                "UPDATE staged_bom_headers SET parent_unit = ?, confirmations_json = ? WHERE import_batch_id = ?",
+                (unit.strip(), json.dumps(confirmations, ensure_ascii=False), batch_id))
+            self._refresh_bom_pending(connection, batch_id)
+        return self.get_import_batch(batch_id)
 
     def get_import_batch(self, batch_id: str) -> ImportBatch | None:
         with self.store.transaction() as connection:
@@ -340,6 +506,9 @@ class FactRepository:
         batch_id: str,
         confirmations: dict[str, object],
         material_code: str | None = None,
+        *,
+        confirmed_by: str | None = None,
+        reason: str | None = None,
     ) -> ImportBatch:
         """把业务人员明确提供的值写入 staging，不生成任何默认值。"""
         allowed = {"unit", "currency", "effective_from"}
@@ -390,6 +559,11 @@ class FactRepository:
                 raise ValueError("当前导入批次状态不允许修改人工确认值")
             if int(batch_state[1]) != 0:
                 raise ValueError("存在校验错误的导入批次不能确认并发布")
+            header = self.get_staged_header(batch_id, connection)
+            if header and header.publish_parent_item and not all(
+                isinstance(value, str) and value.strip() for value in (confirmed_by, reason)
+            ):
+                raise ValueError("企业 BOM 确认须提供确认人和业务依据")
             cursor = self.store.execute(
                 connection,
                 f"UPDATE staged_bom_rows SET {', '.join(assignments)} WHERE {where}",
@@ -397,43 +571,44 @@ class FactRepository:
             )
             if cursor.rowcount == 0:
                 raise KeyError("未找到可确认的暂存 BOM 行")
-            remaining_cursor = self.store.execute(
-                connection,
-                "SELECT id, unit, currency, effective_from FROM staged_bom_rows "
-                "WHERE import_batch_id = ? AND validation_status = 'valid'",
-                (batch_id,),
-            )
-            remaining_rows = remaining_cursor.fetchall()
-            pending_set: set[str] = set()
-            for remaining_row in remaining_rows:
-                row_pending = [
-                    field_name
-                    for index, field_name in enumerate(("unit", "currency", "effective_from"), 1)
-                    if remaining_row[index] is None or str(remaining_row[index]).strip() == ""
-                ]
-                pending_set.update(row_pending)
-                self.store.execute(
-                    connection,
-                    "UPDATE staged_bom_rows SET pending_fields_json = ? WHERE id = ?",
-                    (json.dumps(row_pending, ensure_ascii=False), remaining_row[0]),
-                )
-            pending = sorted(pending_set)
-            next_status = (
-                ImportBatchStatus.PENDING_CONFIRMATION
-                if pending
-                else ImportBatchStatus.READY_TO_PUBLISH
-            )
-            self.store.execute(
-                connection,
-                "UPDATE import_batches SET status = ?, pending_confirmation_fields_json = ? "
-                "WHERE id = ? AND error_count = 0",
-                (next_status.value, json.dumps(pending, ensure_ascii=False), batch_id),
-            )
+            if header and header.publish_parent_item:
+                audit = [*header.confirmations, {
+                    "fields": {key: str(value) for key, value in confirmations.items()},
+                    "material_code": material_code, "confirmed_by": confirmed_by.strip(),
+                    "reason": reason.strip(), "confirmed_at": datetime.now(UTC).isoformat(),
+                }]
+                self.store.execute(connection,
+                    "UPDATE staged_bom_headers SET confirmations_json = ? WHERE import_batch_id = ?",
+                    (json.dumps(audit, ensure_ascii=False), batch_id))
+            self._refresh_bom_pending(connection, batch_id)
 
         batch = self.get_import_batch(batch_id)
         if batch is None:
             raise KeyError("导入批次不存在")
         return batch
+
+    def confirm_structure_publication(self, batch_id: str, *, confirmed_by: str, reason: str) -> ImportBatch:
+        """Authorize structure-only publication; never confirm missing business values."""
+        if not all(isinstance(value, str) and value.strip() for value in (confirmed_by, reason)):
+            raise ValueError("结构发布须提供授权人及依据")
+        with self.store.transaction(write_lock=True) as connection:
+            query = "SELECT status, error_count FROM import_batches WHERE id = ?"
+            if self.store.dialect == "postgresql":
+                query += " FOR UPDATE"
+            batch = self.store.execute(connection, query, (batch_id,)).fetchone()
+            header = self.get_staged_header(batch_id, connection)
+            if batch is None:
+                raise KeyError("导入批次不存在")
+            if not header or header.publication_scope != "structure":
+                raise ValueError("当前映射不是结构发布策略")
+            if str(batch[0]) not in {"pending_confirmation", "ready_to_publish"} or int(batch[1]) != 0:
+                raise ValueError("批次校验未通过或已经发布")
+            audit = [*header.confirmations, dict(fields={"publication_scope": "structure"},
+                confirmed_by=confirmed_by.strip(), reason=reason.strip(), confirmed_at=datetime.now(UTC).isoformat())]
+            self.store.execute(connection, "UPDATE staged_bom_headers SET confirmations_json = ? WHERE import_batch_id = ?",
+                (json.dumps(audit, ensure_ascii=False), batch_id))
+            self._refresh_bom_pending(connection, batch_id)
+        return self.get_import_batch(batch_id)
 
     def publish_batch(self, batch_id: str) -> dict[str, object]:
         """在同一加锁事务内复核 staging 并发布；重复版本明确拒绝。"""
@@ -484,6 +659,37 @@ class FactRepository:
                 raise ValueError("父件或版本未确认")
             parent_material_code = parent_value
             version = version_value
+            context = self.get_staged_header(batch_id, connection)
+            price_policy = context.price_policy if context else "required"
+            unit_policy = context.unit_policy if context else "required"
+            scope = context.publication_scope if context else "full"
+            if price_policy not in {"required", "optional"} or unit_policy not in {"required", "optional_for_structure"}:
+                raise ValueError("暂存发布策略不合法")
+            if scope not in {"full", "structure"} or (scope == "structure" and (not context.publish_parent_item or price_policy != "optional" or unit_policy != "optional_for_structure")):
+                raise ValueError("结构发布策略必须显式配置，不能放宽核价校验")
+            if context and (context.parent_material_code, context.version) != (parent_material_code, version):
+                raise ValueError("父项元数据与暂存明细不一致")
+            for row in rows:
+                source = self.store.execute(connection,
+                    "SELECT import_batch_id, original_filename, content_sha256, byte_size, storage_key, source_uri "
+                    "FROM source_files WHERE id = ?", (row.source_file_id,)).fetchone()
+                if (not source or source[0] != batch_id or not source[1] or
+                        len(str(source[2])) != 64 or not all(ch in "0123456789abcdefABCDEF" for ch in str(source[2])) or
+                        int(source[3]) <= 0 or not (source[4] or source[5]) or
+                        not row.sheet_name or row.source_row_number <= 0):
+                    raise ValueError("暂存 BOM 来源审计不完整，不能发布")
+            if context and (context.source_file_id != rows[0].source_file_id or
+                            context.sheet_name != rows[0].sheet_name or context.source_row_number <= 0):
+                raise ValueError("父项来源审计与 BOM 明细不一致")
+            if context and context.publish_parent_item:
+                if (unit_policy == "required" and not context.parent_unit) or len({row.effective_from for row in rows}) != 1:
+                    raise ValueError("父项单位未确认或 BOM 生效日期不一致")
+                if unit_policy == "optional_for_structure" and not self._has_publication_confirmation(context, rows[0].effective_from):
+                    raise ValueError("结构事实发布须明确授权，并保留确认人与业务依据")
+                existing_parent = self.store.execute(connection,
+                    "SELECT unit FROM items WHERE material_code = ?", (parent_material_code,)).fetchone()
+                if existing_parent and existing_parent[0] is not None and context.parent_unit is not None and existing_parent[0] != context.parent_unit:
+                    raise ValueError("父项单位与已发布主数据冲突，不能覆盖")
 
             if self.store.dialect == "postgresql":
                 lock_digest = hashlib.sha256(
@@ -504,8 +710,22 @@ class FactRepository:
                 raise ValueError("该父件和版本已发布，不能覆盖受控事实")
 
             first = rows[0]
-            if first.effective_from is None:
+            if first.effective_from is None and scope != "structure":
                 raise ValueError("生效日期尚未确认")
+            if context and context.publish_parent_item:
+                self.store.execute(connection,
+                    "INSERT INTO items (id, material_code, name, specification, unit, import_batch_id, "
+                    "source_file_id, source_sheet, source_row_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                    "ON CONFLICT(material_code) DO NOTHING",
+                    (_new_id(), parent_material_code, None, None, context.parent_unit, batch_id,
+                     context.source_file_id, context.sheet_name, context.source_row_number))
+                parent_id = self.store.execute(connection,
+                    "SELECT id FROM items WHERE material_code = ?", (parent_material_code,)).fetchone()[0]
+                self.store.execute(connection,
+                    "INSERT INTO item_revisions (id, item_id, name, specification, unit, import_batch_id, "
+                    "source_file_id, source_sheet, source_row_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (_new_id(), parent_id, None, None, context.parent_unit, batch_id,
+                     context.source_file_id, context.sheet_name, context.source_row_number))
             self.store.execute(
                 connection,
                 "INSERT INTO bom_headers "
@@ -515,7 +735,7 @@ class FactRepository:
                     header_id,
                     parent_material_code,
                     version,
-                    first.effective_from.isoformat(),
+                    _date_text(first.effective_from),
                     batch_id,
                     first.source_file_id,
                     first.sheet_name,
@@ -526,12 +746,18 @@ class FactRepository:
                 if (
                     row.material_code is None
                     or row.quantity is None
-                    or row.tax_included_unit_price is None
-                    or row.unit is None
-                    or row.currency is None
-                    or row.effective_from is None
+                    or not row.quantity.is_finite() or row.quantity <= 0
+                    or self._row_pending(row, price_policy, unit_policy, scope)
+                    or (price_policy == "required" and row.tax_included_unit_price is None)
+                    or (row.tax_included_unit_price is not None and
+                        (not row.tax_included_unit_price.is_finite() or row.tax_included_unit_price < 0))
                 ):
                     raise ValueError("暂存行仍存在未确认字段")
+                if context and context.publish_parent_item:
+                    previous = self.store.execute(connection,
+                        "SELECT unit FROM items WHERE material_code = ?", (row.material_code,)).fetchone()
+                    if previous and previous[0] is not None and row.unit is not None and previous[0] != row.unit:
+                        raise ValueError("子料单位与已发布主数据冲突，不能静默覆盖")
                 proposed_item_id = _new_id()
                 self.store.execute(
                     connection,
@@ -591,23 +817,16 @@ class FactRepository:
                         row.source_row_number,
                     ),
                 )
-                self.store.execute(
-                    connection,
-                    "INSERT INTO price_records "
-                    "(id, item_id, tax_included_unit_price, currency, effective_from, import_batch_id, "
-                    "source_file_id, source_sheet, source_row_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (
-                        _new_id(),
-                        item_id,
-                        _decimal_text(row.tax_included_unit_price),
-                        row.currency,
-                        row.effective_from.isoformat(),
-                        batch_id,
-                        row.source_file_id,
-                        row.sheet_name,
-                        row.source_row_number,
-                    ),
-                )
+                if row.tax_included_unit_price is not None and scope != "structure":
+                    self.store.execute(
+                        connection,
+                        "INSERT INTO price_records "
+                        "(id, item_id, tax_included_unit_price, currency, effective_from, import_batch_id, "
+                        "source_file_id, source_sheet, source_row_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        (_new_id(), item_id, _decimal_text(row.tax_included_unit_price), row.currency,
+                         row.effective_from.isoformat(), batch_id, row.source_file_id,
+                         row.sheet_name, row.source_row_number),
+                    )
 
             published_at = datetime.now(UTC).isoformat()
             self.store.execute(
@@ -615,6 +834,18 @@ class FactRepository:
                 "UPDATE import_batches SET status = ?, published_at = ? WHERE id = ?",
                 (ImportBatchStatus.PUBLISHED.value, published_at, batch_id),
             )
+            report_row = self.store.execute(connection,
+                "SELECT report_json FROM import_quality_reports WHERE import_batch_id = ?", (batch_id,)).fetchone()
+            completeness, warnings, capabilities = self._bom_quality(rows, context, published=True)
+            publication_status = "published_incomplete" if warnings else "published"
+            if report_row:
+                quality = json.loads(report_row[0])
+                quality.update(status="published", publication_status=publication_status,
+                               pending_confirmation_fields=[], completeness=completeness,
+                               warnings=warnings, capabilities=capabilities)
+                self.store.execute(connection,
+                    "UPDATE import_quality_reports SET report_json = ? WHERE import_batch_id = ?",
+                    (json.dumps(quality, ensure_ascii=False), batch_id))
 
         return {
             "import_batch_id": batch_id,
@@ -623,6 +854,10 @@ class FactRepository:
             "version": version,
             "line_count": len(rows),
             "status": ImportBatchStatus.PUBLISHED.value,
+            "publication_status": publication_status,
+            "completeness": completeness,
+            "capabilities": capabilities,
+            "warnings": warnings,
         }
 
     def get_published_bom(self, parent_material_code: str, version: str) -> dict[str, object] | None:
@@ -640,6 +875,7 @@ class FactRepository:
             if not headers:
                 return None
             header = headers[0]
+            context = self.get_staged_header(str(header["import_batch_id"]), connection)
             line_cursor = self.store.execute(
                 connection,
                 "SELECT i.material_code, ir.name AS material_name, ir.specification, bl.quantity, "
@@ -651,7 +887,7 @@ class FactRepository:
                 "JOIN item_revisions ir ON ir.item_id = bl.item_id "
                 "AND ir.import_batch_id = bl.import_batch_id "
                 "JOIN source_files sf ON sf.id = bl.source_file_id "
-                "JOIN price_records pr ON pr.item_id = bl.item_id "
+                "LEFT JOIN price_records pr ON pr.item_id = bl.item_id "
                 "AND pr.import_batch_id = bl.import_batch_id "
                 "AND pr.source_row_number = bl.source_row_number "
                 "WHERE bl.bom_header_id = ? ORDER BY bl.source_sheet, bl.source_row_number",
@@ -661,14 +897,27 @@ class FactRepository:
 
         for line in lines:
             line["quantity"] = Decimal(str(line["quantity"]))
-            line["tax_included_unit_price"] = Decimal(str(line["tax_included_unit_price"]))
+            line["tax_included_unit_price"] = (Decimal(str(line["tax_included_unit_price"]))
+                if line["tax_included_unit_price"] is not None else None)
             line["immutable_copy"] = bool(line["immutable_copy"])
+            line["completeness"] = {"unit": line["unit"] is not None,
+                                    "price": line["tax_included_unit_price"] is not None}
+        completeness = {
+            "unit": bool(lines) and all(line["unit"] is not None for line in lines),
+            "parent_unit": bool(context and context.parent_unit),
+            "price": bool(lines) and all(line["tax_included_unit_price"] is not None for line in lines),
+        }
+        warnings = []
+        if not completeness["unit"] or (context and context.publish_parent_item and not completeness["parent_unit"]):
+            warnings.append("unit_missing：BOM数量关系已发布，但计量单位待确认，仅可用于结构查询，不能用于确定性数量计算")
+        if not completeness["price"]:
+            warnings.append("price_missing：BOM价格未知，不能计算成本")
         return {
             "header": {
                 "id": str(header["id"]),
                 "parent_material_code": str(header["parent_material_code"]),
                 "version": str(header["version"]),
-                "effective_from": str(header["effective_from"]),
+                "effective_from": _date_text(header["effective_from"]) if isinstance(header["effective_from"], date) else header["effective_from"],
                 "import_batch_id": str(header["import_batch_id"]),
                 "source_file_id": str(header["source_file_id"]),
                 "source_file": str(header["original_filename"]),
@@ -682,8 +931,12 @@ class FactRepository:
                 ),
                 "immutable_copy": bool(header["immutable_copy"]),
                 "source_sheet": str(header["source_sheet"]),
+                "parent_unit": context.parent_unit if context else None,
             },
             "lines": lines,
+            "completeness": completeness,
+            "warnings": warnings,
+            "publication_status": "published_incomplete" if warnings else "published",
         }
 
     def count_published_bom_headers(self) -> int:

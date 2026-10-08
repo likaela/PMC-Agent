@@ -276,6 +276,9 @@ class PostgreSQLFactStoreIntegrationTests(unittest.TestCase):
                 "005_inventory_analysis",
                 "006_published_purchase_planning",
                 "007_agent_conversations",
+                "008_bom_import_context",
+                "009_incomplete_bom_units",
+                "010_structural_bom_publication",
             ],
         )
 

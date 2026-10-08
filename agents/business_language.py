@@ -10,6 +10,16 @@ _CONSTRAINT = re.compile(r"(?<![A-Za-z0-9_-])(MOQ|LT)\s*[:：=]?\s*(\d+)(?![\d.]
 _REFRESH = re.compile(r"重新计算|重新分析|按最新库存|再查一次|重新查|刷新库存")
 
 
+def product_discovery(message: str) -> tuple[bool, str | None]:
+    """Explicit catalog requests cannot inherit a prior production object."""
+    if re.search(r"我能生产什么|(?:有哪些|有什么|看看.*哪些|查看.*哪些)(?:可生产的?|已发布的?)?产品|产品(?:目录|列表)", message):
+        return True, None
+    category = re.search(r"(?:生产|查找|查询)(.+?)产品", message)
+    if category:
+        return True, category.group(1).strip(" ，。‘’“”\"'")
+    return False, None
+
+
 def refresh_requested(message: str) -> bool:
     # Negated instructions must not trigger refresh.
     message = re.sub(r"(?:不要|不用|无需|不必)\s*(?:重新计算|重新分析|再查一次|重新查)", "", message)

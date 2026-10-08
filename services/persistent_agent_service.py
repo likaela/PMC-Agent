@@ -184,8 +184,25 @@ class PersistentAgentService:
         scope = getattr(getattr(self.repository, "manifest", None), "scenario_id", "enterprise")
         resolver = self.tool_resolver or (lambda kind: self._tool(EnterpriseQueryIntent(query_type=kind))[0])
         llm_options = dict(llm_factory=lambda: get_llm(), llm_status=lambda: get_llm_configuration_status())
-        self.orchestrator = AgentOrchestrator(ToolRegistry(resolver=resolver, scope=scope or "enterprise"),
-            planner=AgentPlanner(**llm_options), response_generator=ResponseGenerator(formatter=_answer, **llm_options))
+        context_resolver = None
+        formatter = _answer
+        product_resolver = None
+        if scope == "enterprise":
+            from agents.context_resolver import ContextResolver
+            from repositories.agent_context_repository import AgentContextRepository
+            from repositories.fact_query_repository import FactQueryRepository
+            from repositories.fact_repository import FactRepository
+            context_resolver = ContextResolver(AgentContextRepository(FactQueryRepository(FactRepository(self.repository.store))))
+            from agents.business_formatter import format_business_answer
+            formatter = format_business_answer
+            from tools.published_product_tools import build_published_product_search
+            product_tool = build_published_product_search(self.repository.store)
+            product_resolver = lambda: product_tool
+        self.orchestrator = AgentOrchestrator(ToolRegistry(resolver=resolver, scope=scope or "enterprise",
+            product_resolver=product_resolver),
+            planner=AgentPlanner(enterprise_mode=scope == "enterprise", **llm_options),
+            response_generator=ResponseGenerator(formatter=formatter, **llm_options),
+            context_resolver=context_resolver)
 
     def query(self, session_id: str, message: str) -> dict:
         if self.orchestrator is not None:

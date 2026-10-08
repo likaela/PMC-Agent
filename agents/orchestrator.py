@@ -83,6 +83,9 @@ class AgentOrchestrator:
                             "库存分析服务暂不可用，请稍后重试；未生成风险或批次推断。")
         if plan.intent == "inbound":
             return None  # Explicit compatibility delegation, not a model-selected sixth tool.
+        if plan.operation == "product_search":
+            # Catalog browsing does not invalidate the last task's resolved evidence context.
+            context = original_context
         resolution, context_references = None, []
         if self.context_resolver is not None:
             resolution = self.context_resolver.resolve(plan, message)
@@ -114,7 +117,7 @@ class AgentOrchestrator:
         records, kinds, steps, aliases = [], [], [], []
         for name in plan.required_tools:
             # Validate complete arguments before any execution. Planner cannot issue raw SQL/kwargs.
-            args = self.registry.arguments(name, {**plan.entities.model_dump(), **plan.inventory_request.model_dump()})
+            args = self.registry.arguments(name, {**plan.entities.model_dump(), **plan.inventory_request.model_dump(), "search_term": plan.search_term})
             tool_name = name
             try:
                 tool = self.registry.resolve(name)
@@ -131,7 +134,7 @@ class AgentOrchestrator:
             steps.append(dict(operation=name, status=record.output["status"]))
             if record.output["status"] != "ok":
                 break  # Fail closed; don't continue a plan on missing/failed facts.
-        primary = plan.required_tools[0] if plan.operation in {"inventory_health", "expiry", "stagnation", "safety", "fifo"} else PRIMARY_TOOLS[plan.intent]
+        primary = plan.required_tools[0] if plan.operation in {"inventory_health", "expiry", "stagnation", "safety", "fifo", "product_search"} else PRIMARY_TOOLS[plan.intent]
         primary_record = (records[aliases.index(primary)] if primary in aliases else records[-1])
         result = primary_record.output
         if primary not in aliases:
@@ -157,8 +160,10 @@ class AgentOrchestrator:
                     response["provenance"] = {**response["provenance"], "context_resolution": resolution.provenance}
                 else:
                     response["provenance"] = [*(response["provenance"] or []), resolution.provenance]
-                response["answer"] = (f"本次采用BOM版本 {plan.entities.revision}，分析生效日期 {plan.entities.effective_date}。 "
-                                      + response["answer"])
+                prefix = (f"本次查询BOM版本 {plan.entities.revision} 的结构，不代表当前生产有效性。 "
+                          if set(plan.required_tools) == {"bom_query"} and plan.entities.effective_date is None
+                          else f"本次采用BOM版本 {plan.entities.revision}，分析生效日期 {plan.entities.effective_date}。 ")
+                response["answer"] = prefix + response["answer"]
             saved = self.context_resolver.remember(saved, plan, resolution)
         return OrchestratedTurn(response, saved, context_references + [r.reference() for r in records])
 

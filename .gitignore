@@ -29,6 +29,8 @@ data/normalized/
 # Generated enterprise reports
 docs/inventory_source_audit.md
 docs/kq_z112_real_mrp_report.md
+docs/enterprise_bom_catalog_audit.md
+docs/judge_trial_catalog.md
 
 # Workbook inspection artifacts
 *.inspect.json

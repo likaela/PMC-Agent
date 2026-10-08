@@ -20,6 +20,17 @@ _RISK = {"high": "高风险", "general": "一般风险", "none": "无缺料风�
 
 def format_business_answer(kind: str, result: dict) -> str:
     data = result.get("data") or {}
+    if kind == "fact_query":
+        if result["status"] != "ok":
+            return "当前没有匹配的已发布产品BOM信息；请确认名称关键词或产品编码，也可以请求查看产品目录。" if result["status"] == "data_unavailable" else "产品目录暂不可用，请稍后重试。"
+        lines = ["已找到以下已发布BOM父件（可能包含中间组件）："]
+        for product in data.get("products", []):
+            versions = "、".join(row["revision"] for row in product["revisions"])
+            lines.append(f"{product['product_code']}：{product['product_name'] or '名称未提供'}；BOM已发布，版本 {versions}。")
+        lines.append("这不是可生产清单，尚未检查库存。请选定产品编码并告诉我生产数量，我再核验有效BOM和齐套情况。")
+        if data.get("truncated"):
+            lines.append("目录结果已截断，请提供名称或编码关键词缩小查询范围。")
+        return "\n".join(lines)
     if kind == "purchase_planning" and data.get("recommendations"):
         text = ["采购分析基于已发布参数、库存和在途事实。"]
         for row in data["recommendations"][:10]:

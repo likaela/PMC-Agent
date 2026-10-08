@@ -1,0 +1,28 @@
+{
+  "mapping_name": "kq_z112_unpriced_bom_v1",
+  "description": "Explicitly audited KQ BOM sheet; product/revision come from workbook metadata, never filename.",
+  "price_policy": "optional",
+  "unit_policy": "optional_for_structure",
+  "publish_parent_item": true,
+  "included_sheets": ["BOM"],
+  "metadata": {
+    "parent_material_code": {"aliases": ["项目代号"]},
+    "version": {"aliases": ["版本号"]}
+  },
+  "columns": {
+    "material_code": {"aliases": ["料号"]},
+    "material_name": {"aliases": ["名称"]},
+    "specification": {"aliases": ["规格型号"]},
+    "quantity": {"aliases": ["数量"]},
+    "tax_included_unit_price": {"aliases": ["含税单价"]},
+    "total_price": {"aliases": ["总价"]},
+    "unit": {"aliases": ["单位"]},
+    "currency": {"aliases": ["币种"]},
+    "effective_from": {"aliases": ["生效日期", "有效期"]}
+  },
+  "required_columns": ["material_code", "quantity"],
+  "pending_when_absent": ["unit", "currency", "effective_from"],
+  "stop_row_markers": ["合计", "总计"],
+  "header_scan_limit": 100,
+  "validation": {"total_price_tolerance": "0.01"}
+}

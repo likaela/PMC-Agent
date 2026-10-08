@@ -113,6 +113,30 @@ class ContextResolver:
                 result.status = "data_unavailable"
                 result.message = "当前没有用户指定版本的已发布BOM，请确认BOM版本。"
                 return result
+        # Structural BOM lookup does not assert current validity or require inventory.
+        # Never apply this shortcut to production/purchase or date-specific queries.
+        if set(result.plan.required_tools) == {"bom_query"} and entities["effective_date"] is None and entities["as_of"] is None:
+            result.candidates = [{"revision": str(row["version"]),
+                "effective_from": str(row["effective_from"]) if row["effective_from"] is not None else None,
+                "effective_to": str(row["effective_to"]) if row["effective_to"] is not None else None,
+                "provenance": _source(row)} for row in rows]
+            result.provenance = {"product": str(product["material_code"]), "bom_candidates": result.candidates,
+                                 "selection_scope": "structure_only_no_validity_claim"}
+            if len(rows) != 1:
+                result.status = "needs_input"
+                result.message = "该产品有多个已发布BOM版本，请确认要查询的版本。"
+                return result
+            if entities["revision"] is None:
+                entities["revision"] = str(rows[0]["version"])
+                result.resolutions.append(dict(source="published_bom_context", field="revision",
+                    value=entities["revision"], provenance={**_source(rows[0]), "selection_scope": "structure_only_no_validity_claim"}))
+            result.plan.entities = TaskEntities.model_validate(entities)
+            return result
+        if any(row["effective_from"] is None for row in rows):
+            result.status = "data_unavailable"
+            result.message = "已找到该产品的已发布BOM结构，但生效日期尚未确认，无法进行确定性生产或日期有效性分析。"
+            result.provenance = {"product": str(product["material_code"]), "bom_sources": [_source(row) for row in rows]}
+            return result
         if entities["effective_date"] is None and _RELATIVE_DATE.search(message):
             result.status = "needs_input"
             result.message = "请确认具体的业务日期；暂不将相对日期替换为库存快照日期。"

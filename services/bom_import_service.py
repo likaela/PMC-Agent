@@ -14,6 +14,7 @@ from fact_layer.models import (
     ImportResult,
     RowValidationError,
     SourceKind,
+    StagedBomHeader,
     StagedBomRow,
 )
 from repositories.bom_import_repository import (
@@ -199,6 +200,30 @@ class BomImportService:
                 key: value for key, value in mapped_row.values.items()
             }
 
+        header = None
+        identities = {(row.parent_material_code, row.version) for row in mapped.rows}
+        if mapped.rows and len(identities) == 1 and all(next(iter(identities))):
+            first = mapped.rows[0]
+            header = StagedBomHeader(
+                import_batch_id=batch.id, source_file_id=source_file.id,
+                sheet_name=first.sheet_name,
+                source_row_number=first.metadata_row_number or first.source_row_number,
+                parent_material_code=first.parent_material_code, version=first.version,
+                price_policy=mapping.price_policy,
+                unit_policy=mapping.unit_policy,
+                publication_scope=mapping.publication_scope,
+                publish_parent_item=mapping.publish_parent_item,
+            )
+            if mapping.publish_parent_item and mapping.unit_policy == "required":
+                all_pending_fields.add("parent_unit")
+            if mapping.unit_policy == "optional_for_structure" and mapping.publish_parent_item:
+                all_pending_fields.add("publication_confirmation")
+        elif mapping.publish_parent_item or mapping.price_policy == "optional":
+            errors.append(self._validation_error(
+                batch.id, source_file.id, None, None, "HEADER_IDENTITY_REQUIRED",
+                "parent_material_code", "父项发布要求唯一、完整的产品和版本元数据", None,
+            ))
+
         if errors:
             status = ImportBatchStatus.INVALID
         elif all_pending_fields:
@@ -213,6 +238,7 @@ class BomImportService:
             status,
             pending_fields,
             raw_payloads,
+            header,
         )
         return ImportResult(
             import_batch_id=batch.id,
@@ -221,6 +247,22 @@ class BomImportService:
             error_count=len(errors),
             pending_confirmation_fields=pending_fields,
             errors=tuple(errors),
+            warnings=tuple([
+                *(["unit_missing：BOM 计量单位待确认，仅支持结构查询，不能用于确定性数量计算"]
+                  if any(row.unit is None for row in staged_rows) or
+                     (mapping.publish_parent_item and header is not None and header.parent_unit is None) else []),
+                *(["price_missing：BOM 部分或全部价格未知，未提供价格的行不会创建价格事实"]
+                  if any(row.tax_included_unit_price is None for row in staged_rows) else []),
+                *(["price_unpublished：结构发布保留来源金额，但不创建用于成本计算的价格事实"]
+                  if mapping.publication_scope == "structure" and any(row.tax_included_unit_price is not None for row in staged_rows) else []),
+                *(["effective_date_missing：生效日期未确认，不能声明当前有效"]
+                  if any(row.effective_from is None for row in staged_rows) else []),
+            ]),
+            completeness={"price": mapping.publication_scope != "structure" and bool(staged_rows) and all(
+                row.tax_included_unit_price is not None for row in staged_rows),
+                "unit": bool(staged_rows) and all(row.unit is not None for row in staged_rows),
+                "parent_unit": bool(header and header.parent_unit),
+                "effective_from": bool(staged_rows) and all(row.effective_from is not None for row in staged_rows)},
         )
 
     def confirm_pending_fields(
@@ -228,9 +270,19 @@ class BomImportService:
         batch_id: str,
         confirmations: dict[str, object],
         material_code: str | None = None,
+        *,
+        confirmed_by: str | None = None,
+        reason: str | None = None,
     ) -> ImportBatch:
         """保存人工确认值；缺失值不会由程序默认或推断。"""
-        return self.fact_repository.apply_confirmations(batch_id, confirmations, material_code)
+        return self.fact_repository.apply_confirmations(
+            batch_id, confirmations, material_code, confirmed_by=confirmed_by, reason=reason,
+        )
+
+    def confirm_parent_unit(self, batch_id: str, unit: str, *, confirmed_by: str, reason: str) -> ImportBatch:
+        return self.fact_repository.confirm_parent_unit(
+            batch_id, unit, confirmed_by=confirmed_by, reason=reason,
+        )
 
     def publish(self, batch_id: str) -> dict[str, object]:
         return self.fact_repository.publish_batch(batch_id)
@@ -287,10 +339,13 @@ class BomImportService:
             )
             quantity = None
 
+        priced = (mapping.price_policy == "required"
+                  or _clean_text(values.get("tax_included_unit_price")) is not None
+                  or _clean_text(values.get("total_price")) is not None)
         unit_price: Decimal | None = None
         try:
             unit_price = _decimal(values.get("tax_included_unit_price"))
-            if unit_price is None or unit_price < 0:
+            if (priced and unit_price is None) or (unit_price is not None and unit_price < 0):
                 raise InvalidOperation
         except InvalidOperation:
             errors.append(
@@ -310,7 +365,7 @@ class BomImportService:
         total_price: Decimal | None = None
         try:
             total_price = _decimal(values.get("total_price"))
-            if total_price is None or total_price < 0:
+            if (priced and total_price is None) or (total_price is not None and total_price < 0):
                 raise InvalidOperation
         except InvalidOperation:
             errors.append(
@@ -365,9 +420,9 @@ class BomImportService:
         unit = _clean_text(values.get("unit"))
         currency = _clean_text(values.get("currency"))
         effective_from: date | None = None
-        if not unit and "unit" in mapping.pending_when_absent:
+        if not unit and mapping.unit_policy == "required":
             pending_fields.append("unit")
-        if not currency and "currency" in mapping.pending_when_absent:
+        if priced and not currency and "currency" in mapping.pending_when_absent and mapping.publication_scope != "structure":
             pending_fields.append("currency")
         try:
             effective_from = _effective_date(values.get("effective_from"))
@@ -384,7 +439,7 @@ class BomImportService:
                     _clean_text(values.get("effective_from")),
                 )
             )
-        if effective_from is None and "effective_from" in mapping.pending_when_absent:
+        if effective_from is None and "effective_from" in mapping.pending_when_absent and mapping.publication_scope != "structure":
             pending_fields.append("effective_from")
 
         staged_row = StagedBomRow(

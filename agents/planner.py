@@ -16,8 +16,8 @@ from agents import business_language as language
 
 
 Intent = Literal["inventory", "inventory_batches", "bom", "production_capacity", "purchase_planning",
-                 "clarification", "inbound"]
-ToolName = Literal["inventory_query", "batch_inventory_query", "bom_query", "production_analysis", "purchase_plan", "inventory_risk_analysis", "inventory_risk", "inventory_fifo"]
+                 "clarification", "inbound", "fact_query"]
+ToolName = Literal["inventory_query", "batch_inventory_query", "bom_query", "production_analysis", "purchase_plan", "inventory_risk_analysis", "inventory_risk", "inventory_fifo", "published_product_search"]
 
 
 class UserConstraint(BaseModel):
@@ -79,7 +79,8 @@ class AgentPlan(BaseModel):
     entities: TaskEntities
     required_tools: list[ToolName] = Field(max_length=3)
     missing_parameters: list[str]
-    operation: Literal["query", "explain", "email_draft", "inventory_health", "expiry", "stagnation", "safety", "fifo", "external_risk"] = "query"
+    operation: Literal["query", "explain", "email_draft", "inventory_health", "expiry", "stagnation", "safety", "fifo", "external_risk", "product_search"] = "query"
+    search_term: str | None = Field(default=None, max_length=256)
     constraints: list[UserConstraint] = Field(default_factory=list)
     inventory_request: InventoryRequest = Field(default_factory=InventoryRequest)
 
@@ -88,6 +89,10 @@ class AgentPlan(BaseModel):
         tools = self.required_tools
         if len(set(tools)) != len(tools):
             raise ValueError("Duplicate tools")
+        if self.operation == "product_search" or self.intent == "fact_query":
+            if self.operation != "product_search" or self.intent != "fact_query" or tools != ["published_product_search"]:
+                raise ValueError("Product discovery requires its read-only tool")
+            return self
         if self.operation in {"inventory_health", "expiry", "stagnation", "safety"} and self.intent == "inventory":
             if tools not in (["inventory_risk_analysis"], ["inventory_risk"]):
                 raise ValueError("Risk operation requires the registered analysis tool")
@@ -127,7 +132,7 @@ class AgentPlanner:
 
     @staticmethod
     def _missing(plan: AgentPlan) -> list[str]:
-        if plan.operation in {"email_draft", "external_risk"}:
+        if plan.operation in {"email_draft", "external_risk", "product_search"}:
             return []
         if plan.intent == "clarification":
             return ["intent"]
@@ -138,6 +143,18 @@ class AgentPlanner:
     def plan(self, message: str, context: dict) -> tuple[AgentPlan, str]:
         # Lazy import avoids a service/module cycle and reuses established context boundaries.
         from services.persistent_agent_service import EnterpriseQueryIntent, _inherit, parse_enterprise_query
+        discovery, term = language.product_discovery(message) if self.enterprise_mode else (False, None)
+        if discovery and term is not None:
+            # A literal product code/quantity task is not a category lookup.
+            try:
+                explicit, _ = parse_enterprise_query(language.identifier_message(message), allow_llm=False)
+                if explicit.material_code is not None or explicit.quantity is not None:
+                    discovery = False
+            except ValueError:
+                discovery = False
+        if discovery:
+            return AgentPlan(intent="fact_query", entities=TaskEntities(), required_tools=["published_product_search"],
+                missing_parameters=[], operation="product_search", search_term=term), "rule"
         try:
             local, _ = parse_enterprise_query(message, allow_llm=False)
             if self.enterprise_mode:
@@ -182,6 +199,8 @@ class AgentPlanner:
             if isinstance(result, str):
                 result = json.loads(result)
             candidate = AgentPlan.model_validate(result)
+            if candidate.operation in {"product_search"} or candidate.intent == "fact_query":
+                raise ValueError("Model cannot invent an interaction shortcut")
             if rule.intent != "clarification" and candidate.intent != rule.intent:
                 raise ValueError("Plan conflicts with explicit user intent")
             # Rebuild inheritance from explicit fields first: a new object must clear old metadata.

@@ -278,10 +278,12 @@ class FactQueryService:
         header = dict(payload["header"])
         lines: list[dict[str, Any]] = []
         prices_complete = True
+        units_complete = bool(payload["lines"])
         for source_line in payload["lines"]:
             line = dict(source_line)
             price_available = line["tax_included_unit_price"] is not None
             prices_complete = prices_complete and price_available
+            units_complete = units_complete and line["unit"] is not None
             lines.append(
                 {
                     "bom_line_id": str(line["bom_line_id"]),
@@ -290,9 +292,11 @@ class FactQueryService:
                         "material_code": str(line["material_code"]),
                         "name": line["name"],
                         "specification": line["specification"],
+                        "unit": line.get("item_unit"),
                     },
                     "qty_per": _decimal_text(line["quantity"]),
                     "unit": line["unit"],
+                    "completeness": {"unit": line["unit"] is not None, "price": price_available},
                     "price": (
                         {
                             "tax_included_unit_price": _decimal_text(
@@ -315,7 +319,12 @@ class FactQueryService:
                 }
             )
         if not prices_complete:
-            warnings.append("部分 BOM 行没有已发布价格事实")
+            warnings.append("price_missing：部分 BOM 行没有已发布价格事实，不能据此虚构成本")
+        if header["effective_from"] is None:
+            warnings.append("effective_date_missing：BOM生效日期未知，仅可查询结构，不能确认当前有效或用于生产计算")
+        parent_unit = header.get("parent_unit", item.get("unit"))
+        if not units_complete or parent_unit is None:
+            warnings.append("unit_missing：BOM数量关系已发布，但计量单位尚未由业务方确认，因此当前BOM仅可用于结构查询，不能用于确定性数量计算")
         return {
             "status": "ok",
             "query": {
@@ -324,7 +333,7 @@ class FactQueryService:
                 "resolved_by": item["matched_by"],
             },
             "data": {
-                "parent_item": self._public_item(item),
+                "parent_item": {**self._public_item(item), "unit": parent_unit},
                 "revision": str(header["version"]),
                 "effective_from": _iso_text(header["effective_from"]),
                 "line_count": len(lines),
@@ -334,6 +343,9 @@ class FactQueryService:
                 "bom_lines": bool(lines),
                 "qty_per": all(line["qty_per"] is not None for line in lines),
                 "price": prices_complete,
+                "unit": units_complete,
+                "parent_unit": parent_unit is not None,
+                "effective_from": header["effective_from"] is not None,
             },
             "provenance": {
                 "bom_version": str(header["version"]),

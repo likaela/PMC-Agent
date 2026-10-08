@@ -45,6 +45,11 @@ class BomImportMapping:
     stop_row_markers: tuple[str, ...]
     header_scan_limit: int
     total_price_tolerance: str
+    price_policy: str = "required"
+    publish_parent_item: bool = False
+    included_sheets: tuple[str, ...] = ()
+    unit_policy: str = "required"
+    publication_scope: str = "full"
 
 
 @dataclass(frozen=True)
@@ -54,6 +59,7 @@ class MappedBomRow:
     parent_material_code: str | None
     version: str | None
     values: dict[str, object]
+    metadata_row_number: int | None = None
 
 
 @dataclass(frozen=True)
@@ -70,6 +76,20 @@ def load_bom_import_mapping(file_path: str | Path = DEFAULT_3588M_MAPPING) -> Bo
     header_scan_limit = int(payload.get("header_scan_limit", 100))
     if header_scan_limit <= 0:
         raise ValueError("header_scan_limit 必须大于 0")
+    price_policy = payload.get("price_policy", "required")
+    if price_policy not in {"required", "optional"}:
+        raise ValueError("price_policy 必须为 required 或 optional")
+    unit_policy = payload.get("unit_policy", "required")
+    if unit_policy not in {"required", "optional_for_structure"}:
+        raise ValueError("unit_policy 必须为 required 或 optional_for_structure")
+    publish_parent = payload.get("publish_parent_item", False)
+    if not isinstance(publish_parent, bool):
+        raise ValueError("publish_parent_item 必须为布尔值")
+    scope = payload.get("publication_scope", "full")
+    if scope not in {"full", "structure"}:
+        raise ValueError("publication_scope 必须为 full 或 structure")
+    if scope == "structure" and (not publish_parent or price_policy != "optional" or unit_policy != "optional_for_structure"):
+        raise ValueError("结构发布必须显式允许未知单位/价格并发布父项")
     return BomImportMapping(
         mapping_name=str(payload["mapping_name"]),
         metadata_aliases={
@@ -85,6 +105,11 @@ def load_bom_import_mapping(file_path: str | Path = DEFAULT_3588M_MAPPING) -> Bo
         stop_row_markers=tuple(str(value) for value in payload.get("stop_row_markers", ())),
         header_scan_limit=header_scan_limit,
         total_price_tolerance=str(payload["validation"]["total_price_tolerance"]),
+        price_policy=price_policy,
+        publish_parent_item=publish_parent,
+        included_sheets=tuple(payload.get("included_sheets", ())),
+        unit_policy=unit_policy,
+        publication_scope=scope,
     )
 
 
@@ -112,6 +137,8 @@ class BomWorkbookRepository:
         scanned_row_count = 0
         try:
             for sheet_name in workbook.sheet_names():
+                if mapping.included_sheets and sheet_name not in mapping.included_sheets:
+                    continue
                 sheet = workbook.sheet_by_name(sheet_name)
                 rows = (tuple(sheet.row_values(index)) for index in range(sheet.nrows))
                 sheet_rows, detected, missing_metadata, scanned = self._map_sheet_rows(
@@ -144,6 +171,8 @@ class BomWorkbookRepository:
         scanned_row_count = 0
         try:
             for sheet in workbook.worksheets:
+                if mapping.included_sheets and sheet.title not in mapping.included_sheets:
+                    continue
                 rows = (tuple(row) for row in sheet.iter_rows(values_only=True))
                 sheet_rows, detected, missing_metadata, scanned = self._map_sheet_rows(
                     sheet.title,
@@ -174,11 +203,15 @@ class BomWorkbookRepository:
         metadata = {field_name: None for field_name in mapping.metadata_aliases}
         header_indexes: dict[str, int] | None = None
         header_row_number: int | None = None
+        metadata_row_number: int | None = None
         scanned = 0
 
         for zero_based_index, row in enumerate(rows):
             scanned += 1
+            before = dict(metadata)
             self._update_metadata(metadata, row, mapping)
+            if metadata_row_number is None and metadata != before:
+                metadata_row_number = zero_based_index + 1
             candidate_indexes = self._column_indexes(row, mapping)
             if all(field_name in candidate_indexes for field_name in mapping.required_columns):
                 header_indexes = candidate_indexes
@@ -214,6 +247,7 @@ class BomWorkbookRepository:
                     parent_material_code=metadata.get("parent_material_code"),
                     version=metadata.get("version"),
                     values=values,
+                    metadata_row_number=metadata_row_number,
                 )
             )
         return mapped_rows, True, missing_metadata, scanned
@@ -246,8 +280,6 @@ class BomWorkbookRepository:
             if not cell_text:
                 continue
             for field_name, aliases in mapping.metadata_aliases.items():
-                if result[field_name] is not None:
-                    continue
                 for alias in aliases:
                     if _normalized_label(cell_text) == _normalized_label(alias):
                         adjacent = next(
@@ -259,15 +291,22 @@ class BomWorkbookRepository:
                             None,
                         )
                         if adjacent:
+                            if result[field_name] is not None and result[field_name] != adjacent:
+                                raise ValueError("BOM 元数据存在冲突")
                             result[field_name] = adjacent
                             break
-                    match = re.search(
+                    matches = re.findall(
                         rf"{re.escape(alias)}\s*[:：]\s*([^\s,，;；]+)",
                         cell_text,
                         flags=re.IGNORECASE,
                     )
-                    if match:
-                        result[field_name] = match.group(1).strip()
+                    if len(set(matches)) > 1:
+                        raise ValueError("BOM 元数据存在冲突")
+                    if matches:
+                        value = matches[0].strip()
+                        if result[field_name] is not None and result[field_name] != value:
+                            raise ValueError("BOM 元数据存在冲突")
+                        result[field_name] = value
                         break
 
 

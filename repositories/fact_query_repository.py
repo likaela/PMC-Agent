@@ -43,7 +43,7 @@ class FactQueryRepository:
                     "material_code": str(direct[1]),
                     "name": str(direct[2]) if direct[2] is not None else None,
                     "specification": str(direct[3]) if direct[3] is not None else None,
-                    "unit": str(direct[4]),
+                    "unit": str(direct[4]) if direct[4] is not None else None,
                     "matched_by": "canonical_item",
                     "alias": None,
                 }
@@ -69,7 +69,7 @@ class FactQueryRepository:
             "material_code": str(row[1]),
             "name": str(row[2]) if row[2] is not None else None,
             "specification": str(row[3]) if row[3] is not None else None,
-            "unit": str(row[4]),
+            "unit": str(row[4]) if row[4] is not None else None,
             "matched_by": "item_alias",
             "alias": material_code_or_alias,
             "alias_type": str(row[5]),
@@ -132,8 +132,11 @@ class FactQueryRepository:
                 connection,
                 "SELECT h.id, h.parent_material_code, h.version, h.effective_from, "
                 "h.import_batch_id, h.source_file_id, h.source_sheet, sf.original_filename, "
-                "sf.content_sha256 FROM bom_headers h "
+                "sf.content_sha256, CASE WHEN ctx.publish_parent_item = 1 THEN ctx.parent_unit "
+                "ELSE parent.unit END AS parent_unit FROM bom_headers h "
                 "JOIN source_files sf ON sf.id = h.source_file_id "
+                "LEFT JOIN staged_bom_headers ctx ON ctx.import_batch_id = h.import_batch_id "
+                "LEFT JOIN items parent ON parent.material_code = h.parent_material_code "
                 "WHERE h.parent_material_code = ? AND h.version = ?",
                 (parent_material_code, revision),
             )
@@ -144,7 +147,7 @@ class FactQueryRepository:
             line_cursor = self.store.execute(
                 connection,
                 "SELECT bl.id AS bom_line_id, i.id AS item_id, i.material_code, "
-                "ir.name, ir.specification, bl.quantity, bl.unit, "
+                "ir.name, ir.specification, i.unit AS item_unit, bl.quantity, bl.unit, "
                 "pr.tax_included_unit_price, pr.currency, pr.effective_from, "
                 "bl.import_batch_id, bl.source_file_id, bl.source_sheet, "
                 "bl.source_row_number, sf.original_filename AS source_file, "

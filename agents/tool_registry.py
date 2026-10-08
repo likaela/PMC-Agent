@@ -15,9 +15,10 @@ TOOL_KINDS = MappingProxyType({
     "inventory_risk_analysis": "inventory",
     "inventory_risk": "inventory",
     "inventory_fifo": "inventory_batches",
+    "published_product_search": "fact_query",
 })
 PRIMARY_TOOLS = MappingProxyType({kind: name for name, kind in TOOL_KINDS.items()
-                                if name not in {"inventory_risk_analysis", "inventory_risk", "inventory_fifo"}})
+                                if name not in {"inventory_risk_analysis", "inventory_risk", "inventory_fifo", "published_product_search"}})
 REQUIRED_PARAMETERS = MappingProxyType({
     "inventory_query": ("material_code",),
     "batch_inventory_query": ("material_code",),
@@ -27,23 +28,33 @@ REQUIRED_PARAMETERS = MappingProxyType({
     "inventory_risk_analysis": ("material_code", "as_of"),
     "inventory_risk": ("material_code", "as_of"),
     "inventory_fifo": ("material_code", "as_of", "required_qty"),
+    "published_product_search": (),
 })
 
 
 class ToolRegistry:
-    def __init__(self, *, resolver: Callable | None = None, scope: str = "enterprise", analysis_resolver: Callable | None = None) -> None:
+    def __init__(self, *, resolver: Callable | None = None, scope: str = "enterprise", analysis_resolver: Callable | None = None, product_resolver: Callable | None = None) -> None:
         if scope != "enterprise" and resolver is None:
             raise ValueError("An isolated scope requires its own bound tool resolver")
         self.scope = scope
         self._resolver = resolver
         self._analysis_resolver = analysis_resolver
+        self._product_resolver = product_resolver
 
     @property
     def names(self) -> tuple[str, ...]:
-        return tuple(name for name in TOOL_KINDS if self.scope == "enterprise" or name not in {"inventory_risk_analysis", "inventory_risk", "inventory_fifo"})
+        return tuple(name for name in TOOL_KINDS if self.scope == "enterprise" or name not in {"inventory_risk_analysis", "inventory_risk", "inventory_fifo", "published_product_search"})
 
     def resolve(self, name: str):
         kind = TOOL_KINDS[name]  # Closed whitelist; never eval/import a model-provided name.
+        if name == "published_product_search":
+            if self.scope != "enterprise":
+                raise ValueError("Enterprise product discovery is not enabled in Demo")
+            if self._product_resolver is not None:
+                return self._product_resolver()
+            from tools.published_product_tools import build_published_product_search
+            from repositories.fact_store import create_fact_store
+            return build_published_product_search(create_fact_store())
         if name in {"inventory_risk_analysis", "inventory_risk", "inventory_fifo"}:
             if self.scope != "enterprise":
                 raise ValueError("Enterprise analysis tools are not enabled in Demo")
@@ -72,6 +83,8 @@ class ToolRegistry:
         if missing:
             raise ValueError("Missing required tool parameters")
         code, revision = entities.get("material_code"), entities.get("revision")
+        if name == "published_product_search":
+            return dict(search_term=entities.get("search_term"))
         if name in {"inventory_risk_analysis", "inventory_risk", "inventory_fifo"}:
             args = dict(material_code=code, as_of=entities.get("as_of"))
             if name == "inventory_fifo":
