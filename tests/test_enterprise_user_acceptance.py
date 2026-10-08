@@ -346,7 +346,9 @@ def test_role_natural_language_acceptance(enterprise, case):
         else:
             assert data["on_hand_qty"] == ("150" if check == "new_material" else "75")
             assert data["available_qty"] == data["on_hand_qty"]
-        assert "stock.xlsx" in result["answer"]
+        # Ordinary prose is a business summary; audit references remain authoritative.
+        assert result["provenance"]["source_file"] == "stock.xlsx"
+        assert "stock.xlsx" not in result["answer"]
     elif case.intent == "inventory_batches":
         assert {r["batch_no"] for r in data["batches"]} == {"LOT-2", "LOT-LATER"}
         if check == "expiry_answer":

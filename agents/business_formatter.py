@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from agents.fact_query_agent import _answer_from_result
+from agents.business_answer import bom_overview, human_warning, incomplete_production
 
 
 def known(value):
@@ -20,6 +21,16 @@ _RISK = {"high": "高风险", "general": "一般风险", "none": "无缺料风�
 
 def format_business_answer(kind: str, result: dict) -> str:
     data = result.get("data") or {}
+    if kind == "bom" and result["status"] == "ok":
+        return bom_overview(data, result.get("completeness", {}))
+    if kind == "production_capacity" and result["status"] in {"data_unavailable", "invalid_query"}:
+        return incomplete_production(result)
+    if kind == "inventory" and result["status"] == "ok":
+        query = result["query"]
+        code = query.get("resolved_material_code") or query.get("material_code") or "该物料"
+        return (f"{code} 的已发布在库数量为 {known(data.get('on_hand_qty'))}；"
+                f"可用数量为 {known(data.get('available_qty'))}；预留数量为 {known(data.get('reserved_qty'))}。"
+                + ("尚缺少权威可用库存数据，不能仅凭在库数量判断是否可用。" if data.get("available_qty") is None else ""))
     if kind == "fact_query":
         if result["status"] != "ok":
             return "当前没有匹配的已发布产品BOM信息；请确认名称关键词或产品编码，也可以请求查看产品目录。" if result["status"] == "data_unavailable" else "产品目录暂不可用，请稍后重试。"
@@ -43,7 +54,7 @@ def format_business_answer(kind: str, result: dict) -> str:
         return " ".join(text) + " 未知字段不作估算；建议不代表已下单或已到货。"
     if kind == "inventory_risk":
         if result["status"] != "ok" or not data.get("inventory_lots"):
-            return "当前没有足够的已发布库存事实支持风险判断。" + "；".join(result.get("warnings", []))
+            return "当前没有足够的已发布库存事实支持风险判断。" + "；".join(human_warning(w) for w in result.get("warnings", []))
         text = [f"库存健康诊断：在库 {known(data.get('on_hand_qty'))}；可用 {known(data.get('available_qty'))}；预留 {known(data.get('reserved_qty'))}。"]
         labels = {"normal": "正常", "expired": "已过期", "near_expiry": "临期", "stagnant": "呆滞", "data_unavailable": "数据不足"}
         for title, key, age in (("临期风险", "expiry_assessments", "days_remaining"), ("呆滞风险", "stagnant_assessments", "age_days")):
@@ -53,20 +64,22 @@ def format_business_answer(kind: str, result: dict) -> str:
         safety = data.get("safety_stock", {})
         text.append(f"安全库存：{known(safety.get('safety_stock_qty'))}；安全库存缺口：{known(safety.get('gap_qty'))}。")
         text.append("生产缺料风险需要明确生产需求和BOM证据，不能用临期、呆滞或安全库存缺口替代。")
-        return " ".join(text) + " " + "；".join(result.get("warnings", []))
+        return " ".join(text) + " " + "；".join(human_warning(w) for w in result.get("warnings", []))
     if kind == "inventory_fifo":
         if result["status"] != "ok":
-            return "FIFO分析数据不足：" + "；".join(result.get("warnings", []))
+            return "FIFO分析数据不足：" + "；".join(human_warning(w) for w in result.get("warnings", []))
         text = ["FIFO按明确入库时间先入先出，不是按有效期排序的FEFO；这是模拟领用，不扣减真实库存。"]
         for row in data.get("allocations", []):
             text.append(f"批次 {row['batch_no']}，入库时间 {row['received_at']}，分配 {row['allocated_qty']}；原因：按已有入库顺序。")
         return " ".join(text) + f" 未满足需求：{known(data.get('shortage_qty'))}。"
     if kind == "inventory_batches":
-        answer = _answer_from_result(kind, result)
+        answer = _answer_from_result(kind, result).split(" 数据来源：", 1)[0]
         if result["status"] == "ok":
             for row in data.get("batches", [])[:10]:
                 answer += f" 批次 {known(row.get('batch_no'))}：有效期 {known(row.get('expiry_date'))}，入库日期 {known(row.get('received_at'))}。"
             answer += " 批次列表本身不是FIFO推荐；推荐需要明确领用量与日期事实。"
+            if result.get("warnings"):
+                answer += " 提示：" + "；".join(human_warning(w) for w in result["warnings"]) + "。"
         return answer
     from services.persistent_agent_service import _answer
     return _answer(kind, result)

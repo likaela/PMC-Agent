@@ -41,7 +41,7 @@ def operation(message: str) -> str:
         return "safety"
     if re.search(r"库存.*(?:问题|健康|诊断)|(?:分析|诊断).*库存.*风险", message):
         return "inventory_health"
-    if not refresh_requested(message) and re.search(r"为什么|原因|限制|哪些物料.*影响|怎么回事", message):
+    if not refresh_requested(message) and re.search(r"为什么|原因|限制|哪些物料.*影响|怎么回事|主要是什么|主要有哪些|从哪里来|来源是什么|依据是什么", message):
         return "explain"
     return "query"
 
@@ -64,6 +64,8 @@ def intent_override(message: str, local_kind: str) -> str:
         return "inbound"
     if re.search(r"采购|买|下单|补货|缺料采购|MOQ|成本|供应商", message, re.I):
         return "purchase_planning"
+    if re.search(r"多少种物料|多少项物料|BOM版本|BOM.*多少|怎么样[？?]?\s*$", message, re.I) and local_kind == "clarification":
+        return "bom"
     return local_kind
 
 

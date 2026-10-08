@@ -185,6 +185,7 @@ class PersistentAgentService:
         resolver = self.tool_resolver or (lambda kind: self._tool(EnterpriseQueryIntent(query_type=kind))[0])
         llm_options = dict(llm_factory=lambda: get_llm(), llm_status=lambda: get_llm_configuration_status())
         context_resolver = None
+        inventory_operations = None
         formatter = _answer
         product_resolver = None
         if scope == "enterprise":
@@ -194,20 +195,25 @@ class PersistentAgentService:
             from repositories.fact_repository import FactRepository
             context_resolver = ContextResolver(AgentContextRepository(FactQueryRepository(FactRepository(self.repository.store))))
             from agents.business_formatter import format_business_answer
+            from agents.inventory_operations import InventoryOperations
             formatter = format_business_answer
+            inventory_operations = InventoryOperations(self.repository.store)
             from tools.published_product_tools import build_published_product_search
             product_tool = build_published_product_search(self.repository.store)
             product_resolver = lambda: product_tool
         self.orchestrator = AgentOrchestrator(ToolRegistry(resolver=resolver, scope=scope or "enterprise",
+            analysis_resolver=inventory_operations.resolve if inventory_operations else None,
             product_resolver=product_resolver),
             planner=AgentPlanner(enterprise_mode=scope == "enterprise", **llm_options),
             response_generator=ResponseGenerator(formatter=formatter, **llm_options),
-            context_resolver=context_resolver)
+            context_resolver=context_resolver, inventory_operations=inventory_operations)
 
     def query(self, session_id: str, message: str) -> dict:
         if self.orchestrator is not None:
             session = self.repository.get_session(session_id)
-            turn = self.orchestrator.run(message, session["context"])
+            history_loader = lambda: self.repository.history(session_id,
+                after=max(0, session["context_version"] - 50), limit=50)["turns"]
+            turn = self.orchestrator.run(message, session["context"], history_loader=history_loader)
             if turn is not None:
                 response = {**turn.response, "session_id": session_id, "conversation_id": session["conversation_id"]}
                 if self.response_adapter is not None:

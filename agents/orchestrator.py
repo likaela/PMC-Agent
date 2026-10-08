@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import logging
+import re
 from dataclasses import dataclass
 
 from agents.evidence import EvidenceCollector
@@ -12,6 +13,7 @@ from agents.planner import AgentPlan, AgentPlanner
 from agents.response_generator import ResponseGenerator
 from agents.tool_registry import PRIMARY_TOOLS, TOOL_KINDS, ToolRegistry
 from agents import business_language as language
+from agents.business_answer import business_decision, source_overview
 
 
 logger = logging.getLogger(__name__)
@@ -57,7 +59,7 @@ class AgentOrchestrator:
                     "当前支持内部库存风险、生产缺料风险、临期与呆滞分析。由于没有权威外部数据源，外部供应链风险和政策影响暂无法判断。")
             if plan.operation in {"explain", "email_draft"} and not language.refresh_requested(message):
                 try:
-                    reused = self._reuse(plan, original_context, history_loader)
+                    reused = self._reuse(plan, original_context, history_loader, message)
                 except Exception:
                     logger.exception("读取会话证据失败")
                     return self._information(plan, original_context, "query_failed",
@@ -99,6 +101,35 @@ class AgentOrchestrator:
                         context_resolution={"status": resolution.status, "candidates": resolution.candidates,
                                             "resolutions": resolution.resolutions}),
                     provenance=resolution.provenance or None, warnings=[resolution.message])
+                # Explain a failed approval using published structural evidence, without
+                # selecting a valid production date/version or executing any calculation.
+                if plan.intent == "production_capacity" and not resolution.candidates:
+                    try:
+                        structure = self.context_resolver.repository.structure_evidence(
+                            plan.entities.material_code, plan.entities.revision)
+                    except Exception:
+                        logger.exception("读取业务回答的已发布结构证据失败")
+                        structure = None
+                    if structure is not None:
+                        warnings = [resolution.message]
+                        complete = structure["completeness"]
+                        if complete.get("unit") is False or complete.get("parent_unit") is False:
+                            warnings.append("unit_missing")
+                        if "当前没有明确的已发布业务时点" in resolution.message or "当前没有已发布库存快照" in resolution.message:
+                            warnings.append("尚缺少权威可用库存数据及已确认库存快照时间")
+                        collector = EvidenceCollector()
+                        record = collector.collect("published_bom_context", plan.entities.model_dump(),
+                            dict(status="data_unavailable", query=plan.entities.model_dump(),
+                                data={"bom_structure": structure}, completeness={"production_analysis": False},
+                                provenance=structure["provenance"], warnings=warnings))
+                        response["answer"], source = self.response_generator.generate([record], ["production_capacity"])
+                        response["structured_data"].update(response_source=source,
+                            business_decision=business_decision("production_capacity", record.output),
+                            published_bom_summary={key: structure["data"][key] for key in
+                                ("parent_item", "revision", "line_count", "effective_from")})
+                        response["provenance"] = structure["provenance"]
+                        response["warnings"] = warnings
+                        context_references.append(record.reference())
                 return OrchestratedTurn(response, self._context(context, plan, None), context_references)
         plan.missing_parameters = AgentPlanner._missing(plan) if plan.intent != "clarification" else (plan.missing_parameters or ["intent"])
         if plan.missing_parameters:
@@ -149,6 +180,8 @@ class AgentOrchestrator:
                             completeness=result["completeness"], parser_source=parser_source,
                             response_source=response_source, completed_steps=steps),
                         provenance=provenance, warnings=warnings)
+        if self.registry.scope == "enterprise":
+            response["structured_data"]["business_decision"] = business_decision(plan.intent, result)
         if plan.constraints:
             response["structured_data"]["requested_constraints"] = [entry.model_dump() for entry in plan.constraints]
             response["warnings"].append("用户MOQ/LT仅作为待确认请求记录，计算仍采用已发布参数，不覆盖企业事实。")
@@ -163,7 +196,8 @@ class AgentOrchestrator:
                 prefix = (f"本次查询BOM版本 {plan.entities.revision} 的结构，不代表当前生产有效性。 "
                           if set(plan.required_tools) == {"bom_query"} and plan.entities.effective_date is None
                           else f"本次采用BOM版本 {plan.entities.revision}，分析生效日期 {plan.entities.effective_date}。 ")
-                response["answer"] = prefix + response["answer"]
+                if plan.intent != "bom":
+                    response["answer"] = prefix + response["answer"]
             saved = self.context_resolver.remember(saved, plan, resolution)
         return OrchestratedTurn(response, saved, context_references + [r.reference() for r in records])
 
@@ -173,7 +207,7 @@ class AgentOrchestrator:
             structured_data=dict(query=plan.entities.model_dump(), data=None, operation=plan.operation,
                                  completed_steps=[]), provenance=None, warnings=[answer]), context, [])
 
-    def _reuse(self, plan, context, history_loader):
+    def _reuse(self, plan, context, history_loader, message=""):
         if history_loader is None:
             return None
         domain = context.get("active_domain")
@@ -191,13 +225,16 @@ class AgentOrchestrator:
             response = turn["response"]
             if response["intent"] != kind and not (email and response["intent"] == "clarification"):
                 continue
-            candidates = [ref for ref in turn["fact_references"] if ref["tool_name"] != "published_bom_context"]
+            candidates = [ref for ref in turn["fact_references"] if ref["tool_name"] != "published_bom_context"
+                          or (ref["result"].get("data") or {}).get("bom_structure")]
             for ref in candidates:
                 permitted = {"production_capacity": {"published_production_capacity_query"},
                     "purchase_planning": {"published_purchase_recommendations_query"},
                     "inventory": {"published_inventory_query", "published_inventory_risk_analysis"},
                     "inventory_batches": {"published_inventory_batch_query", "published_inventory_fifo_plan"},
                     "bom": {"published_bom_query"}, "inbound": {"published_inbound_supply_query"}}
+                if kind == "production_capacity":
+                    permitted[kind].add("published_bom_context")
                 if ref["tool_name"] not in permitted.get(kind, set()):
                     continue
                 output = ref["result"]
@@ -225,6 +262,8 @@ class AgentOrchestrator:
                                "published_inventory_fifo_plan": "inventory_fifo"}.get(ref["tool_name"], kind)
                 answer, source = (self.response_generator.draft_email([record], [kind]) if email
                                   else self.response_generator.generate([record], [format_kind]))
+                if re.search(r"从哪里来|来源是什么|依据是什么", message):
+                    answer, source = source_overview(kind, output), "deterministic"
                 # This is an explanation/draft, not a newly executed query result card.
                 result = dict(intent=plan.intent, status=output["status"],
                     answer="依据本会话已保存的分析证据（不是最新库存重查）：\n" + answer,
@@ -232,6 +271,7 @@ class AgentOrchestrator:
                         operation=plan.operation, response_source=source, reused_result=copy.deepcopy(output),
                         reused_from_turn_id=turn["turn_id"]), provenance=copy.deepcopy(output["provenance"]),
                     warnings=list(output["warnings"]))
+                result["structured_data"]["business_decision"] = business_decision(kind, output)
                 return OrchestratedTurn(result, context, [record.reference()])
         return None
 
