@@ -59,7 +59,10 @@ class ResponseGenerator:
             if self.llm_status().get("status") != "ok":
                 return fallback, "rule_fallback"
             result = self.llm_factory().with_structured_output(GroundedReply, method="json_mode").invoke([
-                ("system", _PROMPT),
+                # json_mode guarantees JSON syntax, not adherence to this Pydantic
+                # schema. Give the provider the exact contract; keep validation strict.
+                ("system", _PROMPT + "\n输出必须严格符合以下JSON Schema，禁止增加type等额外字段：\n"
+                 + json.dumps(GroundedReply.model_json_schema(), ensure_ascii=False)),
                 ("human", json.dumps(self._payload(records, kinds, statements), ensure_ascii=False)),
             ])
             if isinstance(result, BaseModel):
