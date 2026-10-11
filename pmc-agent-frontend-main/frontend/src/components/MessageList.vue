@@ -2,6 +2,7 @@
 import { ref, watch, nextTick } from "vue";
 import { useAgent } from "../composables/useAgent";
 import Icon from "./Icon.vue";
+import { sourceLabel } from "../services/productLanguage";
 const { messages, selectedId, pending, select, scenario } = useAgent();
 const list = ref<HTMLElement>();
 watch(
@@ -26,9 +27,9 @@ watch(
           }}
         </p>
         <span class="welcome-label">{{
-          scenario
-            ? "独立合成 Demo · 与企业事实隔离"
-            : "企业分析 · 输入产品编码开始"
+          scenario === 'demo_scenario_50_vs_100'
+            ? "演示产品 · 独立数据空间"
+            : "生产计划助手 · 输入产品编码开始"
         }}</span>
       </div>
     </div>
@@ -70,7 +71,7 @@ watch(
           <p v-else>{{ message.result?.answer }}</p>
           <small v-if="message.result?.sources.length"
             ><Icon name="link" :size="12" />{{
-              message.result.sources[0]?.kind
+              sourceLabel(message.result.sources[0]?.kind)
             }}
             · 来源可查</small
           >

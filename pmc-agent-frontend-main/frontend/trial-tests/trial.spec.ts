@@ -80,8 +80,9 @@ test("真实production Vue→Caddy→trial FastAPI：50/100、采购与刷新", 
 }) => {
   await page.goto("/#/workspace");
   await expect(page.getByRole("note")).toContainText(
-    "所有数据均为合成演示数据",
+    "DEMO-PMC-01（演示产品）",
   );
+  await expect(page.getByRole("note")).toContainText("不用于业务放行");
   await expect(page.locator("#data-space option[value='']")).toHaveCount(0);
   async function ask(message: string) {
     const completed = page.waitForResponse(

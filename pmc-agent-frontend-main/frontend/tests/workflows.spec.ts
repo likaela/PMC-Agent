@@ -284,7 +284,7 @@ test("数据空间切换隔离Demo，企业HTTP失败不回退本地响应", asy
   await send(page, "模拟请求失败与重试");
   await expect(page.locator(".error-state")).toBeVisible();
   await expect(page.locator("tbody")).toHaveCount(0);
-  await expect(page.locator(".mode-banner")).toContainText("企业已发布事实");
+  await expect(page.locator(".mode-banner")).toContainText("完整追溯范围");
   expect(
     requests.filter((r) => r.url.endsWith("/query")).at(-1)!.body,
   ).not.toHaveProperty("scenario_id");

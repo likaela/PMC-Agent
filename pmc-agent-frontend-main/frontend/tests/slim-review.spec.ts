@@ -1,4 +1,10 @@
 import { test, expect } from "@playwright/test";
+
+// These legacy pointer cases intentionally exercise a server without a catalog.
+// Do not let a separately running enterprise backend alter their storage scope.
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/v1/agent/catalog", route => route.fulfill({ status: 404, json: {} }));
+});
 import { adaptBackendResponse } from "../src/services/responseAdapter";
 import { envelope, session } from "./agentFixtures";
 import { sessionKey } from "../src/services/sessionStorage";
@@ -25,7 +31,8 @@ test("精简模型只展示后端范围、最大满足量和单耗，未知库�
   const r=reply(false,1),original=JSON.stringify(r);
   const vm=adaptBackendResponse(r);
   expect(vm.slimReview).toBe(true);
-  expect(vm.metrics?.find(m=>m.label==="精简场景最大满足数量")?.value).toBe("0片");
+  expect(vm.metrics?.find(m=>m.label==="最大满足数量")?.value).toBe("0片");
+  expect(vm.answer).not.toContain("50片"); // Old prose cannot override returned maximum=0.
   expect(vm.materials[0].recordedStock).toBe("0.00");
   expect(vm.materials[0].available).toBeNull();
   expect(vm.materials[0].qtyPer).toBe("2.00");
@@ -44,10 +51,13 @@ test("新版范围、脱敏编号和真实后端最大值不沿用40或50", () =
   data.materials[0].recorded_stock_qty = "14.00";
   data.materials[0].quantity_status = "sufficient";
   const vm = adaptBackendResponse(r);
-  expect(vm.metrics?.find(m => m.label === "保留物料种类")?.value).toBe("34");
-  expect(vm.metrics?.find(m => m.label === "已排除物料项数")?.value).toBe("32");
+  expect(vm.metrics?.find(m => m.label === "物料数量")?.value).toBe("34");
+  expect(vm.metrics?.some(m => /保留|排除|原完整/.test(m.label))).toBe(false);
+  expect(data.excluded_material_count).toBe(32); // Audit data is preserved, not falsified.
   expect(vm.metrics?.find(m => m.label === "数据集版本")?.value).toBe("synthetic-version-new");
-  expect(vm.metrics?.find(m => m.label === "精简场景最大满足数量")?.value).toBe("7片");
+  expect(vm.metrics?.find(m => m.label === "最大满足数量")?.value).toBe("7片");
+  expect(vm.answer).toContain("当前分析范围：34项物料");
+  expect(vm.materials[0].name).toBe("物料001");
   expect(vm.materials[0].code).toBe("MAT-001");
   expect(vm.materials[0].recordedStock).toBe("14.00");
   expect(vm.materials[0].available).toBeNull();
@@ -94,17 +104,18 @@ test("精简场景显式选择、边界结果、刷新与历史恢复不污染�
   for(const n of [50,51]){
     await page.getByLabel("输入分析问题").fill(`生产${n}片`);
     await page.getByRole("button",{name:"发送问题",exact:true}).click();
-    await expect(page.locator("#analysis-result")).toContainText(`本模型${n}片`);
+    await expect(page.locator("#analysis-result")).toContainText(`生产${n}片对应的物料需求`);
     await expect(page.locator(".materials-card")).toContainText("BOM单耗");
-    await expect(page.locator("#analysis-result")).toContainText("精简场景最大满足数量");
-    await expect(page.locator(".mode-banner")).toContainText("合成补充库存");
+    await expect(page.locator("#analysis-result")).toContainText("最大满足数量");
+    await expect(page.locator(".mode-banner")).toContainText("演示库存");
+    await expect(page.locator("#analysis-result")).not.toContainText("精简评审");
   }
   await page.reload();
   await expect(page.locator("#data-space")).toHaveValue("");
   await page.locator("#data-space").selectOption(scenario);
-  await expect(page.locator("#analysis-result")).toContainText("本模型51片");
+  await expect(page.locator("#analysis-result")).toContainText("生产51片对应的物料需求");
   await page.locator(".assistant-message").first().click();
-  await expect(page.locator("#analysis-result")).toContainText("本模型50片");
+  await expect(page.locator("#analysis-result")).toContainText("生产50片对应的物料需求");
   await expect(page.locator("#analysis-result")).toContainText("历史回答对应结果");
   await page.locator("#data-space").selectOption("");
   await expect(page.locator(".materials-card tbody tr")).toHaveCount(0);

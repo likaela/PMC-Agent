@@ -3,6 +3,7 @@ import { ref, watch, nextTick } from "vue";
 import Icon from "./Icon.vue";
 import StatusBadge from "./StatusBadge.vue";
 import type { AgentResult } from "../data/model";
+import { sourceLabel } from "../services/productLanguage";
 const props = defineProps<{ result?: AgentResult; mode: string }>();
 const root = ref<HTMLElement>();
 const open = ref(false);
@@ -47,7 +48,7 @@ defineExpose({ reveal });
           ><strong>数据来源与适用条件</strong
           ><small>{{
             result
-              ? `${result.sources.length} 项分析来源 · ${result.slimReview ? "精简评审模型" : result.backend?.scenario_id ? "合成 Demo" : "已发布事实"}`
+            ? `${result.sources.length} 项分析来源 · ${result.slimReview ? "当前分析范围" : result.backend?.scenario_id ? "演示产品" : "已发布记录"}`
               : "结论的依据，与结论一样重要"
           }}</small></span
         ></span
@@ -59,8 +60,8 @@ defineExpose({ reveal });
     <div v-if="open" id="source-details" class="source-details">
       <p class="source-disclaimer">
         <Icon name="info" :size="16" />{{
-          result?.slimReview ? "筛选后物料集合；真实记录与合成补充分开标识，完整企业BOM未改变。" : result?.backend?.scenario_id
-            ? "独立合成演示事实，通过后端查询，不代表企业真实数据。"
+          result?.slimReview ? "仅适用于当前分析范围。采用演示库存时会单独标注，不用于完整产品生产放行。" : result?.backend?.scenario_id
+            ? "演示产品数据，仅用于体验分析流程，不用于业务放行。"
             : "仅展示后端返回的来源，数据时点不等于请求时间。"
         }}
       </p>
@@ -77,7 +78,7 @@ defineExpose({ reveal });
           <Icon name="file" :size="18" /><strong>{{ source.title }}</strong
           ><StatusBadge
             :tone="source.kind === '项目资料示例' ? 'blue' : 'orange'"
-            >{{ source.kind }}</StatusBadge
+            >{{ sourceLabel(source.kind) }}</StatusBadge
           >
         </div>
         <dl>

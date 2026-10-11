@@ -126,18 +126,18 @@ watch(
               )
             "
           >
-            <option v-if="!trialMode" value="">企业事实</option>
-            <option value="demo_scenario_50_vs_100">合成 Demo</option>
-            <option v-if="!trialMode" value="review_real_bom_simulation">评审推演（合成补充库存）</option>
-            <option v-if="!trialMode" value="kq_z112_review_slim">KQ-Z112 精简评审子集（真实库存）</option>
-            <option v-if="!trialMode" value="kq_z112_review_slim_synthetic">KQ-Z112 精简评审推演（合成补充）</option>
+            <option v-if="!trialMode" value="">完整追溯范围</option>
+            <option value="demo_scenario_50_vs_100">演示产品</option>
+            <option v-if="!trialMode" value="review_real_bom_simulation">数量模拟（演示库存）</option>
+            <option v-if="!trialMode" value="kq_z112_review_slim">KQ-Z112 标准分析范围</option>
+            <option v-if="!trialMode" value="kq_z112_review_slim_synthetic">KQ-Z112 数量模拟（演示库存）</option>
           </select>
         </div>
       </div>
       <main id="main-content" tabindex="-1">
         <p v-if="trialMode" role="note" class="mode-banner">
-          受控远程试用 · 所有数据均为合成演示数据，仅支持 DEMO-PMC-01。
-          不接入真实企业事实、不调用外部模型，请勿输入企业秘密或个人敏感信息。
+          演示产品体验 · 仅支持 DEMO-PMC-01，不用于业务放行。
+          请勿输入企业秘密或个人敏感信息。
         </p>
         <div
           class="mode-banner"
@@ -145,8 +145,8 @@ watch(
         >
           <Icon name="link" :size="16" /><span>{{
             scenario
-              ? scenario === "kq_z112_review_slim" ? "精简可核验物料集合 · 不等于完整66项企业BOM" : scenario === "kq_z112_review_slim_synthetic" ? "精简评审推演 · 筛选物料 + 合成补充库存（非真实生产能力）" : scenario === "review_real_bom_simulation" ? "评审推演 · 真实BOM + 合成补充库存（非企业库存）" : "在线 Agent · 独立合成 Demo"
-              : "在线 Agent · 企业已发布事实"
+              ? scenario === "kq_z112_review_slim" ? "标准分析范围 · 结果仅适用于当前范围" : scenario === "kq_z112_review_slim_synthetic" ? "数量模拟范围 · 包含演示库存，不用于业务放行" : scenario === "review_real_bom_simulation" ? "数量模拟范围 · 采用演示库存" : "演示产品 · 独立数据空间"
+              : "完整追溯范围 · 已发布BOM与库存记录"
           }}</span
           ><small>后端查询与计算 · 未知不补零</small>
         </div>
@@ -183,9 +183,8 @@ watch(
         <li>
           <strong>输入企业产品编码</strong>
           <p>
-            点击“开始分析”或“新建分析”，输入产品编码和生产数量。默认查询企业已发布事实；
-            合成 Demo 需要主动选择，数据空间保持隔离；所有回答均通过后端 API
-            获取。
+            点击“开始分析”或“新建分析”，选择产品及分析范围后输入问题。
+            KQ-Z112默认使用标准分析范围，可切换完整追溯范围。演示产品需主动选择，数据空间独立。
           </p>
         </li>
         <li>
@@ -205,9 +204,9 @@ watch(
       <div class="soft-note">
         <Icon name="info" />
         <p>
-          企业评审支持产品目录、BOM组成、主库存Excel记录、BOM需求量和来源查询，并保存会话。
-          完整生产与采购分析使用独立合成Demo；齐套不代表设备产能、质量放行或交期承诺。
-          前端不执行业务计算，切换数据空间会清理当前展示。
+          支持产品目录、BOM组成、库存记录、生产需求核对和来源查询，并保存会话。
+          演示产品可体验齐套与采购建议；数量满足不代表设备产能、质量放行或交期承诺。
+          切换分析范围会使用独立会话。
         </p>
       </div>
       <button class="primary-button full-width" @click="help?.close()">

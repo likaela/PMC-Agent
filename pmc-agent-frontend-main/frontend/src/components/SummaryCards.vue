@@ -4,6 +4,7 @@ import Icon from "./Icon.vue";
 import StatusBadge from "./StatusBadge.vue";
 import { useAgent } from "../composables/useAgent";
 import { formatNumber, statusText } from "../data/model";
+import { sourceLabel } from "../services/productLanguage";
 const { result, pending, selected, scenario } = useAgent();
 const stateLabel = computed(() =>
   pending.value
@@ -60,9 +61,9 @@ const stateLabel = computed(() =>
         数据来源<Icon name="database" :size="18" />
       </div>
       <strong class="summary-mode">{{
-        (result?.backend?.scenario_id ?? scenario) === 'kq_z112_review_slim' ? '精简真实子集' : (result?.backend?.scenario_id ?? scenario) === 'kq_z112_review_slim_synthetic' ? '精简合成推演' : result?.backend?.scenario_id || scenario ? "合成 Demo" : "企业事实接口"
+        (result?.backend?.scenario_id ?? scenario) === 'kq_z112_review_slim' ? '标准分析范围' : (result?.backend?.scenario_id ?? scenario) === 'kq_z112_review_slim_synthetic' ? '数量模拟范围' : result?.backend?.scenario_id || scenario ? "演示产品" : "业务记录"
       }}</strong
-      ><small>{{ result?.sources[0]?.kind ?? "等待已发布事实查询" }}</small>
+      ><small>{{ sourceLabel(result?.sources[0]?.kind) || "等待查询结果" }}</small>
     </article>
   </section>
 </template>

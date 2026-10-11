@@ -74,7 +74,7 @@ async function restoreSession(): Promise<BackendTurn[] | null> {
     messages.value = turns.map(t => ({ id: ++messageId, question: t.user_query, requestedAt: t.created_at,
       sequenceNo: t.sequence_no, state: "done", result: adaptBackendResponse(t.response, t.user_query) }));
     selectedId.value = messages.value.at(-1)?.id ?? null;
-    notice.value = "已恢复当前账号的合成演示会话。";
+    notice.value = "已恢复当前账号的演示产品会话。";
     return turns;
   } catch (error) {
     if (token !== version || abort.signal.aborted) return null;

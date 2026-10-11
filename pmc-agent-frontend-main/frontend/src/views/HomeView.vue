@@ -39,7 +39,7 @@ const cards = computed(() =>
     ? demoScenarios.map((s, index) => ({
         ...s,
         index: `0${index + 1}`,
-        tag: "后端独立合成 Demo",
+        tag: "演示产品",
       }))
     : enterpriseCards.map((s, index) => ({ ...s, index: `0${index + 1}` })),
 );
@@ -62,7 +62,7 @@ function openScenario(id: string) {
         </div>
         <h1>复杂的物料问题，<br />从这里<span>理清思路。</span></h1>
         <p>
-          你的制造业智能计划助手。提出问题，读懂分析结论，<br
+          你的制造业 PMC 智能计划助手。提出问题，读懂分析结论，<br
             class="desktop-only"
           />在同一个工作台查看物料明细与数据来源。
         </p>
@@ -107,13 +107,13 @@ function openScenario(id: string) {
       </div>
       <span class="subtle-label">{{
         showDemo
-          ? "独立合成 Demo · 与企业事实隔离"
+          ? "演示产品 · 独立数据空间"
           : "企业分析 · 不预设产品与结果"
       }}</span>
     </div>
     <div class="section-heading">
       <button class="text-button" @click="showDemo = !showDemo">
-        {{ showDemo ? "返回企业分析入口" : "体验隔离 Demo" }}
+        {{ showDemo ? "返回产品分析入口" : "体验演示产品" }}
       </button>
     </div>
     <section
@@ -163,8 +163,8 @@ function openScenario(id: string) {
           <StatusBadge tone="blue">事实查询</StatusBadge>
         </div>
         <p>
-          企业评审支持产品目录、BOM、物料组成、Excel库存记录和BOM生产需求量查询。
-          完整齐套、最大生产量与采购建议在隔离合成Demo中展示。账面库存不等于可用量，不估算未知库存或批准真实生产。
+          查询产品、BOM和库存记录，计算生产需求并核对数量。在标准分析范围内查看最大满足数量与限制物料；
+          通过演示产品体验齐套与采购建议。未知数量不估算，结果仅适用于对应分析范围，不代替生产放行。
         </p>
         <div class="boundary-note">
           <Icon name="shield" :size="16" />演示结果不构成真实生产或采购决策

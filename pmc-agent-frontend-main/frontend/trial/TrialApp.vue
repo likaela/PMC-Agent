@@ -18,15 +18,15 @@ const questions = [
 <template>
   <div class="trial-shell">
     <header class="card trial-header">
-      <div><strong>智造 PMC Agent</strong><p>制造生产决策智能体 · 完全合成试用版</p></div>
+      <div><strong>智造 PMC Agent</strong><p>制造业 PMC 智能计划助手 · 演示产品体验</p></div>
       <div>
         <label for="data-space">数据空间</label>
-        <select id="data-space" disabled><option value="demo_scenario_50_vs_100">合成 Demo · DEMO-PMC-01</option></select>
+        <select id="data-space" disabled><option value="demo_scenario_50_vs_100">DEMO-PMC-01（演示产品）</option></select>
         <button class="secondary-button" :disabled="pending" @click="reset">新建分析</button>
         <button class="secondary-button" :disabled="pending" @click="restoreSession">恢复会话</button>
       </div>
     </header>
-    <p role="note" class="mode-banner">受控远程试用 · 所有数据均为合成演示数据，仅支持 DEMO-PMC-01。请勿输入企业秘密或个人敏感信息。</p>
+    <p role="note" class="mode-banner">仅支持 DEMO-PMC-01（演示产品），数据用于体验分析流程，不用于业务放行。请勿输入企业秘密或个人敏感信息。</p>
     <main class="trial-workspace">
       <section class="card chat-card">
         <div class="card-heading"><h2>自然语言生产分析</h2><span>后端确定性计算</span></div>

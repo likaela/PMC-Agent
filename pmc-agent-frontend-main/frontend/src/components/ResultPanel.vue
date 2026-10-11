@@ -3,6 +3,7 @@ import Icon from "./Icon.vue";
 import StatusBadge from "./StatusBadge.vue";
 import { useAgent } from "../composables/useAgent";
 import { formatNumber, statusText } from "../data/model";
+import { sourceLabel } from "../services/productLanguage";
 defineEmits<{ source: [] }>();
 const { result, selected, messages, pending, retry } = useAgent();
 const errorTitles = {
@@ -105,12 +106,11 @@ const errorTitles = {
                 : 'blue'
           "
           >{{ statusText[result.status] }}</StatusBadge
-        ><span>{{ result.sources[0]?.kind }}</span>
+        ><span>{{ sourceLabel(result.sources[0]?.kind) }}</span>
       </div>
       <h3>{{ result.title }}</h3>
       <p v-if="result.slimReview" class="result-explanation">
-        {{ result.product }} 精简评审子集：当前范围、排除数量和版本见下方。
-        只判断筛选物料集合的数量需求，不代表完整企业产品生产批准。
+        本次结果仅适用于当前分析范围，不代表完整产品生产放行。
       </p>
       <p class="result-explanation">{{ result.answer }}</p>
       <div v-if="result.metrics?.length" class="purchase-grid">

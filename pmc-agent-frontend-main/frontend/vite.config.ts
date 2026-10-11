@@ -17,8 +17,8 @@ function trialBoundary(entry = "trial"): Plugin {
           if (normalized.includes("/node_modules/") || normalized.startsWith("\0")) continue;
           const relative = normalized.replace(frontendRoot.replaceAll("\\", "/") + "/", "");
           const component = /^src\/components\/([^/]+)\.vue$/.exec(relative);
-          if (!(relative.startsWith("trial/") || (component && safeComponents.has(component[1])) ||
-                ["src/data/model.ts", "src/services/apiClient.ts", "src/services/responseAdapter.ts", "src/styles.css"].includes(relative)))
+          if (!(relative.startsWith(entry + "/") || (component && safeComponents.has(component[1])) ||
+                ["src/data/model.ts", "src/services/apiClient.ts", "src/services/responseAdapter.ts", "src/services/productLanguage.ts", "src/styles.css"].includes(relative)))
             this.error("An unapproved application module entered the trial build");
           modules.add(relative);
         }

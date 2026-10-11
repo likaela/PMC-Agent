@@ -19,15 +19,16 @@ class SlimReviewPresentation:
         public = {key: copy.deepcopy(result.get(key)) for key in ("status", "completeness")}
         public["query"] = {key: copy.deepcopy(value) for key, value in result.get("query", {}).items()
             if key in ("product", "revision", "requested_quantity", "quantity", "requested_unit")}
-        public["warnings"] = ["经过筛选及标识脱敏；真实数量和单耗仍保留，不是完全匿名数据。",
-            "仅为精简物料集合的数量满足结论，不是完整企业产品生产批准。"]
+        public["warnings"] = ["结果仅适用于当前分析范围，不代表完整产品生产放行。"]
+        if self.dataset["synthetic"]:
+            public["warnings"].append("本次包含演示库存，仅用于数量模拟。")
         public["provenance"] = dict(filtered_dataset=dict(dataset_version=self.dataset["dataset_version"],
             retained_material_count=self.dataset["retained_material_count"],
             excluded_material_count=len(self.dataset["excluded"]), synthetic=self.dataset["synthetic"]),
             bom=dict(source_file="授权BOM结构记录", revision=self.dataset["revision"]),
             inventory=dict(source_file="授权主库存记录", source_kind="excel_observation", unit="片"))
         if self.dataset["synthetic"]:
-            public["provenance"]["supplement"] = dict(source_file="隔离合成库存补充", synthetic=True)
+            public["provenance"]["supplement"] = dict(source_file="演示库存补充", synthetic=True)
         if not data:
             public["data"] = None
             return public
@@ -48,9 +49,9 @@ class SlimReviewPresentation:
             stock_sources = [dict(source_file="授权主库存记录", source_kind="excel_observation", material_code=alias)]
             if supplement:
                 values.update(original_stock_qty=supplement["original_stock_qty"], synthetic_added_qty=supplement["synthetic_added_qty"])
-                stock_sources.append(dict(source_file="隔离合成库存补充", synthetic=True, material_code=alias,
+                stock_sources.append(dict(source_file="演示库存补充", synthetic=True, material_code=alias,
                     original_stock_qty=supplement["original_stock_qty"], synthetic_added_qty=supplement["synthetic_added_qty"]))
-            return {**values, "material_code": alias, "name": f"评审物料{alias[4:]}",
+            return {**values, "material_code": alias, "name": f"物料{alias[4:]}",
                 "bom_line_sources": [dict(source_file="授权BOM结构记录", material_code=alias)],
                 "stock_sources": stock_sources, "details": []}
         values = {key: copy.deepcopy(data.get(key)) for key in (

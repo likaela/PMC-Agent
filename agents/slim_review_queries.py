@@ -103,28 +103,27 @@ class SlimReviewQueries:
         result = self.presentation.result(result)
         data = result.get("data") or {}
         if result["status"] != "ok":
-            answer = "本次精简评审数据不可计算，请检查场景数据。"
+            answer = "本次分析数据暂不可计算，请核对数据来源后重试。"
         else:
             maximum = data["theoretical_max_quantity"]
-            answer = (f"{data['scenario_name']}：保留{data['total_material_count']}项／原{data['original_material_count']}项。"
-                f"排除{data['excluded_material_count']}项，数据集版本{data['dataset_version']}。"
-                f"{'包含明确标记的合成补充库存。' if data['synthetic'] else '使用可核验的真实主库存数量，没有合成补充。'}"
-                f"精简场景最大满足数量为{maximum}片。")
+            answer = (f"已完成 {data['product']} 本次生产需求核对。当前分析范围：{data['total_material_count']}项物料。"
+                f"当前范围最大满足数量为{maximum}片。")
+            if data["synthetic"]:
+                answer += "本次包含演示库存，仅用于数量模拟。"
             n = data["requested_quantity"]
             if n is not None:
-                answer += f"本精简物料集合{'满足' if data['inventory_sufficient_for_requested'] else '不能满足'}生产{n}片对应的数量需求。"
+                answer += f"当前分析范围{'满足' if data['inventory_sufficient_for_requested'] else '不能满足'}生产{n}片对应的物料需求。"
                 if data["book_shortages"]:
                     answer += "不足物料：" + "；".join(f"{r['name'] or r['material_code']}（{r['material_code']}）缺{r['shortage_qty']}片" for r in data["book_shortages"][:5]) + "。"
             if re.search(r"限制|最大|最多", message):
                 answer += "限制产量的物料：" + "、".join(f"{r['name'] or r['material_code']}（{r['material_code']}）" for r in data["limiting_materials"][:5]) + "。"
             if re.search(r"来源|哪里", message):
-                source = data["source_summary"]
-                answer += "单耗来自授权BOM结构记录；真实数量来自已核验的授权主库存记录。原文件和校验信息保存在私有审计中，不向评委展示。"
+                answer += "BOM单耗来自已发布记录，库存数量来自已核验主库存记录；可在来源区查看本次依据。"
                 if data["synthetic"]:
-                    answer += "合成补充量逐项单独记录，并非原Excel库存。"
+                    answer += "演示库存补充逐项单独记录，不是原主库存数量。"
             if reused:
                 answer = "依据本会话已有证据：" + answer
-            answer += "这是筛选物料集合的齐套结论，不是完整企业产品生产放行。"
+            answer += "结果仅适用于当前分析范围，不代表完整产品生产放行。"
         structured = dict(query_type="production_capacity", query=result["query"], data=result["data"],
             completeness=result["completeness"], response_source="deterministic", analysis_level="slim_review",
             completed_steps=[] if reused else [dict(operation="enterprise_book_demand_analysis", status=result["status"])])

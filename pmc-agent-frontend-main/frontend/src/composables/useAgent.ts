@@ -181,7 +181,7 @@ function setScenario(value: ScenarioId | undefined, restore = true, preservePoin
   scenario.value = value ?? null;
   rememberPreference();
   notice.value = value
-    ? value === "kq_z112_review_slim" ? "已切换精简评审子集：按至少满足1片动态筛选，标识已脱敏，不代表完整企业BOM。" : value === "kq_z112_review_slim_synthetic" ? "已切换精简评审推演：含合成补充库存，不代表真实企业生产能力。" : value === "review_real_bom_simulation" ? "已切换评审推演：真实BOM与合成补充库存，不能作为真实库存结论。" : "已切换到独立合成 Demo，不会修改企业事实。"
+    ? value === "kq_z112_review_slim" ? "已切换到标准分析范围，结果仅适用于本次分析范围。" : value === "kq_z112_review_slim_synthetic" ? "已切换到数量模拟范围，包含演示库存，不用于业务放行。" : value === "review_real_bom_simulation" ? "已切换到数量模拟范围，采用演示库存。" : "已切换到演示产品，数据空间独立。"
     : "已切换到企业事实查询。";
   if (restore) void restoreSession();
 }

@@ -130,8 +130,8 @@ test("评审推演必须主动选择，场景和历史不污染企业入口", as
   await page.locator("#data-space").selectOption(scenario);
   await page.getByLabel("输入分析问题").fill("生产50片可以吗");
   await page.getByRole("button",{name:"发送问题",exact:true}).click();
-  await expect(page.locator(".result-panel")).toContainText("评审推演数量核对（含合成库存）");
-  await expect(page.locator(".mode-banner")).toContainText("非企业库存");
+  await expect(page.locator(".result-panel")).toContainText("数量模拟核对（演示库存）");
+  await expect(page.locator(".mode-banner")).toContainText("采用演示库存");
   await page.getByRole("button",{name:"新建分析",exact:true}).click();
   await expect(page.locator("#data-space")).toHaveValue("");
   await expect(page.locator(".materials-card tbody tr")).toHaveCount(0);

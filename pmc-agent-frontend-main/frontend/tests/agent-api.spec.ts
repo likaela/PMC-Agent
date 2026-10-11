@@ -275,7 +275,7 @@ test("首页隔离 Demo 显式选择后只提交场景问题，不展示旧 mock
   await expect(page.locator(".hero")).not.toContainText("200 件");
   await expect(page.locator("body")).not.toContainText("DEMO-PMC-01");
   await page
-    .getByRole("button", { name: "体验隔离 Demo", exact: true })
+    .getByRole("button", { name: "体验演示产品", exact: true })
     .click();
   await page
     .getByRole("button", { name: "生产50台DEMO-PMC-01", exact: true })
