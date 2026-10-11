@@ -1,0 +1,8 @@
+{
+  "scenario_id": "review_real_bom_simulation",
+  "product": "EXAMPLE-PRODUCT-01",
+  "revision": "V01",
+  "target_quantity": 50,
+  "synthetic": true,
+  "description": "显式评审推演：复用已发布BOM，仅在隔离会话中补充合成库存，不发布企业库存事实。"
+}

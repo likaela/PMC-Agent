@@ -11,13 +11,15 @@ Windows 启动脚本与配置说明见 [前端启动指南](docs/frontend_startu
 
 ## 核心亮点
 
-- 自然语言入口：例如“我要生产 100 台 KQ-Z112，帮我看看能不能开工”。
+- 自然语言入口：企业评审可问“查询产品BOM”“生产100片需要哪些物料”；完整50/100台开工条件演示使用合成Demo。
 - 可追踪 Agent：展示输入校验、BOM、MRP、采购、生产决策和报告工具的调用状态；不暴露思维链。
 - 主动追问：采购参数缺失时，明确列出需要业务人员补充的物料和字段。
 - 确定性业务：BOM、库存、缺料、采购量、风险和生产结论全部由 Python Service 计算。
 - 当前入口：自然语言查询工作台、结构化结果、物料明细及来源引用。
 - 独立比赛 Demo：`DEMO-PMC-01 / V01` 的 50 台齐套、100 台缺料与采购建议，不修改真实企业数据。
 - Legacy 兼容：原表单 Dashboard、KQ-Z112 Chat 与反馈功能仍保留在旧前端及兼容接口中。
+
+当前企业评审范围：已发布产品目录、BOM／物料组成、主库存Excel记录、BOM生产需求量、连续追问与来源。授权本地库存的计量口径及基础数量比较必须来自源文件绑定的私有人工作业确认，不是仓库默认值，也不会写入权威 available_qty。可比较记录支持需求与库存数量核对；无记录保持未知，不能自动批准完整产品生产。正式采购计划不作为当前企业评审交付；完整生产与采购流程使用隔离合成Demo。公开试用见[合成版评委指南](docs/judge_demo_guide.md)；授权数据迁移见[环境交接说明](docs/review_environment_handoff.md)。企业评委说明是内部资料，不应直接公开。
 
 ## 系统架构
 
@@ -48,9 +50,11 @@ LLM 或任务解析层只负责理解用户意图和提取任务参数；不参�
 ## 快速启动（Windows）
 
 ```powershell
-py -3.14 -m venv venv
+py -3.12 -m venv venv
 .\venv\Scripts\python.exe -m pip install -r requirements.txt
-Copy-Item .env.example .env
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+# 新安装只初始化本地空库；已有企业库须先备份，不在验收中重复迁移。
+.\venv\Scripts\python.exe -c "import config; from repositories.fact_store import create_fact_store; print(create_fact_store().migrate())"
 .\venv\Scripts\python.exe scripts/check_release_readiness.py
 .\venv\Scripts\python.exe -m uvicorn api.app:app --reload
 ```
@@ -59,14 +63,14 @@ Copy-Item .env.example .env
 
 ```powershell
 Set-Location pmc-agent-frontend-main/frontend
-npm install
+npm ci
 npm run dev
 ```
 
 访问 `http://127.0.0.1:5173`，进入新前端首页或“分析工作台”。
 API 文档位于 `http://localhost:8000/docs`。
 
-双击根目录 `start-backend.bat` 和 `start-frontend.bat` 也可分别启动；脚本不自动安装依赖。
+本地已有 `start-backend.bat` 和 `start-frontend.bat` 时可双击启动；两者目前被 Git 忽略，clone 后不附带，请使用上述命令。脚本不自动安装依赖。
 新前端默认使用在线模式及 `http://127.0.0.1:8000` API，无需复制旧前端配置。
 需要覆盖地址时，在新前端目录执行 `Copy-Item .env.example .env.local` 并修改配置，再重启 Vite。
 `VITE_*` 是公开浏览器配置，禁止放入密钥。若 5173 已被旧前端占用，先在旧终端按 Ctrl+C 停止旧前端。
@@ -87,7 +91,7 @@ API 文档位于 `http://localhost:8000/docs`。
 2. 发送“生产50台DEMO-PMC-01”：库存齐套，缺口为 0。
 3. 发送“生产100台DEMO-PMC-01”：4 项物料缺料。
 4. 同一会话发送“采购建议”：展示建议量、成本、风险和来源；建议不表示已到货。
-5. 刷新页面：从服务端恢复同一持久会话与历史回答。
+5. 本地页面刷新后先回到企业空间，再显式选择合成 Demo 恢复该空间的历史；专用远程合成版刷新后直接恢复 Demo。
 
 亦可通过首页快捷入口进入独立 Demo。该合成案例理论最大生产数量为 75 台，
 50 台库存齐套不等于开工许可或交付承诺。
@@ -148,8 +152,12 @@ API 文档位于 `http://localhost:8000/docs`。
 ## 验证
 
 ```powershell
-.\venv\Scripts\python.exe -m unittest discover -s tests -v
+.\venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+# 测试应 mock 模型并使用临时库，详见环境交接说明；不要对企业库运行写入验收。
+.\venv\Scripts\python.exe -m pytest tests -q -p no:cacheprovider
 Set-Location pmc-agent-frontend-main/frontend
+npm test
+npm run typecheck
 npm run build
 ```
 
@@ -159,4 +167,4 @@ npm run build
 - Demo 反馈与统计同样只在当前进程可见，服务重启后会清空；它们不适合作为正式运营数据。
 - 不包含用户、权限、ERP、MES、WMS 或复杂 APS 排产。
 - 真实原始企业数据保持在 `data/raw/` 本地忽略目录，不应提交到版本库。
-- Python 3.14 下 LangChain 会给出 Pydantic v1 兼容性警告；建议部署时选用团队验证过的版本组合。
+- 当前回归环境为 Python 3.12.10、Node.js 24.21.0；前端要求 Node.js >=22.12.0。使用锁定依赖复现，不将未验证运行时组合当成已通过环境。
