@@ -1,7 +1,7 @@
 // Public HTTP contract is deliberately separate from the UI display model.
 export type DecimalText = string;
 export type JsonObject = Record<string, unknown>;
-export type ScenarioId = "demo_scenario_50_vs_100";
+export type ScenarioId = "demo_scenario_50_vs_100" | "review_real_bom_simulation" | "kq_z112_review_slim" | "kq_z112_review_slim_synthetic";
 export type AgentIntent =
   | "pmc_analysis"
   | "fact_query"
@@ -129,6 +129,7 @@ export interface FrontendViewModel {
   completeness?: JsonObject;
   backend?: BackendResponse;
   metrics?: { label: string; value: string | null }[];
+  slimReview?: boolean;
   detailTable?: { columns: string[]; rows: (string | null)[][] };
   purchases?: PurchaseView[];
   purchase?: {

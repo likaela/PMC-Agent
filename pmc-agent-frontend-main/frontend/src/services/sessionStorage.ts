@@ -30,7 +30,7 @@ export function readPreference(
     if (
       !p ||
       p.mode !== "live" ||
-      (p.scenario_id != null && p.scenario_id !== "demo_scenario_50_vs_100") ||
+      (p.scenario_id != null && !["demo_scenario_50_vs_100", "review_real_bom_simulation", "kq_z112_review_slim", "kq_z112_review_slim_synthetic"].includes(p.scenario_id)) ||
       (p.demo_selected !== undefined && typeof p.demo_selected !== "boolean")
     )
       return null;

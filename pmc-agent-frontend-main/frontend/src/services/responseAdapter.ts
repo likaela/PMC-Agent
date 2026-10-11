@@ -84,7 +84,7 @@ export function validateBackendResponse(payload: unknown): BackendResponse {
   )
     fail();
   for (const key of ["session_id", "conversation_id", "turn_id"]) text(p[key]);
-  if (p.scenario_id != null && p.scenario_id !== "demo_scenario_50_vs_100")
+  if (p.scenario_id != null && !["demo_scenario_50_vs_100", "review_real_bom_simulation", "kq_z112_review_slim", "kq_z112_review_slim_synthetic"].includes(p.scenario_id as string))
     fail();
   return payload as BackendResponse;
 }
@@ -123,10 +123,11 @@ function sourcesFrom(value: unknown, synthetic: boolean): Source[] {
       v.import_batch_id != null
     ) {
       const file = text(v.source_file);
+      const syntheticSource = synthetic || v.synthetic === true || v.source_kind === "synthetic_review";
       const source: Source = {
         id: "",
         title: file ? file.split(/[\\/]/).pop()! : "已发布来源记录",
-        kind: synthetic ? "合成演示事实" : v.source_kind === "excel_observation" ? "Excel账面记录" : v.source_kind === "human_business_confirmation" ? "人工业务确认" : "已发布事实",
+        kind: syntheticSource ? "合成演示事实" : v.source_kind === "excel_observation" ? "Excel账面记录" : v.source_kind === "human_business_confirmation" ? "人工业务确认" : "已发布事实",
         scope,
         reference: file ? file.split(/[\\/]/).pop()! : "来源文件名称未提供",
         version: text(context.bom_version ?? context.revision),
@@ -139,7 +140,7 @@ function sourcesFrom(value: unknown, synthetic: boolean): Source[] {
         row: count(v.row_number ?? v.source_row_number),
         sha256: text(v.content_sha256),
         materialCode,
-        conditions: synthetic
+        conditions: syntheticSource
           ? "独立合成演示事实，不代表企业真实库存。"
           : "仅适用于返回的版本、数据时点与查询条件。",
       };
@@ -202,7 +203,7 @@ export function adaptBackendResponse(
   const completeness = object(structured.completeness);
   const sources = sourcesFrom(
     backend.provenance,
-    backend.scenario_id != null ||
+    backend.scenario_id === "demo_scenario_50_vs_100" ||
       (isObject(backend.provenance) && backend.provenance.synthetic === true),
   );
   const item = object(data.canonical_item ?? data.parent_item);
@@ -329,7 +330,7 @@ export function adaptBackendResponse(
     vm.nextAction = "查看BOM需求、主库存记录和来源；有重复疑点的记录合计保持待核验。";
       if (vm.quantityReview) {
         vm.status = data.quantity_check_status === "sufficient" ? "ready" : data.quantity_check_status === "insufficient" ? "blocked" : "partial";
-        vm.title = "当前实际库存与生产需求核对";
+        vm.title = object(data.source_summary).review_scenario ? "评审推演数量核对（含合成库存）" : "当前实际库存与生产需求核对";
         vm.conclusion = "数量核对结果，不代表正式排程或工单下达";
         vm.nextAction = "查看已计算的需求与缺口；无记录及未核验重复记录保持未知。";
       }
@@ -354,7 +355,7 @@ export function adaptBackendResponse(
     });
     metric("BOM版本", text(data.revision));
     metric("物料数量", count(data.total_material_count));
-      metric("主库存匹配项", count(data.matched_material_count));
+      metric(object(data.source_summary).review_scenario ? "推演库存覆盖项" : "主库存匹配项", count(data.matched_material_count));
     metric("库存数量口径", text(object(object(data.source_summary).unit_confirmation).unit));
     metric("主库存总记录数", count(object(data.source_summary).record_count));
     metric("记录数量去重待核验", count(object(data.source_summary).duplicate_observation_count));
@@ -369,6 +370,24 @@ export function adaptBackendResponse(
         bool(detail.duplicate_observation) === true ? "是" : "否",
       ])),
     };
+    if (data.slim_review === true) {
+      vm.slimReview = true;
+      vm.title = text(data.scenario_name) ?? "精简物料评审模型";
+      vm.conclusion = "仅为筛选后的物料集合齐套结论，不是完整企业BOM生产放行";
+      vm.nextAction = "可询问最多生产多少、生产最大数量、再多生产1片，以及查看限制物料和来源。";
+      vm.metrics = [
+        { label: "场景产品", value: text(data.scenario_product_code) ?? text(data.product) ?? "未知" },
+        { label: "保留物料种类", value: String(count(data.total_material_count) ?? "未知") },
+        { label: "原完整BOM种类", value: String(count(data.original_material_count) ?? "未知") },
+        { label: "已排除物料项数", value: String(count(data.excluded_material_count) ?? "未知") },
+        { label: "数据集版本", value: text(data.dataset_version) ?? "历史版本未标注" },
+        { label: "生产目标数量", value: data.requested_quantity == null ? "本轮查询场景／产能" : String(count(data.requested_quantity)) },
+        { label: "精简场景最大满足数量", value: String(count(data.theoretical_max_quantity) ?? "未知") + "片" },
+        { label: "库存数据", value: data.synthetic === true ? "真实记录 + 明示合成补充" : "可核验真实主库存（无合成补充）" },
+        { label: "数据处理", value: "经过筛选及标识脱敏，非完全匿名" },
+      ];
+      vm.detailTable = undefined;
+    }
     return vm;
   }
   if (kind === "inventory") {

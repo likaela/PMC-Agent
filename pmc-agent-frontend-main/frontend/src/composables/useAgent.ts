@@ -134,7 +134,7 @@ function setScenario(value: ScenarioId | undefined) {
   scenario.value = value ?? null;
   rememberPreference();
   notice.value = value
-    ? "已切换到独立合成 Demo，不会修改企业事实。"
+    ? value === "kq_z112_review_slim" ? "已切换精简评审子集：按至少满足1片动态筛选，标识已脱敏，不代表完整企业BOM。" : value === "kq_z112_review_slim_synthetic" ? "已切换精简评审推演：含合成补充库存，不代表真实企业生产能力。" : value === "review_real_bom_simulation" ? "已切换评审推演：真实BOM与合成补充库存，不能作为真实库存结论。" : "已切换到独立合成 Demo，不会修改企业事实。"
     : "已切换到企业事实查询。";
   void restoreSession();
 }
@@ -204,7 +204,9 @@ async function restoreSession(): Promise<BackendTurn[] | null> {
       forget();
       messages.value = [];
       selectedId.value = null;
-      notice.value = "当前会话已失效，请新建分析。";
+      notice.value = restoringScenario?.startsWith("kq_z112_review_slim")
+        ? "当前会话属于旧数据版本或已失效，请新建分析；不会用新版数据解释旧结果。"
+        : "当前会话已失效，请新建分析。";
     } else {
       notice.value =
         "暂时无法恢复会话，请检查连接后再次恢复；未切换到离线数据。";

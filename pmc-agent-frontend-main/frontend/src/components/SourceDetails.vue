@@ -47,7 +47,7 @@ defineExpose({ reveal });
           ><strong>数据来源与适用条件</strong
           ><small>{{
             result
-              ? `${result.sources.length} 项分析来源 · ${result.backend?.scenario_id ? "合成 Demo" : "已发布事实"}`
+              ? `${result.sources.length} 项分析来源 · ${result.slimReview ? "精简评审模型" : result.backend?.scenario_id ? "合成 Demo" : "已发布事实"}`
               : "结论的依据，与结论一样重要"
           }}</small></span
         ></span
@@ -59,7 +59,7 @@ defineExpose({ reveal });
     <div v-if="open" id="source-details" class="source-details">
       <p class="source-disclaimer">
         <Icon name="info" :size="16" />{{
-          result?.backend?.scenario_id
+          result?.slimReview ? "筛选后物料集合；真实记录与合成补充分开标识，完整企业BOM未改变。" : result?.backend?.scenario_id
             ? "独立合成演示事实，通过后端查询，不代表企业真实数据。"
             : "仅展示后端返回的来源，数据时点不等于请求时间。"
         }}
@@ -86,7 +86,7 @@ defineExpose({ reveal });
             <dd>
               {{ source.scope
               }}{{
-                source.sheet || source.row ? "" : "（未提供字段级原始定位）"
+                result?.slimReview || source.sheet || source.row ? "" : "（未提供字段级原始定位）"
               }}
             </dd>
           </div>
@@ -94,11 +94,11 @@ defineExpose({ reveal });
             <dt>来源文件 / 记录</dt>
             <dd>{{ source.reference }}</dd>
           </div>
-          <div>
+          <div v-if="!result?.slimReview || source.version">
             <dt>数据版本</dt>
             <dd>{{ source.version ?? "未提供" }}</dd>
           </div>
-          <div>
+          <div v-if="!result?.slimReview || source.publishedAt">
             <dt>来源发布时间</dt>
             <dd>{{ source.publishedAt ?? "未提供" }}</dd>
           </div>

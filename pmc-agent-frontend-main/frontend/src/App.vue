@@ -115,6 +115,9 @@ watch(
           >
             <option value="">企业事实</option>
             <option value="demo_scenario_50_vs_100">合成 Demo</option>
+            <option value="review_real_bom_simulation">评审推演（合成补充库存）</option>
+            <option value="kq_z112_review_slim">KQ-Z112 精简评审子集（真实库存）</option>
+            <option value="kq_z112_review_slim_synthetic">KQ-Z112 精简评审推演（合成补充）</option>
           </select>
         </div>
       </div>
@@ -125,7 +128,7 @@ watch(
         >
           <Icon name="link" :size="16" /><span>{{
             scenario
-              ? "在线 Agent · 独立合成 Demo"
+              ? scenario === "kq_z112_review_slim" ? "精简可核验物料集合 · 不等于完整66项企业BOM" : scenario === "kq_z112_review_slim_synthetic" ? "精简评审推演 · 筛选物料 + 合成补充库存（非真实生产能力）" : scenario === "review_real_bom_simulation" ? "评审推演 · 真实BOM + 合成补充库存（非企业库存）" : "在线 Agent · 独立合成 Demo"
               : "在线 Agent · 企业已发布事实"
           }}</span
           ><small>后端查询与计算 · 未知不补零</small>

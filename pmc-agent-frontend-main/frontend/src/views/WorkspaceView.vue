@@ -87,7 +87,19 @@ async function focusResult() {
           <h2 id="chat-title"><Icon name="chat" :size="19" />智能查询</h2>
           <span class="assistant-status"><span></span>PMC-Agent</span>
         </div>
-        <div v-if="mode === 'live' && scenario" class="quick-questions">
+        <div v-if="scenario === 'kq_z112_review_slim' || scenario === 'kq_z112_review_slim_synthetic'" class="quick-questions">
+          <button class="quick-question" @click="send('查看KQ-Z112精简评审场景。')">查看精简物料</button>
+          <button class="quick-question" @click="send('最多可以生产多少片？')">计算最大数量</button>
+          <button class="quick-question" @click="send('生产最大数量可以吗？')">生产最大数量</button>
+          <button class="quick-question" @click="send('再多生产1片呢？')">再多生产1片</button>
+        </div>
+        <div v-else-if="scenario === 'review_real_bom_simulation'" class="quick-questions">
+          <span>评审推演 · 合成补充库存，不修改企业数据</span>
+          <button v-for="quantity in [50, 100]" :key="quantity" :disabled="pending" @click="send(`生产${quantity}片可以吗`)">
+            {{ quantity }}片数量核对<Icon name="arrow" :size="15" />
+          </button>
+        </div>
+        <div v-else-if="mode === 'live' && scenario" class="quick-questions">
           <span>独立合成 Demo</span>
           <button
             v-for="demo in demoScenarios"

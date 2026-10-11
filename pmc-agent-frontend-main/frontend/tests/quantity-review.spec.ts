@@ -53,6 +53,16 @@ test("库存异常保留本次需求，非法输入不沿用旧结果", () => {
   expect(zero.quantity).toBeNull();
 });
 
+test("评审推演来源区分真实BOM、原Excel与合成补充", () => {
+  const result=reply(50);
+  result.scenario_id="review_real_bom_simulation";
+  result.provenance={bom:{source_file:"example-bom.xlsx"},inventory:[
+    {source_file:"example-stock.xlsx",source_kind:"excel_observation"},
+    {source_file:"review-synthetic-supplement",source_kind:"synthetic_review",synthetic:true}
+  ]};
+  const vm=adaptBackendResponse(result);
+  expect(vm.sources.map(s=>s.kind)).toEqual(["已发布事实","Excel账面记录","合成演示事实"]);
+});
 
 test("100→50→0→1消息、当前面板与刷新恢复一致", async ({ page }) => {
   const turns: any[] = [];
@@ -94,4 +104,35 @@ test("100→50→0→1消息、当前面板与刷新恢复一致", async ({ page
   await page.locator(".assistant-message").last().click();
   await expect(page.locator(".result-panel")).toContainText("本次回答对应结果");
   await expect(page.locator(".result-panel")).toContainText("本次核对1片");
+});
+
+test("评审推演必须主动选择，场景和历史不污染企业入口", async ({ page }) => {
+  let requests = 0;
+  const scenario = "review_real_bom_simulation";
+  await page.route("**/api/v1/agent/sessions", r => {
+    expect(r.request().postDataJSON().scenario_id).toBe(scenario);
+    return r.fulfill({ json: { ...session,session_id:"review-session",scenario_id:scenario } });
+  });
+  await page.route("**/api/v1/agent/query", r => {
+    requests++;
+    const body=r.request().postDataJSON();
+    expect(body.scenario_id).toBe(scenario);
+    const result=reply(50);
+    const data=result.structured_data!.data as any;
+    data.quantity_check_status="sufficient";
+    data.inventory_sufficient_for_requested=true;
+    data.source_summary.review_scenario={synthetic:true,scenario_id:scenario};
+    return r.fulfill({json:{...result,session_id:"review-session",scenario_id:scenario}});
+  });
+  await page.goto("/#/workspace");
+  await expect(page.locator("#data-space")).toHaveValue("");
+  expect(requests).toBe(0);
+  await page.locator("#data-space").selectOption(scenario);
+  await page.getByLabel("输入分析问题").fill("生产50片可以吗");
+  await page.getByRole("button",{name:"发送问题",exact:true}).click();
+  await expect(page.locator(".result-panel")).toContainText("评审推演数量核对（含合成库存）");
+  await expect(page.locator(".mode-banner")).toContainText("非企业库存");
+  await page.getByRole("button",{name:"新建分析",exact:true}).click();
+  await expect(page.locator("#data-space")).toHaveValue("");
+  await expect(page.locator(".materials-card tbody tr")).toHaveCount(0);
 });

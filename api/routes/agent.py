@@ -26,6 +26,16 @@ router = APIRouter(prefix="/api/v1/agent", tags=["Unified Agent"])
 
 
 def _persistent_service(scenario_id: ScenarioId | None = None) -> PersistentAgentService:
+    if scenario_id in ("kq_z112_review_slim", "kq_z112_review_slim_synthetic"):
+        from services.slim_scenario_agent_service import build_slim_scenario_agent
+        service = build_slim_scenario_agent(scenario_id)
+        service.enable_orchestrator()
+        return service
+    if scenario_id == "review_real_bom_simulation":
+        from services.review_scenario_agent_service import build_review_scenario_agent
+        service = build_review_scenario_agent()
+        service.enable_orchestrator()
+        return service
     if scenario_id is not None:
         from services.demo_scenario_agent_service import build_demo_scenario_agent
         service = build_demo_scenario_agent()
@@ -46,7 +56,9 @@ def _session_error(error: Exception) -> JSONResponse:
 @router.post("/sessions", response_model=AgentSessionResponse)
 def create_agent_session(request: AgentSessionCreate | None = None):
     """创建企业会话或显式独立场景会话；不初始化或重建旧 Demo Workflow。"""
-    return _persistent_service(request.scenario_id if request else None).repository.create_session()
+    service = _persistent_service(request.scenario_id if request else None)
+    session = service.repository.create_session()
+    return service.public_session(session) if hasattr(service, "public_session") else session
 
 
 @router.get("/sessions/{session_id}", response_model=AgentSessionHistory)
@@ -54,7 +66,9 @@ def get_agent_session(session_id: str, after: int = Query(0, ge=0), limit: int =
                       scenario_id: ScenarioId | None = Query(None)):
     """分页恢复问答、上下文及每次调用的来源证据；不重新查询/计算历史事实。"""
     try:
-        return _persistent_service(scenario_id).repository.history(session_id, after=after, limit=limit)
+        service = _persistent_service(scenario_id)
+        history = service.repository.history(session_id, after=after, limit=limit)
+        return service.public_session(history) if hasattr(service, "public_session") else history
     except SessionNotFound as error:
         return _session_error(error)
 

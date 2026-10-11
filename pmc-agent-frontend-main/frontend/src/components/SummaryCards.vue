@@ -60,7 +60,7 @@ const stateLabel = computed(() =>
         数据来源<Icon name="database" :size="18" />
       </div>
       <strong class="summary-mode">{{
-        result?.backend?.scenario_id || scenario ? "合成 Demo" : "企业事实接口"
+        (result?.backend?.scenario_id ?? scenario) === 'kq_z112_review_slim' ? '精简真实子集' : (result?.backend?.scenario_id ?? scenario) === 'kq_z112_review_slim_synthetic' ? '精简合成推演' : result?.backend?.scenario_id || scenario ? "合成 Demo" : "企业事实接口"
       }}</strong
       ><small>{{ result?.sources[0]?.kind ?? "等待已发布事实查询" }}</small>
     </article>

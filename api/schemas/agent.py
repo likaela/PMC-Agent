@@ -7,7 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
-ScenarioId = Literal["demo_scenario_50_vs_100"]
+ScenarioId = Literal["demo_scenario_50_vs_100", "review_real_bom_simulation", "kq_z112_review_slim", "kq_z112_review_slim_synthetic"]
 
 
 class UnifiedAgentRequest(BaseModel):
