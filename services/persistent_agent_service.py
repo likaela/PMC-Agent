@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import copy
 import logging
+import os
 import re
 from collections.abc import Callable, Mapping
 from typing import Literal
@@ -171,11 +172,13 @@ def _answer(kind: str, result: dict) -> str:
 
 class PersistentAgentService:
     def __init__(self, repository: AgentConversationRepository, *, tool_resolver: Callable | None = None,
-                 response_adapter: Callable | None = None) -> None:
+                 response_adapter: Callable | None = None, book_service=None) -> None:
         self.repository = repository
         self.tool_resolver = tool_resolver
         self.response_adapter = response_adapter
         self.orchestrator = None
+        self.book_queries = None
+        self.book_service = book_service
 
     def enable_orchestrator(self) -> None:
         """Opt-in API integration; direct legacy service users keep their existing path."""
@@ -203,6 +206,29 @@ class PersistentAgentService:
             from tools.published_product_tools import build_published_product_search
             product_tool = build_published_product_search(self.repository.store)
             product_resolver = lambda: product_tool
+            # Explicit local enterprise binding only. Temporary/test databases do
+            # not silently acquire access to private Excel. Trial never binds it.
+            from pathlib import Path
+            from repositories.fact_store import DEFAULT_SQLITE_PATH
+            database = getattr(self.repository.store, "database_path", None)
+            local_enterprise = database and Path(database).resolve() == DEFAULT_SQLITE_PATH.resolve()
+            if os.getenv("PMC_TRIAL_MODE") != "1" and (self.book_service is not None or local_enterprise or os.getenv("PMC_BOOK_INVENTORY_FILE")):
+                if self.book_service is None:
+                    from repositories.book_inventory_repository import BookInventoryRepository
+                    from repositories.data_source import RAW_INVENTORY_FILE
+                    from services.book_inventory_service import BookInventoryService
+                    from services.fact_query_service import FactQueryService
+                    path = Path(os.getenv("PMC_BOOK_INVENTORY_FILE") or RAW_INVENTORY_FILE)
+                    # Keep an explicitly bound missing/unreadable source bound:
+                    # demand calculation must survive stock I/O failure rather
+                    # than fall through to another model or a strict snapshot path.
+                    self.book_service = BookInventoryService(FactQueryService(context_resolver.repository.facts), BookInventoryRepository(path))
+                if self.book_service is not None:
+                    from agents.enterprise_book_queries import EnterpriseBookQueries
+                    self.book_queries = EnterpriseBookQueries(self.book_service)
+                    # No authorization exists to export these enterprise prompts
+                    # or observation Evidence, including on subsequent turns.
+                    llm_options["llm_status"] = lambda: {"status": "warning", "provider": "private_local_only"}
         self.orchestrator = AgentOrchestrator(ToolRegistry(resolver=resolver, scope=scope or "enterprise",
             analysis_resolver=inventory_operations.resolve if inventory_operations else None,
             product_resolver=product_resolver),
@@ -215,7 +241,26 @@ class PersistentAgentService:
             session = self.repository.get_session(session_id)
             history_loader = lambda: self.repository.history(session_id,
                 after=max(0, session["context_version"] - 50), limit=50)["turns"]
-            turn = self.orchestrator.run(message, session["context"], history_loader=history_loader)
+            turn = None
+            if self.book_queries is not None:
+                try:
+                    turn = self.book_queries.run(message, session["context"], history_loader)
+                except Exception:
+                    logger.exception("企业账面观察查询失败")
+                    # Never fall through to a different model/data source after
+                    # an observation failure, or display an older product result.
+                    from agents.orchestrator import OrchestratedTurn
+                    safe_context = copy.deepcopy(session["context"])
+                    safe_context["last_query_failure"] = dict(intent="inventory", entities={})
+                    turn = OrchestratedTurn(dict(intent="inventory", status="query_failed", answer="企业库存记录暂不可读取，请稍后重试；没有生成替代库存或生产结论。",
+                        structured_data=dict(data=None, query={}, completed_steps=[]), provenance=None, warnings=[]), safe_context, [])
+            if turn is None:
+                turn = self.orchestrator.run(message, session["context"], history_loader=history_loader)
+                if turn is not None and self.book_queries is not None:
+                    active = turn.context.get(turn.context.get("active_domain"), {})
+                    prior_book = turn.context.get("book_analysis", {})
+                    if active.get("material_code") and active["material_code"] != prior_book.get("product"):
+                        turn.context.pop("book_analysis", None)
             if turn is not None:
                 response = {**turn.response, "session_id": session_id, "conversation_id": session["conversation_id"]}
                 if self.orchestrator.registry.scope == "enterprise":
