@@ -109,7 +109,7 @@ const errorTitles = {
       </div>
       <h3>{{ result.title }}</h3>
       <p v-if="result.slimReview" class="result-explanation">
-        KQ-Z112 精简评审子集：当前范围、排除数量和版本见下方。
+        {{ result.product }} 精简评审子集：当前范围、排除数量和版本见下方。
         只判断筛选物料集合的数量需求，不代表完整企业产品生产批准。
       </p>
       <p class="result-explanation">{{ result.answer }}</p>

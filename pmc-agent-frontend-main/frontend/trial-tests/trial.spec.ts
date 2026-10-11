@@ -35,6 +35,46 @@ test("隔离合成Demo真实HTTP：BOM、理论上限、缺口与原因", async 
   } finally { await client.dispose(); }
 });
 
+test("公网入口拒绝私有场景、企业API与私有文件路径", async ({ request }) => {
+  for (const scenario_id of ["review_real_bom_simulation", "kq_z112_review_slim", "kq_z112_review_slim_synthetic", "unknown"])
+    expect((await request.post("/api/v1/agent/sessions", { data: { scenario_id } })).status()).toBe(422);
+  for (const path of ["/api/v1/chat", "/api/v1/workflows", "/api/v1/facts", "/data/raw/example.xls", "/data/facts/pmc_facts.db", "/data/normalized/example.json", "/.env", "/.git/config", "/docs/internal.md"])
+    expect((await request.get(path)).status()).toBe(404);
+});
+
+test("合成工作台0与75/76边界、失败不回退、历史选择及恢复", async ({ page }) => {
+  await page.goto("/");
+  async function ask(message: string) {
+    const completion = page.waitForResponse(r => r.url().endsWith("/api/v1/agent/query") && r.request().method() === "POST");
+    await page.getByLabel("输入分析问题").fill(message);
+    await page.getByRole("button", { name: "发送问题", exact: true }).click();
+    return completion;
+  }
+  let response = await ask("生产75台DEMO-PMC-01");
+  expect((await response.json()).structured_data.data.inventory_sufficient_for_requested).toBe(true);
+  response = await ask("生产76台DEMO-PMC-01");
+  expect((await response.json()).structured_data.data.inventory_sufficient_for_requested).toBe(false);
+  response = await ask("生产0台");
+  const invalid = await response.json();
+  // Preserve the existing Demo API's validation contract (not the Excel adapter's).
+  expect(invalid.status).toBe("needs_input");
+  expect(invalid.structured_data.data).toBeFalsy();
+  await expect(page.locator("#analysis-result")).toContainText("未执行事实计算");
+  await page.locator(".assistant-message").first().click();
+  await expect(page.locator("#analysis-result")).toContainText("历史回答对应结果");
+  await page.reload();
+  await expect(page.locator(".assistant-message")).toHaveCount(3);
+  await expect(page.locator("#analysis-result")).toContainText("未执行事实计算");
+  await page.route("**/api/v1/agent/query", route => route.fulfill({ status: 500, body: "Internal exception" }));
+  expect((await ask("生产1台DEMO-PMC-01")).status()).toBe(500);
+  await expect(page.locator("#analysis-result")).toContainText("分析服务暂时异常");
+  await expect(page.locator("#analysis-result")).not.toContainText("75");
+  await expect(page.locator("#analysis-result")).not.toContainText("Internal exception");
+  await page.unroute("**/api/v1/agent/query");
+  await page.getByRole("button", { name: "重试原问题" }).click();
+  await expect(page.locator("#analysis-result")).toContainText("本次需求库存齐套");
+});
+
 test("真实production Vue→Caddy→trial FastAPI：50/100、采购与刷新", async ({
   page,
 }) => {

@@ -8,6 +8,7 @@ import {
   type PurchaseView,
   type ResultStatus,
 } from "../data/model";
+import { isAllowedScenario } from "./scenarioPolicy";
 
 const intents = new Set([
   "pmc_analysis",
@@ -84,7 +85,7 @@ export function validateBackendResponse(payload: unknown): BackendResponse {
   )
     fail();
   for (const key of ["session_id", "conversation_id", "turn_id"]) text(p[key]);
-  if (p.scenario_id != null && !["demo_scenario_50_vs_100", "review_real_bom_simulation", "kq_z112_review_slim", "kq_z112_review_slim_synthetic"].includes(p.scenario_id as string))
+  if (p.scenario_id != null && !isAllowedScenario(p.scenario_id))
     fail();
   return payload as BackendResponse;
 }

@@ -10,7 +10,7 @@
 - Caddy Basic Auth 为每人分配不同账号；不要多人共享一个账号。后端只接受私有代理密钥与 Caddy 覆写的用户名。
 - 会话所有权存于隔离 Demo 库中的 `trial_session_owners`；查看历史和发送消息均校验。未知与越权统一404。
 - 专用进程不加载 `.env`，不提供旧 Chat/Workflow/企业接口，拒绝 enterprise FactStore，模型完全禁用。
-- 启动器的进程级审计钩子也拒绝打开企业 raw/facts/.env 及非loopback网络连接；只允许Windows事件循环需要的本机socket通信。不等同于操作系统级沙箱，本机管理员仍是可信边界。
+- 启动器的进程级审计钩子也拒绝打开企业 raw/facts/normalized/.env 及非loopback网络连接；只允许Windows事件循环需要的本机socket通信。不等同于操作系统级沙箱，本机管理员仍是可信边界。
 - 用户输入也可能包含敏感信息，故即使合成 Demo 也不默认启用 DeepSeek。使用既有 Python fallback，不影响业务查询。
 - 同源 API、CSRF Origin 检查、每账号每分钟60请求、全进程最多8并行查询、Caddy请求体上限64KB。
 - 保留会话持久化与乐观并发409；仅小规模试用，单 Uvicorn worker。
@@ -36,7 +36,9 @@ Copy-Item deploy/trial/settings.example.ps1 deploy/trial/settings.local.ps1
 powershell -ExecutionPolicy Bypass -File deploy/trial/build.ps1
 ```
 
-产物仅在 `.runtime/remote-trial-web`，不覆盖普通 frontend/dist，不改变开发环境变量。
+构建采用独立 `frontend/trial/index.html` 入口和独立会话状态，不导入企业 App、路由、私有场景表或离线样例。共享 API 客户端、响应适配器和结果组件仍复用，但试用白名单模块在编译期替换为仅含一个合成场景的模块，而非运行时隐藏。
+
+产物仅在 `.runtime/remote-trial-web`，不覆盖普通 frontend/dist，不改变开发环境变量。旧构建先移动到 ignored `.runtime/build-backups/` 供私有审计，避免旧资源残留在服务目录。关闭 publicDir 和 Source Map，编译依赖白名单拒绝其他应用模块；随后 `scripts/audit_trial_bundle.py` 检查全部产物及 `module-closure.json`。任何检查失败均不得启动代理或发布该目录。
 
 ## 启动（三个独立终端）
 
@@ -70,7 +72,7 @@ Quick Tunnel 是临时链接，重启地址可能变化，不能当作稳定部�
 
 ## 开放前验收
 
-本次冻结补充发现：专用production bundle虽然隐藏私有场景选项，仍含私有场景/产品的字符串；后端API已验证拒绝其访问，但“不可查询”不等于“源码已脱敏”。在拿到企业标识公开授权或完成独立无私有标识的合成构建审查前，不分享公网链接。当前Git历史里的企业元数据也需独立审查；不通过改指南掩盖该问题。本轮未开放公网或修改业务能力。
+专用构建已从依赖入口隔离企业模块；仍须对每次将要发布的产物运行隐私扫描，不能拿历史构建的检查结果作证明。静态产物通过不代表开发仓库历史可公开；源码公开使用另行审查的全新合成仓库，不继承企业开发提交历史。本轮不开放公网。
 
 - 两个独立账号，互相 GET/POST 对方 session 均404；同一账号重启服务可恢复。
 - 50台齐套；100台四项缺口25/100/50/200；四项采购建议、合成总成本1560.00 CNY；建议不代表到货。

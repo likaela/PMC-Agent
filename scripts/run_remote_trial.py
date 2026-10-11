@@ -20,7 +20,7 @@ def isolation(event, args):
         raise PermissionError("Remote trial outbound connections are prohibited")
     if event in {"open", "sqlite3.connect"} and args and isinstance(args[0], (str, bytes, os.PathLike)):
         path = Path(os.fsdecode(args[0])).resolve()
-        if path == root / ".env" or any(path.is_relative_to(root / "data" / name) for name in ("raw", "facts")):
+        if path == root / ".env" or any(path.is_relative_to(root / "data" / name) for name in ("raw", "facts", "normalized")):
             raise PermissionError("Remote trial cannot read private enterprise data")
 
 

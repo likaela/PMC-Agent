@@ -18,6 +18,8 @@
     "src/**/*.vue",
     "vite.config.ts",
     "playwright.config.ts",
-    "tests/**/*.ts"
+    "tests/**/*.ts",
+    "trial/**/*.ts",
+    "trial/**/*.vue"
   ]
 }

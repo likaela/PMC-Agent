@@ -18,6 +18,10 @@ http://:8080 {
 	request_body {
 		max_size 64KB
 	}
+	@private path /data/* /.env* /.git/* /.runtime/* /deploy/* /docs/* /src/* /node_modules/*
+	handle @private {
+		respond "该路径不可访问。" 404
+	}
 	@backend path /api/* /health
 	handle @backend {
 		reverse_proxy 127.0.0.1:8010 {

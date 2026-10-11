@@ -110,6 +110,20 @@ def test_parallel_users_remain_isolated(trial):
         assert len(history["turns"]) == 1
 
 
+def test_zero_quantity_executes_no_tool_and_preserves_last_valid_context(trial):
+    app, client, _ = trial
+    sid = session(client)
+    assert ask(client, sid, "生产76台DEMO-PMC-01").status_code == 200
+    previous = app.state.service.repository.get_session(sid)["context"]
+    with patch.object(app.state.service.orchestrator.registry, "resolve", side_effect=AssertionError("Zero must not execute Tool")):
+        response = ask(client, sid, "生产0台").json()
+    assert response["status"] == "needs_input" and "未执行事实计算" in response["answer"]
+    history = app.state.service.repository.history(sid)
+    assert history["context"] == previous
+    assert history["turns"][-1]["fact_references"] == []
+    assert ask(client, sid, "生产1台").json()["structured_data"]["data"]["requested_quantity"] == 1
+
+
 def test_config_fails_closed_without_trial_flag(tmp_path, monkeypatch):
     monkeypatch.delenv("PMC_TRIAL_MODE", raising=False)
     with pytest.raises(RuntimeError):
@@ -131,7 +145,7 @@ import runpy, json
 module = runpy.run_path('scripts/run_remote_trial.py')
 import config
 checks = []
-for path in ['.env', 'data/raw/not-a-real-file.xls', 'data/facts/pmc_facts.db']:
+for path in ['.env', 'data/raw/not-a-real-file.xls', 'data/facts/pmc_facts.db', 'data/normalized/not-a-real-file.json']:
     try:
         open(path, 'rb')
     except PermissionError:
@@ -144,4 +158,4 @@ assert config.get_llm_configuration_status()['status'] == 'warning'
 print(json.dumps(checks))
 '''
     result = subprocess.run([sys.executable, "-c", code], cwd=root, text=True, capture_output=True, timeout=20, check=True)
-    assert json.loads(result.stdout) == ["blocked"] * 4
+    assert json.loads(result.stdout) == ["blocked"] * 5
