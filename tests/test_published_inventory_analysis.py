@@ -391,7 +391,7 @@ class PublishedInventoryAnalysisTests(unittest.TestCase):
             store.execute(connection,
                 "INSERT INTO inventory_facts (id, inventory_snapshot_id, item_id, raw_material_code, on_hand_qty, available_qty, reserved_qty, import_batch_id, source_file_id, source_sheet, source_row_number) "
                 "VALUES ('old-lot', 'old-snapshot', ?, 'PRIOR-ITEM', '8', '7', '1', ?, ?, '旧库存', 2)", (item_id, batch, source))
-        self.assertEqual(facts.migrate(), ["005_inventory_analysis", "006_published_purchase_planning", "007_agent_conversations", "008_bom_import_context", "009_incomplete_bom_units", "010_structural_bom_publication"])
+        self.assertEqual(facts.migrate(), ["005_inventory_analysis", "006_published_purchase_planning", "007_agent_conversations", "008_bom_import_context", "009_incomplete_bom_units", "010_structural_bom_publication", "011_published_bom_confirmations"])
         self.assertEqual(facts.migrate(), [])
         with store.transaction() as connection:
             self.assertEqual(store.execute(connection, "SELECT material_code FROM items").fetchone()[0], "PRIOR-ITEM")

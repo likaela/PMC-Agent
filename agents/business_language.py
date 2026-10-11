@@ -87,3 +87,21 @@ def inventory_request(message: str) -> dict:
     return dict(required_qty=qty.group(1) if qty else None,
                 expiry_warning_days=int(expiry.group(1)) if expiry else None,
                 stagnant_days=int(stagnant.group(1)) if stagnant else None)
+
+
+def normalize_business_dates(message: str) -> str:
+    """Normalize explicit calendar spelling, not relative dates or time-of-day."""
+    return re.sub(r"(?<!\d)(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日",
+        lambda m: f"{m[1]}-{int(m[2]):02d}-{int(m[3]):02d}", message)
+
+
+
+def production_unit(message: str) -> str | None:
+    match = re.search(r"(?:\d+|[零〇一二三四五六七八九十百千万两]+)\s*(片|件|台|套|个|只|PCS)", message, re.I)
+    return match[1] if match else None
+
+
+
+def confirmed_context_requested(message: str) -> bool:
+    """Explicit opt-in to an audited scenario, not a date default for new tasks."""
+    return bool(re.search(r"(?:按|按照|沿用|使用|复用).*(?:之前|此前|已确认|已指定|原先|指定|确认).*(?:业务情境|业务场景|分析情境|分析日期)", message))

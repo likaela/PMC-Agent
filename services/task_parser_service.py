@@ -41,10 +41,10 @@ _BOM_VERSION_PATTERN = re.compile(r"(?<![A-Za-z0-9])[Vv]\s*(\d{1,3})(?![A-Za-z0-
 _BOM_VERSION_VALUE_PATTERN = re.compile(r"^[Vv]\s*(\d{1,3})$")
 _NUMBER_TOKEN = r"(?:\d+|[零〇一二三四五六七八九十百千万两]+)"
 _PRODUCTION_QUANTITY_PATTERN = re.compile(
-    rf"(?:生产|安排生产|计划生产|做)\s*({_NUMBER_TOKEN})\s*(?:台|套|件|个|只|PCS|pcs)?"
+    rf"(?:生产|安排生产|计划生产|做)\s*({_NUMBER_TOKEN})\s*(?:台|套|件|个|只|片|PCS|pcs)?"
 )
 _QUANTITY_LABEL_PATTERN = re.compile(rf"(?:生产数量|数量)\s*(?:为|是|：|:)?\s*({_NUMBER_TOKEN})")
-_UNIT_QUANTITY_PATTERN = re.compile(rf"({_NUMBER_TOKEN})\s*(?:台|套|件|个|只|PCS|pcs)")
+_UNIT_QUANTITY_PATTERN = re.compile(rf"({_NUMBER_TOKEN})\s*(?:台|套|件|个|只|片|PCS|pcs)")
 _CHINESE_DIGITS = {"零": 0, "〇": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
 _CHINESE_UNITS = {"十": 10, "百": 100, "千": 1000, "万": 10000}
 

@@ -28,6 +28,10 @@ class FactQueryRepository:
     def _time_param(self, value: datetime) -> object:
         return value if self.store.dialect == "postgresql" else value.isoformat()
 
+    def bom_confirmation_provenance(self, bom_header_id: str) -> list[dict]:
+        from repositories.published_bom_confirmation_repository import PublishedBomConfirmationRepository
+        return PublishedBomConfirmationRepository(self.store).provenance_for_bom(bom_header_id)
+
     def resolve_item(self, material_code_or_alias: str) -> dict[str, object] | None:
         """只做精确 canonical/alias 匹配；别名歧义时明确拒绝。"""
         with self.store.transaction() as connection:
@@ -132,7 +136,7 @@ class FactQueryRepository:
                 connection,
                 "SELECT h.id, h.parent_material_code, h.version, h.effective_from, "
                 "h.import_batch_id, h.source_file_id, h.source_sheet, sf.original_filename, "
-                "sf.content_sha256, CASE WHEN ctx.publish_parent_item = 1 THEN ctx.parent_unit "
+                "sf.content_sha256, CASE WHEN ctx.publish_parent_item = 1 THEN COALESCE(parent.unit, ctx.parent_unit) "
                 "ELSE parent.unit END AS parent_unit FROM bom_headers h "
                 "JOIN source_files sf ON sf.id = h.source_file_id "
                 "LEFT JOIN staged_bom_headers ctx ON ctx.import_batch_id = h.import_batch_id "

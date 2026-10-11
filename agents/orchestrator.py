@@ -90,7 +90,7 @@ class AgentOrchestrator:
             context = original_context
         resolution, context_references = None, []
         if self.context_resolver is not None:
-            resolution = self.context_resolver.resolve(plan, message)
+            resolution = self.context_resolver.resolve(plan, message, context)
             plan = resolution.plan
             reference = resolution.reference()
             context_references = [reference] if reference is not None else []
@@ -113,14 +113,16 @@ class AgentOrchestrator:
                     if structure is not None:
                         warnings = [resolution.message]
                         complete = structure["completeness"]
-                        if complete.get("unit") is False or complete.get("parent_unit") is False:
+                        if complete.get("unit") is False:
                             warnings.append("unit_missing")
+                        if complete.get("parent_unit") is False:
+                            warnings.append("parent_unit_missing")
                         if "当前没有明确的已发布业务时点" in resolution.message or "当前没有已发布库存快照" in resolution.message:
                             warnings.append("尚缺少权威可用库存数据及已确认库存快照时间")
                         collector = EvidenceCollector()
                         record = collector.collect("published_bom_context", plan.entities.model_dump(),
                             dict(status="data_unavailable", query=plan.entities.model_dump(),
-                                data={"bom_structure": structure}, completeness={"production_analysis": False},
+                                data={"bom_structure": structure, "business_context": resolution.provenance}, completeness={"production_analysis": False},
                                 provenance=structure["provenance"], warnings=warnings))
                         response["answer"], source = self.response_generator.generate([record], ["production_capacity"])
                         response["structured_data"].update(response_source=source,
@@ -130,7 +132,9 @@ class AgentOrchestrator:
                         response["provenance"] = structure["provenance"]
                         response["warnings"] = warnings
                         context_references.append(record.reference())
-                return OrchestratedTurn(response, self._context(context, plan, None), context_references)
+                saved = self._context(context, plan, None)
+                saved = self.context_resolver.remember(saved, plan, resolution)
+                return OrchestratedTurn(response, saved, context_references)
         plan.missing_parameters = AgentPlanner._missing(plan) if plan.intent != "clarification" else (plan.missing_parameters or ["intent"])
         if plan.missing_parameters:
             labels = [_LABELS.get(key, "必要业务参数") for key in plan.missing_parameters]
@@ -236,6 +240,8 @@ class AgentOrchestrator:
                 if kind == "production_capacity":
                     permitted[kind].add("published_bom_context")
                 if ref["tool_name"] not in permitted.get(kind, set()):
+                    continue
+                if self.context_resolver is not None and not self.context_resolver.repository.evidence_is_current(ref):
                     continue
                 output = ref["result"]
                 query, data = output["query"], output.get("data") or {}

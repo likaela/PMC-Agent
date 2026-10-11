@@ -6,6 +6,7 @@ import re
 
 
 WARNING_LABELS = {
+    "parent_unit_missing": "成品计量单位尚未确认",
     "unit_missing": "物料计量单位尚未确认",
     "price_missing": "部分物料价格尚未确认",
     "effective_date_missing": "该BOM的生效日期尚未确认",
@@ -46,8 +47,16 @@ def bom_overview(data: dict, completeness: dict) -> str:
     if categories:
         text += "按已发布物料名称，主要包括" + "、".join(categories) + "。"
     text += "完整明细已提供在下方物料表中。"
-    if completeness.get("unit") is False or completeness.get("parent_unit") is False:
+    if completeness.get("unit") is True:
+        units = list(dict.fromkeys(line["unit"] for line in data.get("lines", []) if line.get("unit") is not None))
+        if units:
+            text += "BOM子料计量单位已确认：" + "、".join(units) + "。"
+    if completeness.get("unit") is False:
         text += "物料计量单位尚未确认，因此这份BOM目前可用于结构查询，暂不能据此进行可靠的生产数量计算。"
+    if completeness.get("parent_unit") is False:
+        text += "成品计量单位尚未确认；子料单位不代表成品或库存单位，暂不能据此放行生产。"
+    elif completeness.get("parent_unit") is True and data.get("parent_item", {}).get("unit"):
+        text += "成品计量单位已确认：" + data["parent_item"]["unit"] + "。"
     if completeness.get("price") is False:
         text += "部分物料价格尚未确认，暂不能进行完整成本计算。"
     return text
@@ -71,17 +80,39 @@ def incomplete_production(result: dict) -> str:
     query, data = result.get("query", {}), result.get("data") or {}
     product = query.get("product") or query.get("material_code") or "该产品"
     quantity = query.get("quantity") or query.get("requested_quantity")
-    task = f"生产{quantity}台 {product}" if quantity is not None else f"{product} 的生产计划"
+    structure = data.get("bom_structure")
+    child_confirmed = bool(structure and structure["completeness"].get("unit") is True)
+    parent_unit = ((structure.get("data") or {}).get("parent_item") or {}).get("unit") if structure else None
+    task = (f"生产{quantity}{parent_unit} {product}" if parent_unit else
+            f"数量为{quantity}的 {product} 生产计划" if child_confirmed and structure["completeness"].get("parent_unit") is False
+            else f"生产{quantity}台 {product}") if quantity is not None else f"{product} 的生产计划"
     text = f"当前不能批准{task}。"
     reminders = []
-    structure = data.get("bom_structure")
     if structure:
         text += f"已确认该产品存在 {structure['data']['revision']} BOM，共 {structure['data']['line_count']} 项物料。"
         complete = structure["completeness"]
-        if complete.get("unit") is False or complete.get("parent_unit") is False:
+        if complete.get("unit") is True:
+            units = list(dict.fromkeys(line["unit"] for line in structure["data"].get("lines", []) if line.get("unit")))
+            text += "BOM子料单位已确认：" + "、".join(units) + "。"
+        if complete.get("unit") is False:
             reminders.append("物料计量单位尚未确认")
+        if complete.get("parent_unit") is False:
+            reminders.append("成品计量单位尚未确认")
+        elif parent_unit:
+            text += f"成品计量单位已确认：{parent_unit}。"
         if complete.get("effective_from") is False:
             reminders.append("该BOM的生效日期尚未确认")
+        elif structure["data"].get("effective_from"):
+            text += f"BOM生效日期为 {structure['data']['effective_from']}。"
+    business_context = data.get("business_context") or {}
+    if business_context.get("evaluated_on"):
+        text += f"本次生产分析日期为 {business_context['evaluated_on']}。"
+    basis = business_context.get("date_basis") or {}
+    dates = basis if basis.get("source") == "audited_session_business_context" else business_context.get("published_business_fields", {})
+    if all(dates.get(key) for key in ("business_publication_date", "business_snapshot_date", "business_timezone")):
+        text += (f"企业业务发布日期为 {dates['business_publication_date']}；库存快照业务日期为 "
+                 f"{dates['business_snapshot_date']}（{dates['business_timezone']}），尚未确认具体时刻，未作为正式库存快照。")
+        reminders.extend(["权威可用库存、库存计量单位一致性及库存覆盖尚未确认", "需要核验快照至生产分析日期之间的库存变动与有效性"])
     reasons = list(dict.fromkeys([*reminders, *(human_warning(w) for w in result.get("warnings", []))]))
     if reasons:
         text += "目前需要确认的关键业务信息：" + "；".join(reasons) + "。"

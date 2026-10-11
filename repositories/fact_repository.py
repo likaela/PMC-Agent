@@ -866,8 +866,9 @@ class FactRepository:
                 connection,
                 "SELECT h.id, h.parent_material_code, h.version, h.effective_from, h.import_batch_id, "
                 "sf.id AS source_file_id, sf.original_filename, sf.content_sha256, sf.source_kind, "
-                "sf.storage_key, sf.source_uri, sf.immutable_copy, h.source_sheet "
+                "sf.storage_key, sf.source_uri, sf.immutable_copy, h.source_sheet, parent.unit AS confirmed_parent_unit "
                 "FROM bom_headers h JOIN source_files sf ON sf.id = h.source_file_id "
+                "LEFT JOIN items parent ON parent.material_code=h.parent_material_code "
                 "WHERE h.parent_material_code = ? AND h.version = ?",
                 (parent_material_code, version),
             )
@@ -876,6 +877,7 @@ class FactRepository:
                 return None
             header = headers[0]
             context = self.get_staged_header(str(header["import_batch_id"]), connection)
+            parent_unit = header["confirmed_parent_unit"] or (context.parent_unit if context else None)
             line_cursor = self.store.execute(
                 connection,
                 "SELECT i.material_code, ir.name AS material_name, ir.specification, bl.quantity, "
@@ -904,12 +906,14 @@ class FactRepository:
                                     "price": line["tax_included_unit_price"] is not None}
         completeness = {
             "unit": bool(lines) and all(line["unit"] is not None for line in lines),
-            "parent_unit": bool(context and context.parent_unit),
+            "parent_unit": bool(parent_unit),
             "price": bool(lines) and all(line["tax_included_unit_price"] is not None for line in lines),
         }
         warnings = []
-        if not completeness["unit"] or (context and context.publish_parent_item and not completeness["parent_unit"]):
+        if not completeness["unit"]:
             warnings.append("unit_missing：BOM数量关系已发布，但计量单位待确认，仅可用于结构查询，不能用于确定性数量计算")
+        if context and context.publish_parent_item and not completeness["parent_unit"]:
+            warnings.append("parent_unit_missing：成品计量单位待确认，不能进行确定性数量计算")
         if not completeness["price"]:
             warnings.append("price_missing：BOM价格未知，不能计算成本")
         return {
@@ -931,7 +935,7 @@ class FactRepository:
                 ),
                 "immutable_copy": bool(header["immutable_copy"]),
                 "source_sheet": str(header["source_sheet"]),
-                "parent_unit": context.parent_unit if context else None,
+                "parent_unit": parent_unit,
             },
             "lines": lines,
             "completeness": completeness,

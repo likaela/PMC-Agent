@@ -16,6 +16,7 @@ from datetime import UTC, date, datetime
 
 from agents.planner import AgentPlan, TaskEntities
 from repositories.agent_context_repository import AgentContextRepository
+from agents import business_language as language
 
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,7 @@ class ContextResolution:
     resolutions: list[dict] = field(default_factory=list)
     candidates: list[dict] = field(default_factory=list)
     provenance: dict = field(default_factory=dict)
+    confirmed_scope: dict | None = None
 
     def reference(self) -> dict | None:
         if not self.resolutions and not self.candidates and not self.message:
@@ -81,20 +83,21 @@ class ContextResolver:
                         saved[key] = None
         return context
 
-    def resolve(self, plan: AgentPlan, message: str) -> ContextResolution:
+    def resolve(self, plan: AgentPlan, message: str, context: dict | None = None) -> ContextResolution:
+        message = language.normalize_business_dates(message)
         plan = AgentPlan.model_validate(plan.model_dump())
         result = ContextResolution(plan)
         if not set(plan.required_tools) & {"bom_query", "production_analysis", "purchase_plan"} or not plan.entities.material_code:
             return result
         try:
-            return self._resolve(result, message)
+            return self._resolve(result, message, context or {})
         except Exception:
             logger.exception("已发布 BOM 上下文解析失败")
             result.status = "data_unavailable"
             result.message = "当前无法读取完整的已发布BOM上下文，请确认事实库及生效日期后重试。"
             return result
 
-    def _resolve(self, result: ContextResolution, message: str) -> ContextResolution:
+    def _resolve(self, result: ContextResolution, message: str, context: dict) -> ContextResolution:
         entities = result.plan.entities.model_dump()
         product = self.repository.resolve_product(entities["material_code"])
         if product is None or product.get("ambiguous"):
@@ -113,6 +116,12 @@ class ContextResolver:
                 result.status = "data_unavailable"
                 result.message = "当前没有用户指定版本的已发布BOM，请确认BOM版本。"
                 return result
+        # Show confirmed metadata even when this session has no production date.
+        # A publication/business-stock DATE is never an inventory timestamp.
+        if len(rows) == 1:
+            fields = self.repository.published_business_fields(str(product['material_code']), str(rows[0]['version']))
+            if fields:
+                result.provenance['published_business_fields'] = fields
         # Structural BOM lookup does not assert current validity or require inventory.
         # Never apply this shortcut to production/purchase or date-specific queries.
         if set(result.plan.required_tools) == {"bom_query"} and entities["effective_date"] is None and entities["as_of"] is None:
@@ -137,12 +146,14 @@ class ContextResolver:
             result.message = "已找到该产品的已发布BOM结构，但生效日期尚未确认，无法进行确定性生产或日期有效性分析。"
             result.provenance = {"product": str(product["material_code"]), "bom_sources": [_source(row) for row in rows]}
             return result
-        if entities["effective_date"] is None and _RELATIVE_DATE.search(message):
+        if _RELATIVE_DATE.search(message) and not _DATE_LITERAL.search(message):
             result.status = "needs_input"
             result.message = "请确认具体的业务日期；暂不将相对日期替换为库存快照日期。"
+            # A new relative plan has an unknown date, not the preceding task's date.
+            result.plan.entities = result.plan.entities.model_copy(update={'effective_date': None, 'start_date': None})
             return result
         unlabeled_dates = set(_DATE_LITERAL.findall(message)) - {entities["effective_date"], entities["start_date"]}
-        if unlabeled_dates and entities["effective_date"] is None:
+        if unlabeled_dates:
             if len(unlabeled_dates) != 1 or entities["start_date"] is not None or re.search(r"截至|截止|库存日期|库存时点", message):
                 result.status = "needs_input"
                 result.message = "请明确各日期的业务含义；库存时点需要带时区的时间，BOM分析日期需要明确指定。"
@@ -163,10 +174,35 @@ class ContextResolver:
             snapshot = self.repository.latest_inventory_time()
             if snapshot is not None:
                 inventory_time = _time(snapshot["snapshot_at"])
-        target = entities["effective_date"] or entities["start_date"] or user_date
+        target = user_date or entities["effective_date"] or entities["start_date"]
+        confirmed_scope = None
+        if language.confirmed_context_requested(message):
+            requested = self.repository.requested_analysis_context(str(product['material_code']), specified_revision, target)
+            if requested['status'] != 'ok':
+                result.status = requested['status']
+                result.message = ("存在多个已确认业务情境，请明确分析日期与BOM版本；不会自动选择。"
+                    if requested['status'] == 'needs_input' else
+                    "当前没有与该产品、版本及日期匹配的有效确认情境，请明确本次分析日期；未套用其他产品或历史日期。")
+                return result
+            confirmed_scope = requested['context']
+            target = confirmed_scope['analysis_date']
+            entities['revision'] = confirmed_scope['revision']
+            rows = [row for row in rows if row['version'] == entities['revision']]
+            result.confirmed_scope = confirmed_scope
+        if target is None and context.get("confirmed_analysis_scope") and set(result.plan.required_tools) & {"production_analysis", "purchase_plan"}:
+            try:
+                confirmed_scope = self.repository.confirmed_analysis_context(context, str(product["material_code"]))
+            except ValueError:
+                result.status = 'needs_input'
+                result.message = '原会话绑定的业务确认已更新或不再匹配，请明确选择之前已确认的业务情境，或提供本次分析日期；不会沿用过期证据。'
+                return result
+            if confirmed_scope is not None:
+                target = confirmed_scope["analysis_date"]
         if target is not None:
-            basis = {"source": "user_business_date", "value": target,
-                     "field": "effective_date" if entities["effective_date"] else "start_date" if entities["start_date"] else "explicit_date"}
+            basis = ({"source": "audited_session_business_context", **confirmed_scope}
+                     if confirmed_scope is not None else
+                     {"source": "user_business_date", "value": target,
+                      "field": "effective_date" if entities["effective_date"] else "start_date" if entities["start_date"] else "explicit_date"})
         elif entities["as_of"]:
             basis = {"source": "user_inventory_time", "as_of": entities["as_of"]}
         else:
@@ -176,7 +212,7 @@ class ContextResolver:
             basis["snapshot_at"] = inventory_time.isoformat()
         if target is None:
             result.status = "needs_input"
-            result.message = "当前没有明确的已发布业务时点，请补充BOM生效日期；不会自动采用今天或某版本的起始日期。"
+            result.message = "当前没有明确的已发布业务时点，请补充本次生产分析日期及库存快照时间；不会自动采用今天或某版本的起始日期。"
             return result
         target_date = _date(target)
         active = []
@@ -190,8 +226,8 @@ class ContextResolver:
         result.candidates = [{"revision": str(row["version"]), "effective_from": _date(row["effective_from"]).isoformat(),
                               "effective_to": _date(row["effective_to"]).isoformat() if row["effective_to"] is not None else None,
                               "provenance": _source(row)} for row in active]
-        result.provenance = dict(product=str(product["material_code"]), evaluated_on=target_date.isoformat(),
-                                 bom_candidates=copy.deepcopy(result.candidates), date_basis=basis)
+        result.provenance.update(dict(product=str(product["material_code"]), evaluated_on=target_date.isoformat(),
+                                      bom_candidates=copy.deepcopy(result.candidates), date_basis=basis))
         if snapshot:
             result.provenance["inventory_date_basis"] = {"snapshot_at": inventory_time.isoformat(), **_source(snapshot)}
         elif entities["as_of"]:
@@ -205,13 +241,25 @@ class ContextResolver:
             result.message = "当前分析时点不存在符合条件的有效已发布BOM，请提供或确认版本与生效日期。"
             return result
         selected = active[0]
+        business_fields = self.repository.published_business_fields(str(product["material_code"]), str(selected["version"]))
+        if business_fields:
+            result.provenance["published_business_fields"] = business_fields
+        spoken_unit = language.production_unit(message)
+        if (set(result.plan.required_tools) & {"production_analysis", "purchase_plan"}
+                and spoken_unit and business_fields.get("parent_unit")
+                and spoken_unit != business_fields["parent_unit"]):
+            result.status = "needs_input"
+            result.message = (f"该产品已确认的成品单位为{business_fields['parent_unit']}，您使用了“{spoken_unit}”。"
+                f"请确认是否按{entities['quantity']}{business_fields['parent_unit']}分析；未确认等价关系前不会进行数量换算。")
+            result.plan.entities = TaskEntities.model_validate(entities)
+            return result
         source = {**_source(selected), "effective_from": _date(selected["effective_from"]).isoformat(),
                   "effective_to": _date(selected["effective_to"]).isoformat() if selected["effective_to"] is not None else None,
                   "evaluated_on": target_date.isoformat()}
         if entities["revision"] is None:
             entities["revision"] = str(selected["version"])
             result.resolutions.append(dict(source="published_bom_context", field="revision", value=entities["revision"], provenance=source))
-        if entities["effective_date"] is None:
+        if entities["effective_date"] is None or user_date is not None:
             entities["effective_date"] = target_date.isoformat()
             result.resolutions.append(dict(source="published_bom_context", field="effective_date", value=entities["effective_date"],
                                            provenance={**source, "date_basis": result.provenance["date_basis"]}))
@@ -222,15 +270,25 @@ class ContextResolver:
         if set(result.plan.required_tools) & {"production_analysis", "purchase_plan"} and entities["as_of"] is None:
             result.status = "data_unavailable"
             result.message = "当前没有已发布库存快照，无法确定库存分析时点；不会使用默认日期估算。"
+            # Preserve the valid BOM selection and confirmed date despite inventory failure.
+            # A business snapshot DATE never becomes an as_of timestamp.
+            result.candidates = []
+            result.plan.entities = TaskEntities.model_validate(entities)
             return result
         result.plan.entities = TaskEntities.model_validate(entities)
         return result
 
     @staticmethod
     def remember(context: dict, plan: AgentPlan, resolution: ContextResolution) -> dict:
+        if resolution.confirmed_scope is not None:
+            scope = resolution.confirmed_scope
+            context.setdefault('confirmed_analysis_scope', {})[scope['product']] = scope['confirmation_id']
         if plan.intent in {"bom", "production_capacity", "purchase_planning"} and plan.entities.material_code:
             domain = "fact" if plan.intent == "bom" else "production"
             fields = {row["field"]: row["value"] for row in resolution.resolutions}
+            if resolution.provenance.get('date_basis', {}).get('source') == 'user_business_date':
+                # User-specified analysis dates are session inputs, not auto defaults to clear.
+                fields.pop('effective_date', None)
             context.setdefault("resolved_business_context", {})[domain] = {
                 "material_code": context.get(domain, {}).get("material_code"),
                 "fields": fields, "evidence": copy.deepcopy(resolution.resolutions)}

@@ -244,7 +244,7 @@ def test_010_upgrade_preserves_dated_facts_and_fk_with_default_full_scope(tmp_pa
         connection.execute("INSERT INTO source_files(id,import_batch_id,original_filename,content_sha256,byte_size,source_uri) VALUES('s','b','source.xls',?,10,'project://source.xls')", ("a"*64,))
         connection.execute("INSERT INTO bom_headers VALUES('h','OLD','V01','2025-03-18','b','s','BOM',NULL)")
         before = connection.execute("SELECT * FROM bom_headers").fetchall()
-    assert store.migrate() == ["010_structural_bom_publication"]
+    assert store.migrate() == ["010_structural_bom_publication", "011_published_bom_confirmations"]
     with store.transaction() as connection:
         assert connection.execute("SELECT * FROM bom_headers").fetchall() == before
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []

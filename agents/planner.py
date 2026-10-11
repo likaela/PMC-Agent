@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from datetime import date, datetime
 from decimal import Decimal
@@ -162,6 +163,14 @@ class AgentPlanner:
                 identified, _ = parse_enterprise_query(language.identifier_message(message), allow_llm=False)
                 local = local.model_copy(update={"material_code": identified.material_code})
                 local = local.model_copy(update={"query_type": language.intent_override(message, local.query_type)})
+                if language.confirmed_context_requested(message) and local.query_type == "clarification":
+                    local = local.model_copy(update={"query_type": "production_capacity"})
+                # Read current published BOM metadata for explicit unit/effective-date
+                # follow-ups; don't revive an old missing-field warning as a fact.
+                if (local.query_type == "clarification" and
+                        context.get("active_domain") == "fact" and context.get("fact", {}).get("query_type") == "bom" and
+                        re.search(r"单位是什么|什么单位|什么时候生效|何时生效", message)):
+                    local = local.model_copy(update={"query_type": "bom"})
             action = language.operation(message) if self.enterprise_mode else "query"
             # A subject-less reason follow-up uses the active domain, not an inactive task.
             if (action == "explain" and local.query_type == "clarification") or (

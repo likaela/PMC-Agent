@@ -323,8 +323,11 @@ class FactQueryService:
         if header["effective_from"] is None:
             warnings.append("effective_date_missing：BOM生效日期未知，仅可查询结构，不能确认当前有效或用于生产计算")
         parent_unit = header.get("parent_unit", item.get("unit"))
-        if not units_complete or parent_unit is None:
+        confirmation_provenance = self.repository.bom_confirmation_provenance(str(header["id"]))
+        if not units_complete:
             warnings.append("unit_missing：BOM数量关系已发布，但计量单位尚未由业务方确认，因此当前BOM仅可用于结构查询，不能用于确定性数量计算")
+        if parent_unit is None:
+            warnings.append("parent_unit_missing：成品计量单位尚未确认，不能进行确定性生产数量计算")
         return {
             "status": "ok",
             "query": {
@@ -354,6 +357,7 @@ class FactQueryService:
                 "source_file": str(header["original_filename"]),
                 "content_sha256": str(header["content_sha256"]),
                 "sheet_name": str(header["source_sheet"]),
+                **({"business_confirmations": confirmation_provenance} if confirmation_provenance else {}),
             },
             "warnings": warnings,
         }

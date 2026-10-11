@@ -279,6 +279,7 @@ class PostgreSQLFactStoreIntegrationTests(unittest.TestCase):
                 "008_bom_import_context",
                 "009_incomplete_bom_units",
                 "010_structural_bom_publication",
+                "011_published_bom_confirmations",
             ],
         )
 

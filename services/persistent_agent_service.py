@@ -53,7 +53,9 @@ quantity 是原文的生产数量，可把中文整数规范化，不能计算�
 
 def parse_enterprise_query(message: str, *, allow_llm: bool = True) -> tuple[EnterpriseQueryIntent, str]:
     """规则优先；LLM 只可辅助分类，所有标识和数值均由原文核验。"""
-    if re.search(r"(?:-\s*\d+|\d+\.\d+)\s*(?:台|件|个|套)", message):
+    from agents.business_language import normalize_business_dates
+    message = normalize_business_dates(message)
+    if re.search(r"(?:-\s*\d+|\d+\.\d+)\s*(?:台|件|个|套|片)", message):
         raise ValueError("生产数量必须是正整数")
     fact = _rule_intent(message)
     if _PURCHASE.search(message):
@@ -66,7 +68,7 @@ def parse_enterprise_query(message: str, *, allow_llm: bool = True) -> tuple[Ent
         kind = "clarification"
     version, time, effective, start = (_REVISION.search(message), _TIMESTAMP.search(message),
                                       _EFFECTIVE.search(message), _START.search(message))
-    code_message = re.sub(r"(?:\d+(?:\.\d+)?|[零〇一二三四五六七八九十百千万两]+)\s*(?:台|套|件|个|只|PCS)", "", message, flags=re.IGNORECASE)
+    code_message = re.sub(r"(?:\d+(?:\.\d+)?|[零〇一二三四五六七八九十百千万两]+)\s*(?:台|套|件|个|只|片|PCS)", "", message, flags=re.IGNORECASE)
     fields = dict(query_type=kind, material_code=_explicit_material_code(code_message),
                   revision=version.group() if version else None,
                   as_of=time.group() if time else None,
