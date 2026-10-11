@@ -6,7 +6,7 @@ import { useAgent } from "./composables/useAgent";
 import type { DataMode, ScenarioId } from "./data/model";
 import { trialMode } from "./services/trialMode";
 const route = useRoute();
-const { mode, scenario, pending, setMode, setScenario } = useAgent();
+const { mode, scenario, pending, setMode, chooseDataSpace, productCatalog, selectedProduct, productMode, chooseProduct } = useAgent();
 const menuOpen = ref(false);
 const help = ref<HTMLDialogElement>();
 function focusMain() {
@@ -90,6 +90,18 @@ watch(
           }}</span>
         </div>
         <div class="mode-switch">
+          <template v-if="!trialMode && productCatalog.length">
+            <label for="local-review-product">产品</label>
+            <select id="local-review-product" :disabled="pending" :value="selectedProduct ?? ''" @change="chooseProduct(($event.target as HTMLSelectElement).value)">
+              <option value="" disabled>选择产品</option>
+              <option v-for="p in productCatalog" :key="p.product_code" :value="p.product_code">{{p.product_code}}{{p.synthetic ? '（演示产品）' : ''}}</option>
+            </select>
+            <template v-if="selectedProduct"><label for="local-review-scope">分析范围</label>
+              <select id="local-review-scope" :disabled="pending" :value="productMode" @change="chooseProduct(selectedProduct!, ($event.target as HTMLSelectElement).value)">
+                <option v-for="s in productCatalog.find(p => p.product_code === selectedProduct)?.modes" :key="s.mode" :value="s.mode">{{s.label}} · {{s.line_count}}项</option>
+              </select>
+            </template>
+          </template>
           <span class="mode-dot" :class="{ live: mode === 'live' }"></span
           ><label for="data-mode">数据模式</label
           ><select
@@ -108,7 +120,7 @@ watch(
             :value="scenario ?? ''"
             :disabled="pending"
             @change="
-              setScenario(
+              chooseDataSpace(
                 (($event.target as HTMLSelectElement).value || undefined) as
                   ScenarioId | undefined,
               )

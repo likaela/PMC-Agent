@@ -57,6 +57,45 @@ let sequence = 0;
 let messageId = 0;
 let initialized = false;
 const client = createAgentClient();
+interface ProductScope { mode: string; label: string; scenario_id: ScenarioId | null; line_count: number; dataset_version: string | null }
+interface ReviewerProduct { product_code: string; synthetic: boolean; default_mode: string; modes: ProductScope[] }
+const productCatalog = ref<ReviewerProduct[]>([]), selectedProduct = ref<string | null>(null), productMode = ref("full");
+let catalogPromise: Promise<void> | undefined;
+async function loadCatalog() {
+  try {
+    const base = configuredBaseUrl() === "/" ? "" : configuredBaseUrl();
+    const response = await fetch(base + "/api/v1/agent/catalog");
+    if (!response.ok) return;
+    const data = await response.json();
+    if (Array.isArray(data.products)) productCatalog.value = data.products;
+    const pointer = isReload ? JSON.parse(storage()?.getItem("pmc-local-review-product") ?? "null") : null;
+    const p = productCatalog.value.find(p => p.product_code === pointer?.product_code);
+    const m = p?.modes.find(m => m.mode === pointer?.mode && m.dataset_version === pointer?.dataset_version);
+    if (p && m) { selectedProduct.value = p.product_code; productMode.value = m.mode; scenario.value = m.scenario_id; }
+  } catch { /* The ordinary enterprise API remains available; never fabricate a catalog. */ }
+}
+async function chooseProduct(code: string, requestedMode?: string) {
+  const p = productCatalog.value.find(p => p.product_code === code);
+  const m = p?.modes.find(m => m.mode === (requestedMode ?? p.default_mode));
+  if (!p || !m || pending.value) return;
+  if (code !== selectedProduct.value && m.scenario_id === scenario.value) reset(true);
+  selectedProduct.value = code; productMode.value = m.mode;
+  setScenario(m.scenario_id ?? undefined, false, true);
+  storage()?.setItem("pmc-local-review-product", JSON.stringify({product_code: code, mode: m.mode, dataset_version: m.dataset_version}));
+  await restoreSession();
+}
+async function chooseDataSpace(value: ScenarioId | undefined) {
+  if (pending.value) return;
+  // Manual space changes must update or clear the product binding as well.
+  const entries = productCatalog.value.flatMap(p => p.modes.map(m => ({p, m})));
+  const scope = entries.find(({p, m}) => p.product_code === selectedProduct.value && m.scenario_id === (value ?? null))
+    ?? entries.find(({m}) => m.scenario_id === (value ?? null));
+  if (scope) return chooseProduct(scope.p.product_code, scope.m.mode);
+  reset(true);
+  selectedProduct.value = null; productMode.value = "full";
+  storage()?.removeItem("pmc-local-review-product");
+  setScenario(value, true, true);
+}
 const selected = computed(() =>
   messages.value.find((m) => m.id === selectedId.value),
 );
@@ -74,7 +113,8 @@ function storage() {
   }
 }
 function key() {
-  return sessionKey(configuredBaseUrl(), scenario.value);
+  const scope = productCatalog.value.find(p => p.product_code === selectedProduct.value)?.modes.find(m => m.mode === productMode.value);
+  return sessionKey(configuredBaseUrl(), scenario.value) + (scope ? ":" + selectedProduct.value + ":" + productMode.value + ":" + (scope.dataset_version ?? "published") : "");
 }
 function remember() {
   const s = storage();
@@ -110,9 +150,10 @@ function cancel() {
   pending.value = false;
   notice.value = "已停止等待；服务端可能仍在分析，请先恢复会话确认结果。";
 }
-function reset() {
+function reset(preservePointer = false) {
   cancel();
-  forget();
+  if (preservePointer) sessionId.value = null;
+  else forget();
   messages.value = [];
   selectedId.value = null;
   draft.value = "";
@@ -122,6 +163,8 @@ function startEnterpriseAnalysis() {
   reset();
   mode.value = "live";
   scenario.value = trialMode ? trialScenario : null;
+  selectedProduct.value = null; productMode.value = "full";
+  storage()?.removeItem("pmc-local-review-product");
   // Start blank, not by restoring an earlier enterprise or Demo conversation.
   // Only browser pointers are cleared; backend history and facts are untouched.
   forget();
@@ -131,16 +174,16 @@ function setMode(value: DataMode) {
   // Compatibility setter: there is no local response mode in the application.
   if (value === "live") mode.value = "live";
 }
-function setScenario(value: ScenarioId | undefined) {
+function setScenario(value: ScenarioId | undefined, restore = true, preservePointer = false) {
   if (trialMode) value = trialScenario;
   if (scenario.value === (value ?? null)) return;
-  reset();
+  reset(preservePointer);
   scenario.value = value ?? null;
   rememberPreference();
   notice.value = value
     ? value === "kq_z112_review_slim" ? "已切换精简评审子集：按至少满足1片动态筛选，标识已脱敏，不代表完整企业BOM。" : value === "kq_z112_review_slim_synthetic" ? "已切换精简评审推演：含合成补充库存，不代表真实企业生产能力。" : value === "review_real_bom_simulation" ? "已切换评审推演：真实BOM与合成补充库存，不能作为真实库存结论。" : "已切换到独立合成 Demo，不会修改企业事实。"
     : "已切换到企业事实查询。";
-  void restoreSession();
+  if (restore) void restoreSession();
 }
 async function restoreSession(): Promise<BackendTurn[] | null> {
   if (pending.value) return null;
@@ -223,6 +266,18 @@ async function restoreSession(): Promise<BackendTurn[] | null> {
 async function send(candidate: unknown = draft.value) {
   const text = typeof candidate === "string" ? candidate.trim() : "";
   if (!text || pending.value) return;
+  if (!trialMode) {
+    await catalogPromise;
+    if (pending.value) return;
+    const explicit = productCatalog.value.find(p => text.includes(p.product_code));
+    const target = explicit ?? productCatalog.value.find(p => p.product_code === selectedProduct.value);
+    const requested = /完整|全部66项|使用完整企业/.test(text) && !/目录|已发布/.test(text) ? "full" : /精简|标准分析/.test(text) ? "slim" : undefined;
+    if (target && (target.product_code !== selectedProduct.value || (requested && requested !== productMode.value))) {
+      await chooseProduct(target.product_code, requested);
+      // A newly selected scope gets a separate session; do not race history restoration.
+      if (pending.value) return;
+    }
+  }
   const token = ++sequence;
   const abort = new AbortController();
   controller.value = abort;
@@ -254,9 +309,12 @@ async function send(candidate: unknown = draft.value) {
       sessionId.value = session.session_id;
       remember();
     }
+    const product = productCatalog.value.find(p => p.product_code === selectedProduct.value);
+    const wireText = product && productMode.value === "full" && !product.synthetic && !text.includes(product.product_code) && !messages.value.some(m => m.state === "done") && !/目录|有哪些产品|已发布.*BOM/.test(text)
+      ? text + "，产品" + product.product_code : text;
     const response = await client.queryAgent(
       {
-        message: text,
+        message: wireText,
         session_id: sessionId.value,
         scenario_id: scenario.value ?? undefined,
         persist_session: true,
@@ -318,7 +376,8 @@ async function retry() {
 export function useAgent() {
   if (!initialized) {
     initialized = true;
-    if (isReload) void restoreSession();
+    if (!trialMode) catalogPromise = loadCatalog();
+    if (isReload) void (catalogPromise ?? Promise.resolve()).then(() => restoreSession());
   }
   return {
     mode,
@@ -340,5 +399,6 @@ export function useAgent() {
     setScenario,
     restoreSession,
     select,
+    productCatalog, selectedProduct, productMode, chooseProduct, chooseDataSpace,
   };
 }

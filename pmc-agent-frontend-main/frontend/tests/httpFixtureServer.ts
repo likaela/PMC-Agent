@@ -24,6 +24,9 @@ export async function httpFixtureServer(
   await page.route("http://127.0.0.1:8000/api/v1/agent/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    // This legacy transport harness predates the optional review selector.
+    // Do not treat directory discovery as a conversation-history read.
+    if (path.endsWith("/catalog")) { await route.fulfill({status: 404, json: {}}); return; }
     const body = request.method() === "POST" ? request.postDataJSON() : {};
     requests.push({ url: request.url(), method: request.method(), body });
     if (path.endsWith("/sessions") && request.method() === "POST") {

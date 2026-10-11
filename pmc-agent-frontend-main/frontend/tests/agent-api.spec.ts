@@ -14,6 +14,13 @@ import type {
 } from "../src/data/model";
 import { preferenceKey, sessionKey } from "../src/services/sessionStorage";
 
+// Legacy transport cases have no product catalog. Keep unmocked UI-only cases
+// independent of a developer's live enterprise backend on port 8000.
+test.beforeEach(async ({ page }) => {
+  await page.route("http://127.0.0.1:8000/api/v1/agent/catalog", route =>
+    route.fulfill({ status: 404, json: {} }));
+});
+
 async function online(page: Page, demo = false) {
   await page.goto("/#/workspace");
   await page.getByLabel("数据模式").selectOption("live");
@@ -39,6 +46,7 @@ async function server(
   await page.route("http://127.0.0.1:8000/api/v1/agent/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    if (path.endsWith("/catalog")) { await route.fulfill({status: 404, json: {}}); return; }
     if (path.endsWith("/sessions") && request.method() === "POST") {
       creates++;
       activeScenario = request.postDataJSON()?.scenario_id;
