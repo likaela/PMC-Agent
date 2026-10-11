@@ -1,0 +1,12 @@
+# Copy privately; never commit passwords, hashes, grants or source bindings.
+$env:PMC_REVIEW_PROXY_SECRET = 'REPLACE_WITH_PRIVATE_RANDOM_SECRET_AT_LEAST_32_CHARACTERS'
+$env:PMC_REVIEW_USER_A = 'reviewer-a'
+$env:PMC_REVIEW_USER_B = 'reviewer-b'
+$env:PMC_REVIEW_USER_C = 'demo-only'
+$env:PMC_REVIEW_HASH_A = 'REPLACE_WITH_CADDY_PASSWORD_HASH'
+$env:PMC_REVIEW_HASH_B = 'REPLACE_WITH_DIFFERENT_CADDY_PASSWORD_HASH'
+$env:PMC_REVIEW_HASH_C = 'REPLACE_WITH_DEMO_ONLY_PASSWORD_HASH'
+$env:PMC_REVIEW_SETTINGS = Join-Path $PSScriptRoot 'data.local.json'
+$env:PMC_REVIEW_WEB_ROOT = Join-Path $PSScriptRoot '../../.runtime/remote-review-web'
+$env:XDG_CONFIG_HOME = Join-Path $PSScriptRoot '../../.runtime/review-caddy-config'
+$env:XDG_DATA_HOME = Join-Path $PSScriptRoot '../../.runtime/review-caddy-data'

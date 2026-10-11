@@ -20,6 +20,8 @@
     "playwright.config.ts",
     "tests/**/*.ts",
     "trial/**/*.ts",
-    "trial/**/*.vue"
+    "trial/**/*.vue",
+    "review/**/*.ts",
+    "review/**/*.vue"
   ]
 }

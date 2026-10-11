@@ -34,21 +34,25 @@ function trialBoundary(entry = "trial"): Plugin {
 }
 export default defineConfig(({ mode }) => {
   const trialOut = process.env.PMC_TRIAL_BUILD_OUT;
-  if (trialOut) {
+  const reviewOut = process.env.PMC_REVIEW_BUILD_OUT;
+  if (trialOut && reviewOut) throw new Error("Choose one isolated build");
+  if (trialOut || reviewOut) {
+    const entry = reviewOut ? "review" : "trial";
+    const output = reviewOut ?? trialOut!;
     const runtimeRoot = resolve(frontendRoot, "../../.runtime") + "/";
-    if (!resolve(trialOut).replaceAll("\\", "/").startsWith(runtimeRoot.replaceAll("\\", "/")))
+    if (!resolve(output).replaceAll("\\", "/").startsWith(runtimeRoot.replaceAll("\\", "/")))
       throw new Error("Trial output must be a dedicated runtime directory");
     return {
-      root: resolve(frontendRoot, "trial"),
+      root: resolve(frontendRoot, entry),
       publicDir: false,
       envDir: false,
-      plugins: [vue(), trialBoundary()],
+      plugins: [vue(), trialBoundary(entry)],
       resolve: { alias: [
-        { find: "../composables/useAgent", replacement: resolve(frontendRoot, "trial/useTrialAgent.ts") },
-        { find: "./scenarioPolicy", replacement: resolve(frontendRoot, "trial/scenarioPolicy.ts") },
+        { find: "../composables/useAgent", replacement: resolve(frontendRoot, entry, reviewOut ? "useReviewAgent.ts" : "useTrialAgent.ts") },
+        { find: "./scenarioPolicy", replacement: resolve(frontendRoot, entry, "scenarioPolicy.ts") },
       ] },
       define: { "import.meta.env.VITE_API_BASE_URL": JSON.stringify("/") },
-      build: { outDir: resolve(trialOut), emptyOutDir: false, sourcemap: false },
+      build: { outDir: resolve(output), emptyOutDir: false, sourcemap: false },
     };
   }
   if (process.env.VITE_TRIAL_MODE === "true") throw new Error("Use the dedicated trial build script");

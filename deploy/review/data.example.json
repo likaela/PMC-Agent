@@ -1,0 +1,12 @@
+{
+  "facts_path": "data/facts/pmc_facts.db",
+  "inventory_path": "REPLACE_WITH_AUTHORIZED_LOCAL_INVENTORY_PATH",
+  "units_path": "data/facts/confirmations/inventory_units.json",
+  "quantity_path": "data/facts/confirmations/inventory_quantity_use.json",
+  "slim_dataset_path": "REPLACE_WITH_APPROVED_VERSIONED_REAL_FILTERED_DATASET",
+  "users": {
+    "reviewer-a": ["KQ-Z112", "KQ-BHX3588M", "DEMO-PMC-01"],
+    "reviewer-b": ["KQ-Z112", "KQ-BHX3588M", "DEMO-PMC-01"],
+    "demo-only": ["DEMO-PMC-01"]
+  }
+}
