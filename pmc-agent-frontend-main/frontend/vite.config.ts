@@ -4,8 +4,8 @@ import { resolve } from "node:path";
 import type { Plugin } from "vite";
 
 const frontendRoot = process.cwd();
-const safeComponents = new Set(["Icon", "StatusBadge", "MessageList", "QueryComposer", "ResultPanel", "MaterialTable", "SourceDetails"]);
-function trialBoundary(): Plugin {
+const safeComponents = new Set(["Icon", "StatusBadge", "MessageList", "QueryComposer", "ResultPanel", "MaterialTable", "SourceDetails", "SmartQueries"]);
+function trialBoundary(entry = "trial"): Plugin {
   return {
     name: "synthetic-trial-module-boundary",
     generateBundle(_, bundle) {

@@ -458,6 +458,8 @@ test("URL 场景参数不能自动注入 Demo，必须主动选择", async ({ pa
     result: null,
   });
   await page.getByLabel("数据空间").selectOption(scenarioId);
+  await expect(page.locator(".quick-questions")).toHaveCount(0);
+  await page.getByRole("button", {name:"展开推荐问题"}).click();
   await expect(page.locator(".quick-questions")).toContainText("50 台齐套分析");
 });
 

@@ -280,11 +280,12 @@ select {
   min-width: 0;
 }
 .topbar {
-  height: 73px;
+  min-height: 73px;
+  flex-wrap: wrap;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 28px;
+  padding: 12px 28px;
   border-bottom: 1px solid var(--border);
   background: #ffffffb3;
   gap: 14px;
@@ -301,6 +302,9 @@ select {
 }
 .mode-switch {
   display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
   align-items: center;
   gap: 8px;
   font-size: 11px;
@@ -2160,8 +2164,8 @@ tbody tr:hover {
     z-index: 25;
   }
   .topbar {
-    height: 47px;
-    padding: 0 17px;
+    min-height: 47px;
+    padding: 8px 17px;
   }
   .breadcrumb {
     font-size: 10px;

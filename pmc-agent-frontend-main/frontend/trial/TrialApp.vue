@@ -6,8 +6,14 @@ import QueryComposer from "../src/components/QueryComposer.vue";
 import ResultPanel from "../src/components/ResultPanel.vue";
 import MaterialTable from "../src/components/MaterialTable.vue";
 import SourceDetails from "../src/components/SourceDetails.vue";
-const { result, pending, notice, send, reset, restoreSession } = useAgent();
+import SmartQueries from "../src/components/SmartQueries.vue";
+const { result, pending, notice, send, reset, restoreSession, sessionId, selectedId } = useAgent();
 const sources = ref<InstanceType<typeof SourceDetails>>();
+const questions = [
+  ...[50,100].map(n => ({label:`${n}台分析`, prompt:`生产${n}台DEMO-PMC-01`})),
+  {label:"最大生产数量", prompt:"最多能生产多少台？"},
+  {label:"采购建议", prompt:"帮我生成采购建议"},
+];
 </script>
 <template>
   <div class="trial-shell">
@@ -24,11 +30,7 @@ const sources = ref<InstanceType<typeof SourceDetails>>();
     <main class="trial-workspace">
       <section class="card chat-card">
         <div class="card-heading"><h2>自然语言生产分析</h2><span>后端确定性计算</span></div>
-        <div class="quick-questions">
-          <button v-for="quantity in [50, 100]" :key="quantity" :disabled="pending" @click="send(`生产${quantity}台DEMO-PMC-01`)">{{ quantity }}台分析</button>
-          <button :disabled="pending" @click="send('最多能生产多少台？')">最大生产数量</button>
-          <button :disabled="pending" @click="send('帮我生成采购建议')">采购建议</button>
-        </div>
+        <SmartQueries :questions="questions" :pending="pending" :context-key="`${sessionId ?? ''}:${selectedId ?? ''}`" @choose="send"/>
         <p v-if="notice" class="mode-banner" aria-live="polite">{{ notice }}</p>
         <MessageList /><QueryComposer />
       </section>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from "vue";
+import { computed, ref, watch, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import Icon from "../components/Icon.vue";
 import SummaryCards from "../components/SummaryCards.vue";
@@ -8,6 +8,7 @@ import MessageList from "../components/MessageList.vue";
 import ResultPanel from "../components/ResultPanel.vue";
 import MaterialTable from "../components/MaterialTable.vue";
 import SourceDetails from "../components/SourceDetails.vue";
+import SmartQueries from "../components/SmartQueries.vue";
 import { demoScenarios, DEMO_SCENARIO_ID } from "../data/demoScenarios";
 import { useAgent } from "../composables/useAgent";
 const route = useRoute();
@@ -22,7 +23,19 @@ const {
   startEnterpriseAnalysis,
   send,
   restoreSession,
+  selectedProduct,
+  sessionId,
+  selectedId,
 } = useAgent();
+const questions = computed(() => scenario.value === DEMO_SCENARIO_ID
+  ? demoScenarios.map(s => ({label:s.label, prompt:s.prompt}))
+  : [
+    {label:"查看BOM", prompt:selectedProduct.value ? `查询${selectedProduct.value}的BOM` : "有哪些已发布产品？"},
+    {label:"查看库存", prompt:"看看库存。"},
+    {label:"计算最大数量", prompt:"最多可以生产多少片？"},
+    {label:"生产最大数量", prompt:"生产最大数量可以吗？"},
+    {label:"限制物料", prompt:"哪些物料限制产量？"},
+  ]);
 const sources = ref<InstanceType<typeof SourceDetails>>();
 watch(
   () => route.query.scenario,
@@ -62,7 +75,7 @@ async function focusResult() {
         <div class="eyebrow">ANALYSIS WORKSPACE</div>
         <h1>分析工作台<span class="heading-dot"></span></h1>
         <p>
-          查询已发布产品、BOM和主库存记录；输入产品编码与生产数量，计算BOM需求量。
+          输入产品编码与生产数量，查询BOM、核对库存记录，查看需求、结果与来源。
         </p>
       </div>
       <button
@@ -84,32 +97,10 @@ async function focusResult() {
     <div class="analysis-grid">
       <section class="card chat-panel" aria-labelledby="chat-title">
         <div class="card-heading">
-          <h2 id="chat-title"><Icon name="chat" :size="19" />智能查询</h2>
+          <h2 id="chat-title"><Icon name="chat" :size="19" />PMC助手</h2>
           <span class="assistant-status"><span></span>PMC-Agent</span>
         </div>
-        <div v-if="scenario === 'kq_z112_review_slim' || scenario === 'kq_z112_review_slim_synthetic'" class="quick-questions">
-          <button class="quick-question" @click="send('查看KQ-Z112精简评审场景。')">查看精简物料</button>
-          <button class="quick-question" @click="send('最多可以生产多少片？')">计算最大数量</button>
-          <button class="quick-question" @click="send('生产最大数量可以吗？')">生产最大数量</button>
-          <button class="quick-question" @click="send('再多生产1片呢？')">再多生产1片</button>
-        </div>
-        <div v-else-if="scenario === 'review_real_bom_simulation'" class="quick-questions">
-          <span>评审推演 · 合成补充库存，不修改企业数据</span>
-          <button v-for="quantity in [50, 100]" :key="quantity" :disabled="pending" @click="send(`生产${quantity}片可以吗`)">
-            {{ quantity }}片数量核对<Icon name="arrow" :size="15" />
-          </button>
-        </div>
-        <div v-else-if="mode === 'live' && scenario" class="quick-questions">
-          <span>独立合成 Demo</span>
-          <button
-            v-for="demo in demoScenarios"
-            :key="demo.id"
-            :disabled="pending"
-            @click="send(demo.prompt)"
-          >
-            {{ demo.label }}<Icon name="arrow" :size="15" />
-          </button>
-        </div>
+        <SmartQueries :questions="questions" :pending="pending" :context-key="`${scenario ?? ''}:${sessionId ?? ''}:${selectedId ?? ''}`" @choose="send"/>
         <MessageList />
         <QueryComposer /><button
           v-if="result"
