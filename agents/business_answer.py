@@ -28,6 +28,12 @@ def human_warning(value: str) -> str:
     return value
 
 
+def visible_warnings(warnings: list[str], *, price_relevant: bool) -> list[str]:
+    """User-facing relevance only; the original Evidence remains unmodified."""
+    return [value for value in warnings if price_relevant or not (
+        value.startswith("price_missing") or value.startswith("部分物料价格尚未确认"))]
+
+
 def material_categories(data: dict) -> list[str]:
     # Labels must occur literally in published names, not be inferred from codes.
     names = [str((line.get("child_item") or {}).get("name") or "")
@@ -57,8 +63,6 @@ def bom_overview(data: dict, completeness: dict) -> str:
         text += "成品计量单位尚未确认；子料单位不代表成品或库存单位，暂不能据此放行生产。"
     elif completeness.get("parent_unit") is True and data.get("parent_item", {}).get("unit"):
         text += "成品计量单位已确认：" + data["parent_item"]["unit"] + "。"
-    if completeness.get("price") is False:
-        text += "部分物料价格尚未确认，暂不能进行完整成本计算。"
     return text
 
 
@@ -113,7 +117,7 @@ def incomplete_production(result: dict) -> str:
         text += (f"企业业务发布日期为 {dates['business_publication_date']}；库存快照业务日期为 "
                  f"{dates['business_snapshot_date']}（{dates['business_timezone']}），尚未确认具体时刻，未作为正式库存快照。")
         reminders.extend(["权威可用库存、库存计量单位一致性及库存覆盖尚未确认", "需要核验快照至生产分析日期之间的库存变动与有效性"])
-    reasons = list(dict.fromkeys([*reminders, *(human_warning(w) for w in result.get("warnings", []))]))
+    reasons = list(dict.fromkeys([*reminders, *(human_warning(w) for w in visible_warnings(result.get("warnings", []), price_relevant=False))]))
     if reasons:
         text += "目前需要确认的关键业务信息：" + "；".join(reasons) + "。"
     text += "这并不代表已经确认库存不足，而是当前证据不足，暂时无法安全放行生产计划。请补齐相应已确认业务条件后，再核验齐套、缺料物料和缺口数量。"

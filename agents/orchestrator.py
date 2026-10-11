@@ -50,14 +50,37 @@ class AgentOrchestrator:
             raise ValueError("Conversation and tool data scope differ")
         if self.context_resolver is not None:
             context = self.context_resolver.prepare_context(context)
+        failure = original_context.get('last_query_failure') if self.registry.scope == 'enterprise' else None
+        if failure and language.refresh_requested(message):
+            # An implicit retry targets the failed request, not an older successful product.
+            from services.persistent_agent_service import parse_enterprise_query
+            try:
+                explicit, _ = parse_enterprise_query(language.identifier_message(message), allow_llm=False)
+            except ValueError:
+                explicit = None  # Existing Planner validation handles malformed retries.
+            if explicit is not None and explicit.material_code is None:
+                domain = 'production' if failure['intent'] in {'production_capacity', 'purchase_planning'} else 'fact'
+                context[domain] = {'query_type': failure['intent'], **failure['entities']}
+                context['active_domain'] = domain
         plan, parser_source = self.planner.plan(message, context)
         # Revalidate at the execution boundary, including injected/custom planners.
         plan = AgentPlan.model_validate(plan.model_dump())
         if self.registry.scope == "enterprise":
+            if plan.operation == "conversation":
+                turn = self._information(plan, original_context, "ok",
+                    "您好，我是制造企业的PMC助手。可以帮您查看已发布产品BOM、库存与批次，分析生产齐套和采购需求，解释库存风险，并依据已有采购证据起草邮件。"
+                    "您可以说“有哪些产品”，或告诉我产品编码和生产数量。没有权威数据时我会说明限制，不猜测库存或开工结论。")
+                turn.response["warnings"] = []
+                return turn
             if plan.operation == "external_risk":
                 return self._information(plan, original_context, "data_unavailable",
                     "当前支持内部库存风险、生产缺料风险、临期与呆滞分析。由于没有权威外部数据源，外部供应链风险和政策影响暂无法判断。")
             if plan.operation in {"explain", "email_draft"} and not language.refresh_requested(message):
+                if failure and (not plan.entities.material_code or plan.entities.material_code not in message
+                                or plan.entities.material_code == failure['entities'].get('material_code')):
+                    code = failure['entities'].get('material_code') or '该对象'
+                    return self._information(plan, original_context, 'query_failed',
+                        f'上一条对 {code} 的查询未成功，当前没有该次分析结果；不会用其他产品的历史证据替代。请重试该查询。')
                 try:
                     reused = self._reuse(plan, original_context, history_loader, message)
                 except Exception:
@@ -65,6 +88,8 @@ class AgentOrchestrator:
                     return self._information(plan, original_context, "query_failed",
                         "当前会话证据暂不可用，请稍后重试；未重新计算或生成推断事实。")
                 if reused is not None:
+                    if plan.entities.material_code and plan.entities.material_code in message:
+                        reused.context.pop('last_query_failure', None)
                     return reused
                 if plan.operation == "email_draft":
                     return self._information(plan, original_context, "needs_input", "当前没有匹配当前任务的采购证据，请先完成采购分析，再生成邮件草稿。")
@@ -88,14 +113,46 @@ class AgentOrchestrator:
         if plan.operation == "product_search":
             # Catalog browsing does not invalidate the last task's resolved evidence context.
             context = original_context
+        if (self.context_resolver is not None and plan.intent == 'production_capacity' and plan.operation == 'query'
+                and plan.entities.quantity is None and re.search(r'生产|开工|安排|做', message)
+                and not re.search(r'多少|最多|最大|产能|生产能力', message)):
+            guidance = self._quantity_guidance(plan, context, message)
+            if guidance is not None:
+                return guidance
         resolution, context_references = None, []
         if self.context_resolver is not None:
             resolution = self.context_resolver.resolve(plan, message, context)
             plan = resolution.plan
             reference = resolution.reference()
             context_references = [reference] if reference is not None else []
+            if (plan.intent == "purchase_planning" and language.price_requested(message)
+                    and (resolution.status != "ok" or AgentPlanner._missing(plan))):
+                # Cost refusal is grounded in published completeness, not a new
+                # calculation or a fabricated quantity/start date. Complete
+                # procurement requests must reach the existing purchase tool:
+                # authoritative purchase prices may be independent of BOM prices.
+                try:
+                    structure = self.context_resolver.repository.structure_evidence(
+                        plan.entities.material_code, plan.entities.revision)
+                except Exception:
+                    logger.exception("读取成本完整性证据失败")
+                    structure = None
+                if structure and structure["completeness"].get("price") is False:
+                    collector = EvidenceCollector()
+                    record = collector.collect("published_bom_context", plan.entities.model_dump(),
+                        dict(status="data_unavailable", query=plan.entities.model_dump(),
+                            data={"bom_structure": structure}, completeness={"cost": False},
+                            provenance=structure["provenance"], warnings=["price_missing：目前缺少可靠的价格数据，暂时无法计算完整成本"]))
+                    answer, source = self.response_generator.generate([record], ["purchase_planning"])
+                    response = dict(intent=plan.intent, status="data_unavailable", answer=answer,
+                        structured_data=dict(query_type=plan.intent, query=plan.entities.model_dump(), data=None,
+                            completeness={"cost": False}, response_source=source, completed_steps=[]),
+                        provenance=structure["provenance"], warnings=list(record.warnings))
+                    return OrchestratedTurn(response, self._context(context, plan, None), context_references + [record.reference()])
             if resolution.status != "ok":
-                response = dict(intent=plan.intent, status=resolution.status, answer=resolution.message,
+                guidance = ("" if resolution.candidates else
+                    " 您可以先查看已发布产品目录；若编码无误，请确认并发布对应BOM及有效期，或补充明确的业务日期后继续。")
+                response = dict(intent=plan.intent, status=resolution.status, answer=resolution.message + guidance,
                     structured_data=dict(query_type=plan.intent, query=plan.entities.model_dump(), data=None,
                         completeness={"bom_context": False}, parser_source=parser_source,
                         context_resolution={"status": resolution.status, "candidates": resolution.candidates,
@@ -136,9 +193,20 @@ class AgentOrchestrator:
                 saved = self.context_resolver.remember(saved, plan, resolution)
                 return OrchestratedTurn(response, saved, context_references)
         plan.missing_parameters = AgentPlanner._missing(plan) if plan.intent != "clarification" else (plan.missing_parameters or ["intent"])
+        # A quantity-free capacity question is valid; a requested production task needs quantity.
+        if (self.registry.scope == "enterprise" and plan.intent == "production_capacity" and plan.operation == "query"
+                and plan.entities.quantity is None and re.search(r"生产|开工|安排|做", message)
+                and not re.search(r"多少|最多|最大|产能|生产能力", message)):
+            plan.missing_parameters.append("quantity")
         if plan.missing_parameters:
             labels = [_LABELS.get(key, "必要业务参数") for key in plan.missing_parameters]
-            response = dict(intent=plan.intent, status="needs_input", answer="请补充：" + "、".join(labels) + "。未执行事实计算。",
+            understood = (f"已识别产品或物料 {plan.entities.material_code}。" if plan.entities.material_code else "")
+            if plan.entities.quantity is not None:
+                understood += f"已识别生产数量 {plan.entities.quantity}。"
+            next_step = (" 您可以说“有哪些产品”先查看目录，再提供产品编码和生产数量。" if "material_code" in plan.missing_parameters else
+                " 您可以补充“生产50台”，或询问“最多能生产多少”；我会依据已发布事实继续分析。" if "quantity" in plan.missing_parameters else
+                " 请补充这些业务条件，我会继续核验已发布事实；未确认的信息不会自行填写。")
+            response = dict(intent=plan.intent, status="needs_input", answer=understood + "请补充：" + "、".join(labels) + "。未执行事实计算。" + next_step,
                             structured_data=dict(query={"query_type": plan.intent, **plan.entities.model_dump()},
                                                  missing_fields=labels, parser_source=parser_source),
                             provenance=None, warnings=[])
@@ -189,7 +257,9 @@ class AgentOrchestrator:
         if plan.constraints:
             response["structured_data"]["requested_constraints"] = [entry.model_dump() for entry in plan.constraints]
             response["warnings"].append("用户MOQ/LT仅作为待确认请求记录，计算仍采用已发布参数，不覆盖企业事实。")
-        saved = self._context(context, plan, result)
+        saved = original_context if status == "query_failed" else self._context(context, plan, result)
+        if self.registry.scope == 'enterprise' and status == 'query_failed':
+            saved['last_query_failure'] = {'intent': plan.intent, 'entities': plan.entities.model_dump()}
         if resolution is not None:
             response["structured_data"]["context_evidence"] = resolution.resolutions
             if resolution.resolutions:
@@ -202,8 +272,55 @@ class AgentOrchestrator:
                           else f"本次采用BOM版本 {plan.entities.revision}，分析生效日期 {plan.entities.effective_date}。 ")
                 if plan.intent != "bom":
                     response["answer"] = prefix + response["answer"]
-            saved = self.context_resolver.remember(saved, plan, resolution)
+            if status != "query_failed":
+                saved = self.context_resolver.remember(saved, plan, resolution)
         return OrchestratedTurn(response, saved, context_references + [r.reference() for r in records])
+
+    def _quantity_guidance(self, plan, context, message):
+        """Ask for quantity first, using published metadata without production calculation."""
+        try:
+            structure = self.context_resolver.repository.structure_evidence(plan.entities.material_code, plan.entities.revision)
+            if structure is None:
+                return None
+            data = structure['data']
+            code = data['parent_item']['material_code']
+            fields = self.context_resolver.repository.published_business_fields(code, data['revision'])
+            resolution = self.context_resolver.resolve(plan, message, context)
+        except Exception:
+            logger.exception('读取生产任务数量引导的结构证据失败')
+            return None
+        answer = (f"已识别生产任务：{code}。请先补充生产数量。"
+            f"已找到 {data['revision']} BOM，共 {data['line_count']} 项；")
+        if data.get('effective_from'):
+            answer += f"BOM生效日期为 {data['effective_from']}。"
+        if data['parent_item'].get('unit'):
+            answer += f"成品单位已确认：{data['parent_item']['unit']}。"
+        if fields.get('business_publication_date'):
+            answer += f"企业业务发布日期为 {fields['business_publication_date']}。"
+        if fields.get('business_snapshot_date'):
+            answer += (f"已确认库存业务日期为 {fields['business_snapshot_date']}（{fields.get('business_timezone') or '时区未确认'}），"
+                "仅有日期，尚未确认具体时刻，未作为正式库存快照。")
+        plan = resolution.plan
+        if plan.entities.effective_date:
+            answer += f"本次生产分析日期为 {plan.entities.effective_date}。"
+        else:
+            answer += "请同时明确本次生产分析日期，或明确选择之前已确认的业务情境；不会把历史分析日期用于所有新计划。"
+        answer += "请按“生产50台”这样的句式填写目标数量（单位请替换为本产品已确认单位）。尚未执行生产计算，权威可用库存仍需核验。"
+        record = EvidenceCollector().collect('published_bom_context', plan.entities.model_dump(),
+            dict(status='data_unavailable', query=plan.entities.model_dump(),
+                data={'bom_structure': structure, 'business_context': resolution.provenance},
+                completeness={'production_analysis': False}, provenance=structure['provenance'],
+                warnings=['尚未提供生产数量，未执行生产计算']))
+        response = dict(intent=plan.intent, status='needs_input', answer=answer,
+            structured_data=dict(query_type=plan.intent, query=plan.entities.model_dump(), data=None,
+                missing_fields=['生产数量'], completed_steps=[], response_source='deterministic',
+                context_evidence=resolution.resolutions,
+                business_decision=business_decision(plan.intent, record.output),
+                published_bom_summary={key: data[key] for key in ('parent_item', 'revision', 'line_count', 'effective_from')}),
+            provenance=structure['provenance'], warnings=[])
+        saved = self.context_resolver.remember(self._context(context, plan, None), plan, resolution)
+        reference = resolution.reference()
+        return OrchestratedTurn(response, saved, ([reference] if reference else []) + [record.reference()])
 
     @staticmethod
     def _information(plan, context, status, answer):
@@ -284,6 +401,7 @@ class AgentOrchestrator:
     @staticmethod
     def _context(context, plan, result):
         if plan.intent != "clarification" and plan.entities.material_code:
+            context.pop('last_query_failure', None)
             domain = "production" if plan.intent in {"production_capacity", "purchase_planning"} else "fact"
             saved = {"query_type": plan.intent, **plan.entities.model_dump()}
             if result:

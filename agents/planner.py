@@ -80,7 +80,7 @@ class AgentPlan(BaseModel):
     entities: TaskEntities
     required_tools: list[ToolName] = Field(max_length=3)
     missing_parameters: list[str]
-    operation: Literal["query", "explain", "email_draft", "inventory_health", "expiry", "stagnation", "safety", "fifo", "external_risk", "product_search"] = "query"
+    operation: Literal["query", "explain", "email_draft", "inventory_health", "expiry", "stagnation", "safety", "fifo", "external_risk", "conversation", "product_search"] = "query"
     search_term: str | None = Field(default=None, max_length=256)
     constraints: list[UserConstraint] = Field(default_factory=list)
     inventory_request: InventoryRequest = Field(default_factory=InventoryRequest)
@@ -90,6 +90,10 @@ class AgentPlan(BaseModel):
         tools = self.required_tools
         if len(set(tools)) != len(tools):
             raise ValueError("Duplicate tools")
+        if self.operation == "conversation":
+            if self.intent != "clarification" or tools:
+                raise ValueError("Conversation cannot invoke business tools")
+            return self
         if self.operation == "product_search" or self.intent == "fact_query":
             if self.operation != "product_search" or self.intent != "fact_query" or tools != ["published_product_search"]:
                 raise ValueError("Product discovery requires its read-only tool")
@@ -133,7 +137,7 @@ class AgentPlanner:
 
     @staticmethod
     def _missing(plan: AgentPlan) -> list[str]:
-        if plan.operation in {"email_draft", "external_risk", "product_search"}:
+        if plan.operation in {"email_draft", "external_risk", "conversation", "product_search"}:
             return []
         if plan.intent == "clarification":
             return ["intent"]
@@ -144,8 +148,11 @@ class AgentPlanner:
     def plan(self, message: str, context: dict) -> tuple[AgentPlan, str]:
         # Lazy import avoids a service/module cycle and reuses established context boundaries.
         from services.persistent_agent_service import EnterpriseQueryIntent, _inherit, parse_enterprise_query
+        if self.enterprise_mode and language.conversational(message):
+            return AgentPlan(intent="clarification", entities=TaskEntities(), required_tools=[],
+                missing_parameters=[], operation="conversation"), "rule"
         discovery, term = language.product_discovery(message) if self.enterprise_mode else (False, None)
-        if discovery and term is not None:
+        if discovery:
             # A literal product code/quantity task is not a category lookup.
             try:
                 explicit, _ = parse_enterprise_query(language.identifier_message(message), allow_llm=False)
@@ -172,6 +179,11 @@ class AgentPlanner:
                         re.search(r"单位是什么|什么单位|什么时候生效|何时生效", message)):
                     local = local.model_copy(update={"query_type": "bom"})
             action = language.operation(message) if self.enterprise_mode else "query"
+            if (self.enterprise_mode and local.query_type == "clarification" and local.material_code
+                    and re.fullmatch(r"\s*(?:那\s*|换成\s*|切换到\s*)?" + re.escape(local.material_code) + r"\s*(?:呢)?[。！？?!\s]*", message)):
+                active = context.get(context.get("active_domain"), {})
+                if active.get("query_type") in PRIMARY_TOOLS:
+                    local = local.model_copy(update={"query_type": active["query_type"]})
             # A subject-less reason follow-up uses the active domain, not an inactive task.
             if (action == "explain" and local.query_type == "clarification") or (
                 self.enterprise_mode and language.refresh_requested(message) and local.material_code is None
@@ -179,6 +191,11 @@ class AgentPlanner:
                 active = context.get(context.get("active_domain"), {})
                 local = local.model_copy(update={"query_type": active.get("query_type", "clarification")})
             inherited = _inherit(local, message, context)
+            new_quantity_required = bool(self.enterprise_mode and local.query_type == 'production_capacity' and local.material_code
+                    and local.quantity is None and re.search(r'我要生产|计划生产|准备生产', message))
+            if new_quantity_required:
+                # A new explicit task is not permission to reuse an older order's quantity.
+                inherited = inherited.model_copy(update={'quantity': None})
             entities = TaskEntities.model_validate(inherited.model_dump(exclude={"query_type"}))
             request = InventoryRequest.model_validate(language.inventory_request(message) if self.enterprise_mode else {})
             requested_constraints = [UserConstraint.model_validate(row) for row in language.constraints(message)] if self.enterprise_mode else []
@@ -208,7 +225,7 @@ class AgentPlanner:
             if isinstance(result, str):
                 result = json.loads(result)
             candidate = AgentPlan.model_validate(result)
-            if candidate.operation in {"product_search"} or candidate.intent == "fact_query":
+            if candidate.operation in {"conversation", "product_search"} or candidate.intent == "fact_query":
                 raise ValueError("Model cannot invent an interaction shortcut")
             if rule.intent != "clarification" and candidate.intent != rule.intent:
                 raise ValueError("Plan conflicts with explicit user intent")
@@ -222,6 +239,8 @@ class AgentPlanner:
                         raise ValueError("Model replaced an explicit parameter")
                     explicit_fields[field] = value
             merged = _inherit(EnterpriseQueryIntent(query_type=candidate.intent, **explicit_fields), message, context)
+            if new_quantity_required:
+                merged = merged.model_copy(update={'quantity': None})
             for field, value in candidate.entities.model_dump().items():
                 if value is not None and value != getattr(merged, field):
                     raise ValueError("Model supplied an unsupported parameter")

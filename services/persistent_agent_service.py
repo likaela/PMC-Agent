@@ -218,6 +218,12 @@ class PersistentAgentService:
             turn = self.orchestrator.run(message, session["context"], history_loader=history_loader)
             if turn is not None:
                 response = {**turn.response, "session_id": session_id, "conversation_id": session["conversation_id"]}
+                if self.orchestrator.registry.scope == "enterprise":
+                    from agents.business_language import price_requested
+                    from agents.business_answer import visible_warnings
+                    relevant = price_requested(message)
+                    response["warnings"] = visible_warnings(response["warnings"], price_relevant=relevant)
+                    response["structured_data"]["presentation"] = {"price_relevant": relevant}
                 if self.response_adapter is not None:
                     response = self.response_adapter(response)
                 response["turn_id"] = self.repository.append_turn(session, message, response, turn.context, turn.references)

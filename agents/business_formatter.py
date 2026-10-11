@@ -21,6 +21,12 @@ _RISK = {"high": "高风险", "general": "一般风险", "none": "无缺料风�
 
 def format_business_answer(kind: str, result: dict) -> str:
     data = result.get("data") or {}
+    if kind == "purchase_planning" and data.get("bom_structure"):
+        structure = data["bom_structure"]
+        if structure.get("completeness", {}).get("price") is False:
+            parent = structure["data"]["parent_item"]["material_code"]
+            return (f"已找到 {parent} 的 {structure['data']['revision']} BOM。"
+                    "目前缺少可靠的价格数据，暂时无法计算完整成本；未知价格不会补零，也不估算采购金额。")
     if kind == "bom" and result["status"] == "ok":
         return bom_overview(data, result.get("completeness", {}))
     if kind == "production_capacity" and result["status"] in {"data_unavailable", "invalid_query"}:

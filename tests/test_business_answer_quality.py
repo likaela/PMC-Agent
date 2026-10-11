@@ -41,7 +41,10 @@ def evidence(result):
 def test_bom_summary_and_complete_table(business):
     result = query(business, "查询KQ-Z112的BOM")
     assert result["status"] == "ok"
-    assert all(text in result["answer"] for text in ("KQ-Z112", "V01", "66", "2025-03-18", "物料表", "单位", "价格"))
+    assert all(text in result["answer"] for text in ("KQ-Z112", "V01", "66", "2025-03-18", "物料表", "单位"))
+    assert "价格" not in result["answer"]
+    assert not any(w.startswith("price_missing") for w in result["warnings"])
+    assert result["structured_data"]["completeness"]["price"] is False
     assert len(result["structured_data"]["data"]["lines"]) == 66
     assert all(line["unit"] is None and line["price"] is None for line in result["structured_data"]["data"]["lines"])
     assert "M-001" not in result["answer"] and "M-066" not in result["answer"]
@@ -148,7 +151,9 @@ def test_llm_cannot_change_facts_or_omit_required_warning(invalid):
     gen, _ = generator(invalid)
     text, source = gen.generate([evidence(result)], ["bom"])
     assert source == "rule_fallback"
-    assert "66" in text and "V01" in text and "计量单位" in text and "价格" in text
+    assert "66" in text and "V01" in text and "计量单位" in text
+    assert "价格" not in text  # Structural queries do not require a cost warning.
+    assert result["completeness"]["price"] is False
     assert "V02" not in text and "999" not in text and result == before
 
 
