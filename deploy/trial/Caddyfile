@@ -1,0 +1,34 @@
+{
+	admin off
+	persist_config off
+	auto_https off
+}
+http://:8080 {
+	bind 127.0.0.1
+	basic_auth {
+		{$PMC_TRIAL_USER_A} {$PMC_TRIAL_HASH_A}
+		{$PMC_TRIAL_USER_B} {$PMC_TRIAL_HASH_B}
+	}
+	header {
+		Cache-Control "no-store"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+	}
+	request_body {
+		max_size 64KB
+	}
+	@backend path /api/* /health
+	handle @backend {
+		reverse_proxy 127.0.0.1:8010 {
+			header_up X-PMC-Proxy-Key {$PMC_TRIAL_PROXY_SECRET}
+			header_up X-PMC-User {http.auth.user.id}
+			header_up -Authorization
+		}
+	}
+	handle {
+		root * "{$PMC_TRIAL_WEB_ROOT}"
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -9,6 +9,7 @@ from repositories.agent_conversation_repository import SessionNotFound
 from tests.test_enterprise_book_analysis import book
 from tests.test_published_bom_business_confirmation import fixture
 from tests.test_review_quantity_regression import authorize
+from tests.test_remote_trial import trial, headers, session
 
 
 def test_simulation_50_positive_100_negative_keeps_raw_and_facts(book,tmp_path):
@@ -49,3 +50,14 @@ def test_review_is_blocked_in_public_trial(book,tmp_path,monkeypatch):
     with pytest.raises(PermissionError):
         build_review_scenario_agent(facts=book[0].facts,observations=book[0].observations,
             product="ENTERPRISE-A",revision="V01",runtime_root=tmp_path/"review")
+
+
+@pytest.mark.parametrize("endpoint", ["sessions", "query"])
+def test_public_trial_rejects_private_review_scenario(trial,endpoint):
+    _,client,_=trial
+    body=dict(scenario_id=SCENARIO_ID)
+    if endpoint == "query":
+        body.update(message="生产50片可以吗",session_id=session(client))
+    response=client.post("/api/v1/agent/"+endpoint,json=body,headers=headers())
+    assert response.status_code == 422
+    assert response.json()["code"] == "INVALID_SCENARIO"

@@ -18,11 +18,9 @@ export interface ClientOptions {
   fetch?: typeof fetch;
 }
 export function configuredBaseUrl(): string {
-  return (
-    (import.meta.env?.VITE_API_BASE_URL as string | undefined)
-      ?.trim()
-      .replace(/\/+$/, "") ?? ""
-  );
+  const value =
+    (import.meta.env?.VITE_API_BASE_URL as string | undefined)?.trim() ?? "";
+  return value === "/" ? "/" : value.replace(/\/+$/, "");
 }
 function publicError(status: number): QueryError {
   if (status === 404)
@@ -34,7 +32,8 @@ function publicError(status: number): QueryError {
   return new QueryError("server", "分析服务暂时异常，请稍后重试。");
 }
 export function createAgentClient(options: ClientOptions = {}) {
-  const base = (options.baseUrl ?? configuredBaseUrl()).replace(/\/+$/, "");
+  const configured = options.baseUrl ?? configuredBaseUrl();
+  const base = configured.replace(/\/+$/, "");
   const timeout = options.timeoutMs ?? 30000;
   const fetcher = options.fetch ?? globalThis.fetch;
   async function request(
@@ -42,7 +41,7 @@ export function createAgentClient(options: ClientOptions = {}) {
     body: unknown | undefined,
     signal?: AbortSignal,
   ): Promise<unknown> {
-    if (!base)
+    if (!configured)
       throw new QueryError(
         "unconfigured",
         "请先配置后端 API 地址，再使用在线查询。",

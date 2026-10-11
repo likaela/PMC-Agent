@@ -168,6 +168,8 @@ class PostgreSQLFactStore(PersistentFactStore):
 
 def create_fact_store(database_url: str | None = None) -> PersistentFactStore:
     """根据 URL 创建事实存储；未配置时仅为本地开发选择 SQLite。"""
+    if os.getenv("PMC_TRIAL_MODE") == "1":
+        raise RuntimeError("Remote trial cannot open an enterprise fact store")
     configured_url = database_url or os.getenv(
         "PMC_FACT_DATABASE_URL",
         f"sqlite:///{DEFAULT_SQLITE_PATH.as_posix()}",

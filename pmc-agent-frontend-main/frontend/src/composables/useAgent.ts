@@ -8,6 +8,7 @@ import {
 } from "../data/model";
 import { createAgentClient, configuredBaseUrl } from "../services/apiClient";
 import { adaptBackendResponse } from "../services/responseAdapter";
+import { trialMode, trialScenario } from "../services/trialMode";
 import {
   sessionKey,
   saveSession,
@@ -39,9 +40,11 @@ const isReload =
       PerformanceNavigationTiming | undefined
   )?.type === "reload";
 const scenario = ref<ScenarioId | null>(
-  initialStorage
-    ? readInitialScenario(initialStorage, configuredBaseUrl(), isReload)
-    : null,
+  trialMode
+    ? trialScenario
+    : initialStorage
+      ? readInitialScenario(initialStorage, configuredBaseUrl(), isReload)
+      : null,
 );
 const sessionId = ref<string | null>(null);
 const messages = ref<Message[]>([]);
@@ -118,7 +121,7 @@ function reset() {
 function startEnterpriseAnalysis() {
   reset();
   mode.value = "live";
-  scenario.value = null;
+  scenario.value = trialMode ? trialScenario : null;
   // Start blank, not by restoring an earlier enterprise or Demo conversation.
   // Only browser pointers are cleared; backend history and facts are untouched.
   forget();
@@ -129,6 +132,7 @@ function setMode(value: DataMode) {
   if (value === "live") mode.value = "live";
 }
 function setScenario(value: ScenarioId | undefined) {
+  if (trialMode) value = trialScenario;
   if (scenario.value === (value ?? null)) return;
   reset();
   scenario.value = value ?? null;

@@ -4,6 +4,7 @@ import { useRoute } from "vue-router";
 import Icon from "./components/Icon.vue";
 import { useAgent } from "./composables/useAgent";
 import type { DataMode, ScenarioId } from "./data/model";
+import { trialMode } from "./services/trialMode";
 const route = useRoute();
 const { mode, scenario, pending, setMode, setScenario } = useAgent();
 const menuOpen = ref(false);
@@ -113,15 +114,19 @@ watch(
               )
             "
           >
-            <option value="">企业事实</option>
+            <option v-if="!trialMode" value="">企业事实</option>
             <option value="demo_scenario_50_vs_100">合成 Demo</option>
-            <option value="review_real_bom_simulation">评审推演（合成补充库存）</option>
-            <option value="kq_z112_review_slim">KQ-Z112 精简评审子集（真实库存）</option>
-            <option value="kq_z112_review_slim_synthetic">KQ-Z112 精简评审推演（合成补充）</option>
+            <option v-if="!trialMode" value="review_real_bom_simulation">评审推演（合成补充库存）</option>
+            <option v-if="!trialMode" value="kq_z112_review_slim">KQ-Z112 精简评审子集（真实库存）</option>
+            <option v-if="!trialMode" value="kq_z112_review_slim_synthetic">KQ-Z112 精简评审推演（合成补充）</option>
           </select>
         </div>
       </div>
       <main id="main-content" tabindex="-1">
+        <p v-if="trialMode" role="note" class="mode-banner">
+          受控远程试用 · 所有数据均为合成演示数据，仅支持 DEMO-PMC-01。
+          不接入真实企业事实、不调用外部模型，请勿输入企业秘密或个人敏感信息。
+        </p>
         <div
           class="mode-banner"
           :class="{ 'mode-banner--live': mode === 'live' }"

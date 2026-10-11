@@ -13,6 +13,7 @@ from tests.test_review_quantity_regression import authorize
 from services.slim_review_service import select_dataset, synthetic_dataset, SlimReviewService, REAL_SLIM, SYNTHETIC_SLIM
 from services.slim_scenario_agent_service import build_slim_scenario_agent
 from repositories.agent_conversation_repository import SessionNotFound
+from tests.test_remote_trial import trial, headers, session
 
 
 @pytest.fixture
@@ -122,3 +123,13 @@ def test_agent_queries_boundaries_history_isolation_no_private_egress(book, sele
         assert c.execute("SELECT COUNT(*) FROM bom_lines").fetchone()[0] == 0
         assert c.execute("SELECT COUNT(*) FROM inventory_facts").fetchone()[0] == 0
     assert service.book_service.analyze("ENTERPRISE-B",quantity=1)["status"] == "data_unavailable"
+
+
+@pytest.mark.parametrize("scenario", [REAL_SLIM,SYNTHETIC_SLIM])
+def test_filtered_scenario_never_available_in_remote_trial(trial,scenario):
+    _,client,_=trial
+    for endpoint in ["sessions","query"]:
+        body=dict(scenario_id=scenario)
+        if endpoint == "query":
+            body.update(session_id=session(client),message="生产1片")
+        assert client.post("/api/v1/agent/"+endpoint,json=body,headers=headers()).status_code == 422
