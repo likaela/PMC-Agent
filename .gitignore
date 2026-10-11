@@ -5,6 +5,8 @@ __pycache__/
 # Environment
 venv/
 .env
+.runtime/
+deploy/trial/*.local.*
 
 # IDE
 .vscode/
@@ -32,6 +34,14 @@ docs/kq_z112_real_mrp_report.md
 docs/enterprise_bom_catalog_audit.md
 docs/judge_trial_catalog.md
 
+# Private reviewer/confirmation material; public demo guide is separate.
+docs/judge_user_guide.md
+docs/judge_test_cases.md
+docs/kq_z112_business_confirmation_checklist.md
+docs/kq_z112_enterprise_import.md
+docs/enterprise_bom_structural_import.md
+scripts/verify_bom_business_confirmation_http.py
+
 # Workbook inspection artifacts
 *.inspect.json
 
@@ -45,3 +55,4 @@ docs/团队交接与版本路线_2026-09-29.docx
 docs/团队交接与版本路线_2026-09-29.md
 
 data.lnk
+docs/kq_z112_slim_review.md
