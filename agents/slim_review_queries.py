@@ -26,18 +26,26 @@ class SlimReviewQueries:
             return EnterpriseBookQueries._invalid_quantity(context)
         dataset = self.service.dataset
         product = dataset["product"]
+        # Aliases are disclosure identifiers bound to THIS dataset, not new item master entries.
+        aliases = self.presentation.aliases
+        requested_alias = next((a for a in aliases.values() if re.search(r"(?<![A-Za-z0-9_-])" + re.escape(a) + r"(?![A-Za-z0-9_-])", text)), None)
         # Explicit foreign products must not inherit the filtered product.
-        if parsed.material_code and parsed.material_code not in (product, dataset.get("display_product_code")):
+        if parsed.material_code and parsed.material_code not in (product, dataset.get("display_product_code")) and not requested_alias:
             return OrchestratedTurn(dict(intent="clarification", status="data_unavailable",
-                answer="当前精简场景只适用于所选产品。请切回企业空间查询其他产品。",
+                answer="当前分析范围只适用于所选产品。请选择对应产品后继续查询。",
                 structured_data=dict(data=None, completed_steps=[]), provenance=None, warnings=[]), copy.deepcopy(context), [])
         quantity = parsed.quantity
         previous = context.get("slim_analysis", {})
+        if re.search(r"再生产\s*\d+", text) and not re.search(r"再多生产", text):
+            return OrchestratedTurn(dict(intent="clarification", status="needs_input", answer="请确认是重新核对该数量，还是在上次数量上追加；例如“生产1片”或“再多生产1片”。",
+                structured_data=dict(data=None, completed_steps=[]), provenance=None, warnings=[]), copy.deepcopy(context), [])
         explanation = bool(re.search(r"为什么|原因|来源|哪里|哪些物料限制|哪些.*影响", text))
-        if explanation and quantity is None and previous:
+        refresh = bool(re.search(r"重新计算|按最新|再查一次|重新查询", text))
+        if explanation and previous and not refresh:
             for turn in reversed(history_loader()):
                 for ref in turn["fact_references"]:
-                    if ref["tool_name"] == "enterprise_book_demand_analysis" and (ref["result"].get("data") or {}).get("slim_review"):
+                    data = ref["result"].get("data") or {}
+                    if ref["tool_name"] == "enterprise_book_demand_analysis" and data.get("slim_review") and (quantity is None or data.get("requested_quantity") == quantity):
                         return self._turn(ref["result"], context, message, reused=turn["turn_id"])
         produce_max = bool(re.search(r"生产(?:到)?(?:最大|最多)数量|按最大|生产上限", text))
         capacity = bool(re.search(r"最多|最大|限制产量", text))
@@ -62,6 +70,19 @@ class SlimReviewQueries:
         # Zero is never converted to 1. The parser validation runs before Tool.
         result = self.tools["enterprise_book_demand_analysis"].invoke(dict(product=product,
             revision=dataset["revision"], quantity=quantity))
+        if requested_alias:
+            code = next(c for c, a in aliases.items() if a == requested_alias)
+            rows = (result.get("data") or {}).get("materials", [])
+            if not any(r["material_code"] == code for r in rows):
+                return OrchestratedTurn(dict(intent="inventory", status="item_not_found", answer="该物料不在当前分析范围内。",
+                    structured_data=dict(data=None, completed_steps=[]), provenance=None, warnings=[]), copy.deepcopy(context), [])
+            # Retain the whole calculation Evidence; disclose only the explicitly requested row.
+            turn = self._turn(result, context, message)
+            data = turn.response["structured_data"]["data"]
+            data["materials"] = [r for r in data["materials"] if r["material_code"] == requested_alias]
+            row = data["materials"][0]
+            turn.response["answer"] = f"{requested_alias}：BOM单耗{row['qty_per']}片，当前分析范围库存{row['recorded_stock_qty']}片。来源为已核验记录。"
+            return turn
         return self._turn(result, context, message)
 
     def _turn(self, result, context, message, reused=None):

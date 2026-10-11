@@ -94,6 +94,8 @@ class SlimReviewPresentation:
             turn["user_query"] = self.text(turn["user_query"])
             turn["response"] = self.response(turn["response"])
             for ref in turn.get("fact_references", []):
+                if not (ref["result"].get("data") or {}).get("slim_review"):
+                    continue
                 ref["result"] = self.result(ref["result"])
                 ref["query"] = ref["result"]["query"]
                 ref["provenance"] = ref["result"]["provenance"]

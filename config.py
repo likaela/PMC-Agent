@@ -4,7 +4,7 @@ from langchain_openai import ChatOpenAI
 
 
 # 加载.env文件
-if os.getenv("PMC_TRIAL_MODE") != "1":
+if os.getenv("PMC_TRIAL_MODE") != "1" and os.getenv("PMC_REVIEW_MODE") != "1":
     load_dotenv()
 
 
@@ -30,8 +30,8 @@ def _llm_max_retries() -> int:
 
 def get_llm_configuration_status() -> dict[str, object]:
     """返回不包含 Key 或地址内容的 LLM 就绪状态。"""
-    if os.getenv("PMC_TRIAL_MODE") == "1":
-        return {"status": "warning", "provider": "disabled", "message": "合成试用模式禁止模型出站", "fallback_available": True}
+    if os.getenv("PMC_TRIAL_MODE") == "1" or os.getenv("PMC_REVIEW_MODE") == "1":
+        return {"status": "warning", "provider": "disabled", "message": "受控评审进程禁止模型出站", "fallback_available": True}
     selected_provider = os.getenv("LLM_PROVIDER", "").strip().lower()
     if selected_provider not in {"deepseek", "mimo"}:
         return {
@@ -51,8 +51,8 @@ def get_llm_configuration_status() -> dict[str, object]:
 
 
 def get_llm():
-    if os.getenv("PMC_TRIAL_MODE") == "1":
-        raise RuntimeError("Trial model egress is disabled")
+    if os.getenv("PMC_TRIAL_MODE") == "1" or os.getenv("PMC_REVIEW_MODE") == "1":
+        raise RuntimeError("Controlled review model egress is disabled")
     provider = os.getenv("LLM_PROVIDER", "").strip().lower()
     common_options = {
         "temperature": 0,

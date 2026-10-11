@@ -49,7 +49,7 @@ class EnterpriseBookQueries:
             demand = True
         needs_quantity = quantity is None and bool(re.search(r"生产|做", text))
         purchase = bool(re.search(r"采购建议|给个采购|采购多少|补货|需要采购|材料需要采购", text))
-        followup = bool(re.search(r"不够|不足|缺料|差多少|缺口|未匹配|没.*记录|为什么|依据|来源|怎么.*判断|哪些(?:物料|材料).*影响|限制在哪里", text))
+        followup = bool(re.search(r"不够|不足|缺料|差多少|缺口|未匹配|没.*记录|为什么|依据|来源|来自哪里|怎么.*判断|哪些(?:物料|材料).*影响|限制在哪里", text))
         switch = bool(re.search(r"换成|切换", text)) and bool(previous)
         if not (stock or demand or purchase or followup or switch or needs_quantity):
             return None

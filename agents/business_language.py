@@ -30,6 +30,8 @@ def conversational(message: str) -> bool:
 
 def product_discovery(message: str) -> tuple[bool, str | None]:
     """Explicit catalog requests cannot inherit a prior production object."""
+    if re.search(r"这个产品|该产品|所选产品|当前产品", message) and not re.search(r"产品目录|哪些产品", message):
+        return False, None  # A selected-object pronoun is not a product category.
     if re.search(r"(?:查询|查看|查一下|列出|提供|展示)(?:一下)?\s*已发布的?\s*BOM(?:的?产品)?", message, re.I):
         return True, None
     if re.search(r"我能生产什么|(?:有哪些|有什么|看看.*哪些|查看.*哪些)(?:可生产的?|已发布的?)?产品|产品(?:目录|列表)|(?:提供|列出|展示|查看)(?:一下)?已发布的?产品|已发布的?\s*BOM.*(?:有哪些|有什么|列表|目录)", message, re.I):
@@ -66,7 +68,7 @@ def operation(message: str) -> str:
         return "safety"
     if re.search(r"库存.*(?:问题|健康|诊断)|(?:分析|诊断).*库存.*风险", message):
         return "inventory_health"
-    if not refresh_requested(message) and re.search(r"为什么|原因|限制|哪些物料.*影响|怎么回事|主要是什么|主要有哪些|从哪里来|来源是什么|依据是什么", message):
+    if not refresh_requested(message) and re.search(r"为什么|原因|限制|哪些物料.*影响|怎么回事|主要是什么|主要有哪些|从哪里来|来自哪里|来源是什么|依据是什么", message):
         return "explain"
     return "query"
 
@@ -89,7 +91,7 @@ def intent_override(message: str, local_kind: str) -> str:
         return "inbound"
     if re.search(r"采购|买|下单|补货|缺料采购|MOQ|成本|供应商", message, re.I):
         return "purchase_planning"
-    if re.search(r"相关信息|产品(?:信息|概览)|物料(?:组成|有哪些)|有哪些物料|有哪些原材料|原材料清单", message) and local_kind == "clarification":
+    if re.search(r"相关信息|产品(?:信息|概览)|物料(?:组成|有哪些)|有哪些物料|有哪些原材料|原材料清单|完整物料|全部\d*项?物料", message) and local_kind == "clarification":
         return "bom"
     if local_kind == "clarification" and re.fullmatch(
             r"\s*(?:查询|查看|查一下)\s*(?:物料|料号)\s*[A-Za-z0-9][A-Za-z0-9_-]*[。！？?!\s]*", message):

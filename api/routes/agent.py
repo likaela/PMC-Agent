@@ -25,6 +25,13 @@ from services.persistent_agent_service import PersistentAgentService
 router = APIRouter(prefix="/api/v1/agent", tags=["Unified Agent"])
 
 
+@router.get("/catalog")
+def reviewer_catalog():
+    """Local authorized workstation; remote review has its own authenticated catalog."""
+    from services.local_reviewer_catalog import local_review_catalog
+    return {"products": local_review_catalog(create_fact_store())}
+
+
 def _persistent_service(scenario_id: ScenarioId | None = None) -> PersistentAgentService:
     if scenario_id in ("kq_z112_review_slim", "kq_z112_review_slim_synthetic"):
         from services.slim_scenario_agent_service import build_slim_scenario_agent
@@ -80,6 +87,15 @@ def unified_agent_query(request: UnifiedAgentRequest) -> UnifiedAgentResponse:
         service = _persistent_service(request.scenario_id)
         session_id = request.session_id or service.repository.create_session()["session_id"]
         try:
+            from agents.reviewer_catalog_queries import catalog_query, catalog_kind
+            from pathlib import Path
+            from repositories.fact_store import DEFAULT_SQLITE_PATH
+            database = getattr(create_fact_store(), "database_path", None)
+            import os
+            if catalog_kind(request.message) and database and (Path(database).resolve() == DEFAULT_SQLITE_PATH.resolve() or os.getenv("PMC_LOCAL_REVIEW") == "1"):
+                from services.local_reviewer_catalog import local_review_catalog
+                result = catalog_query(service, session_id, request.message, local_review_catalog(create_fact_store()))
+                return UnifiedAgentResponse.model_validate(result)
             return UnifiedAgentResponse.model_validate(service.query(session_id, request.message))
         except (SessionNotFound, SessionConflict) as error:
             return _session_error(error)
