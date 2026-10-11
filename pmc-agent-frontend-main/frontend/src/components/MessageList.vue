@@ -51,7 +51,13 @@ watch(
           <div class="message-meta">
             <strong>PMC-Agent</strong
             ><span>{{
-              selectedId === message.id ? "当前结果" : "查看结果"
+              message.result?.conversation
+                ? selectedId === message.id
+                  ? "当前回复"
+                  : "查看回复"
+                : selectedId === message.id
+                  ? "当前结果"
+                  : "查看结果"
             }}</span>
           </div>
           <p v-if="message.state === 'pending'" class="loading-label">

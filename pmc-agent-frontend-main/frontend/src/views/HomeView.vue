@@ -12,26 +12,26 @@ const enterpriseCards = [
   {
     id: "enterprise-production",
     icon: "layers",
-    title: "生产可行性分析",
-    description: "提供企业产品编码和生产数量，查询物料是否满足需求。",
+    title: "BOM与生产需求查询",
+    description: "查询已发布产品和物料组成，按生产数量计算BOM需求。",
     prompt: "输入产品编码和生产数量",
     tag: "企业已发布事实",
   },
   {
     id: "enterprise-inventory",
     icon: "database",
-    title: "库存与批次查询",
-    description: "提供物料编码，查看库存、批次与可追溯的数据来源。",
+    title: "Excel库存记录查询",
+    description: "查看主库存表的数量、库位、批次及来源；无记录保持未知。",
     prompt: "输入物料编码查询库存",
     tag: "未知数据不作估算",
   },
   {
     id: "enterprise-purchase",
     icon: "cart",
-    title: "采购需求分析",
-    description: "基于生产需求与已发布参数，查看采购建议和数据缺失项。",
-    prompt: "输入产品编码查询采购需求",
-    tag: "建议不代表下单或到货",
+    title: "连续追问与来源查询",
+    description: "保持当前产品上下文，查询材料和来源，查看历史回答。",
+    prompt: "输入产品编码或先问有哪些产品",
+    tag: "历史回答不冒充最新库存",
   },
 ];
 const cards = computed(() =>
@@ -163,8 +163,8 @@ function openScenario(id: string) {
           <StatusBadge tone="blue">事实查询</StatusBadge>
         </div>
         <p>
-          在线查询支持库存、批次、已发布 BOM、多层 BOM 生产能力与采购建议。
-          信息不足时请求补充或明确拒答，不估算未知库存；不执行排产或采购下单。
+          企业评审支持产品目录、BOM、物料组成、Excel库存记录和BOM生产需求量查询。
+          完整齐套、最大生产量与采购建议在隔离合成Demo中展示。账面库存不等于可用量，不估算未知库存或批准真实生产。
         </p>
         <div class="boundary-note">
           <Icon name="shield" :size="16" />演示结果不构成真实生产或采购决策

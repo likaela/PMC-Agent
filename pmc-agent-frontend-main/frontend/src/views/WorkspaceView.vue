@@ -62,7 +62,7 @@ async function focusResult() {
         <div class="eyebrow">ANALYSIS WORKSPACE</div>
         <h1>分析工作台<span class="heading-dot"></span></h1>
         <p>
-          输入企业产品编码和生产数量，开始分析；也可以查询物料库存与采购信息。
+          查询已发布产品、BOM和主库存记录；输入产品编码与生产数量，计算BOM需求量。
         </p>
       </div>
       <button

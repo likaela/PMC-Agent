@@ -79,6 +79,12 @@ export interface Material {
   onHand?: DecimalText | null;
   reserved?: DecimalText | null;
   purchaseQty?: DecimalText | null;
+  recordedStock?: DecimalText | null;
+  bookDifference?: DecimalText | null;
+  recordCount?: string | null;
+  inventoryUnit?: string | null;
+  comparisonStatus?: string | null;
+  recordFound?: boolean | null;
   completeness?: JsonObject;
   unit: string;
   state: MaterialState;
@@ -87,7 +93,7 @@ export interface Material {
 export interface Source {
   id: string;
   title: string;
-  kind: "项目资料示例" | "人工构造演示样例" | "已发布事实" | "合成演示事实";
+  kind: "项目资料示例" | "人工构造演示样例" | "已发布事实" | "合成演示事实" | "Excel账面记录" | "人工业务确认";
   scope: string;
   reference: string;
   version: string | null;
@@ -103,6 +109,10 @@ export interface Source {
   sha256?: string | null;
 }
 export interface FrontendViewModel {
+  conversation?: boolean;
+  bookObservation?: boolean;
+  quantityReview?: boolean;
+  validationError?: boolean;
   id: string;
   status: ResultStatus;
   product: string | null;

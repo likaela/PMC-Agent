@@ -9,10 +9,10 @@ const filter = ref("all");
 const search = ref("");
 const ascending = ref<boolean | null>(null);
 const showStockDetails = computed(() =>
-  ["inventory", "purchase_planning"].includes(props.result?.queryType ?? ""),
+  !props.result?.bookObservation && ["inventory", "purchase_planning"].includes(props.result?.queryType ?? ""),
 );
 const showPurchase = computed(
-  () => props.result?.queryType === "purchase_planning",
+  () => !props.result?.bookObservation && props.result?.queryType === "purchase_planning",
 );
 function inventoryQuantity(value: string | null | undefined): string {
   return value == null ? "未知" : formatNumber(value);
@@ -56,7 +56,7 @@ const rows = computed(() =>
           {{
             result?.queryType === "bom"
               ? "单位用量不等于生产总需求"
-              : "需求、可用库存与缺口，放在一起核对"
+              : result?.quantityReview ? "已确认实际库存与BOM需求逐项核对；无记录保持未知" : result?.bookObservation ? "主库存原始记录与BOM需求；账面数量不等于可用库存" : "需求、可用库存与缺口，放在一起核对"
           }}
         </p>
       </div>
@@ -75,7 +75,7 @@ const rows = computed(() =>
           >
             <option value="all">全部物料</option>
             <option value="shortage">仅看缺料</option>
-            <option value="unknown">可用库存未知</option>
+            <option value="unknown">{{ result?.quantityReview ? "库存无记录或待核验" : "可用库存未知" }}</option>
           </select></label
         >
       </div>
@@ -85,7 +85,7 @@ const rows = computed(() =>
     </div>
     <template v-else-if="result?.materials.length"
       ><p class="table-scroll-hint">
-        左右滑动查看库存、缺口与来源 <Icon name="arrow" :size="13" />
+        {{ result?.bookObservation ? "左右滑动查看需求、库存记录与来源" : "左右滑动查看库存、缺口与来源" }} <Icon name="arrow" :size="13" />
       </p>
       <div
         class="table-scroll"
@@ -115,10 +115,12 @@ const rows = computed(() =>
               <th class="numeric">
                 {{ result?.queryType === "bom" ? "单位用量" : "需求数量" }}
               </th>
-              <th class="numeric">可用库存</th>
+              <th v-if="!result?.quantityReview" class="numeric">可用库存</th>
+              <th v-if="result?.bookObservation" class="numeric">{{ result?.quantityReview ? "实际库存数量" : "Excel账面数量" }}</th>
+              <th v-if="result?.bookObservation" class="numeric">记录数</th>
               <th v-if="showStockDetails" class="numeric">在库数量</th>
               <th v-if="showStockDetails" class="numeric">预留数量</th>
-              <th class="numeric">缺口数量</th>
+              <th v-if="!result?.bookObservation || result?.quantityReview" class="numeric">缺口数量</th>
               <th v-if="showPurchase" class="numeric">建议采购量</th>
               <th>物料状态</th>
               <th>数据来源</th>
@@ -158,6 +160,7 @@ const rows = computed(() =>
                 >
               </td>
               <td
+                v-if="!result?.quantityReview"
                 class="numeric"
                 :class="{ 'missing-value': row.available == null }"
               >
@@ -169,6 +172,11 @@ const rows = computed(() =>
                   " " + row.unit
                 }}</small>
               </td>
+              <td v-if="result?.bookObservation" class="numeric">
+                {{ row.recordFound === false ? "无记录" : inventoryQuantity(row.recordedStock) }}
+                <small v-if="row.recordFound !== false">{{ row.inventoryUnit ?? "单位未知" }}</small>
+              </td>
+              <td v-if="result?.bookObservation" class="numeric">{{ row.recordCount ?? "未知" }}</td>
               <td v-if="showStockDetails" class="numeric">
                 {{ inventoryQuantity(row.onHand)
                 }}<small v-if="row.onHand != null">{{ " " + row.unit }}</small>
@@ -180,6 +188,7 @@ const rows = computed(() =>
                 }}</small>
               </td>
               <td
+                v-if="!result?.bookObservation || result?.quantityReview"
                 class="numeric"
                 :class="{
                   'shortage-number': row.state === 'shortage',
@@ -215,7 +224,7 @@ const rows = computed(() =>
                           ? 'blue'
                           : 'neutral'
                   "
-                  >{{ materialText[row.state] }}</StatusBadge
+                  >{{ result?.quantityReview && ['shortage', 'sufficient'].includes(row.state) ? materialText[row.state] : result?.bookObservation ? (row.recordFound === false ? "无记录" : row.recordedStock == null ? "合计待核验" : "已有账面记录") : materialText[row.state] }}</StatusBadge
                 >
               </td>
               <td>
@@ -231,7 +240,7 @@ const rows = computed(() =>
             <tr v-if="!rows.length">
               <td
                 :colspan="
-                  6 + (showStockDetails ? 2 : 0) + (showPurchase ? 1 : 0)
+                  6 + (result?.bookObservation ? 1 : 0) + (showStockDetails ? 2 : 0) + (showPurchase ? 1 : 0)
                 "
                 class="filter-empty"
               >
@@ -244,7 +253,7 @@ const rows = computed(() =>
       <div class="table-footnote">
         <span
           ><Icon name="info" :size="14" />未提供 ≠
-          0；缺口来自固定样例或后端结果</span
+          0；{{ result?.bookObservation ? "原始记录保留，重复疑点不叠加为确定合计" : "缺口仅来自后端结果" }}</span
         ><span>共 {{ rows.length }} 项物料</span>
       </div></template
     >

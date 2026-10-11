@@ -57,7 +57,12 @@ const client = createAgentClient();
 const selected = computed(() =>
   messages.value.find((m) => m.id === selectedId.value),
 );
-const result = computed(() => selected.value?.result ?? null);
+// A greeting remains in history but cannot masquerade as a business result.
+const result = computed(() =>
+  selected.value?.result?.conversation
+    ? null
+    : (selected.value?.result ?? null),
+);
 function storage() {
   try {
     return window.sessionStorage;
@@ -186,7 +191,7 @@ async function restoreSession(): Promise<BackendTurn[] | null> {
       requestedAt: turn.created_at,
       sequenceNo: turn.sequence_no,
       state: "done",
-      result: adaptBackendResponse(turn.response),
+      result: adaptBackendResponse(turn.response, turn.user_query),
     }));
     if (token !== sequence || abort.signal.aborted) return null;
     messages.value = restored;
@@ -258,7 +263,7 @@ async function send(candidate: unknown = draft.value) {
       (response.scenario_id ?? null) !== scenario.value
     )
       throw new QueryError("mapping", "会话来源不一致，请恢复会话后重试。");
-    const data = adaptBackendResponse(response);
+    const data = adaptBackendResponse(response, text);
     message.sequenceNo = (message.attemptAfter ?? 0) + 1;
     remember();
     if (token !== sequence || abort.signal.aborted) return;

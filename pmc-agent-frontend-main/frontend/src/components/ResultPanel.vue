@@ -4,7 +4,7 @@ import StatusBadge from "./StatusBadge.vue";
 import { useAgent } from "../composables/useAgent";
 import { formatNumber, statusText } from "../data/model";
 defineEmits<{ source: [] }>();
-const { result, selected, pending, retry } = useAgent();
+const { result, selected, messages, pending, retry } = useAgent();
 const errorTitles = {
   network: "请求失败，请重试",
   mapping: "当前结果暂无法完整展示",
@@ -27,7 +27,7 @@ const errorTitles = {
     <div class="card-heading">
       <h2 id="result-title"><Icon name="file" :size="19" />分析结论</h2>
       <span class="subtle-label">{{
-        pending ? "等待响应" : result ? "与所选回答同步" : "本次查询"
+        pending ? "等待响应" : selected && selected.id !== messages.at(-1)?.id ? "历史回答对应结果（非本次请求）" : result ? "本次回答对应结果" : "本次查询"
       }}</span>
     </div>
     <div v-if="pending" class="result-loading">
@@ -58,16 +58,20 @@ const errorTitles = {
       <span class="empty-icon"><Icon name="layers" :size="32" /></span>
       <h3>
         {{
-          selected?.state === "cancelled"
-            ? "本次分析已取消"
-            : "让每个问题都有清晰的落点"
+          selected?.result?.conversation
+            ? "本轮为交流回复"
+            : selected?.state === "cancelled"
+              ? "本次分析已取消"
+              : "让每个问题都有清晰的落点"
         }}
       </h3>
       <p>
         {{
-          selected?.state === "cancelled"
-            ? "已停止等待，在线请求请先恢复会话确认服务端结果。"
-            : "发送问题后，查看分析结论、物料缺口和可追溯的数据来源。"
+          selected?.result?.conversation
+            ? "本轮没有执行业务分析。可选择左侧历史回答查看对应结果，或继续输入产品编码发起查询。"
+            : selected?.state === "cancelled"
+              ? "已停止等待，在线请求请先恢复会话确认服务端结果。"
+              : "发送问题后，查看分析结论、物料缺口和可追溯的数据来源。"
         }}
       </p>
       <button

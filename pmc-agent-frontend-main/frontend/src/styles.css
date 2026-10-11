@@ -2175,6 +2175,8 @@ tbody tr:hover {
   }
   .mode-switch select {
     font-size: 10px;
+    min-width: 0;
+    max-width: 112px;
   }
   .mode-switch .mode-dot {
     width: 5px;
