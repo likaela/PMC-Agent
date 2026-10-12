@@ -1,11 +1,20 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import Icon from "./Icon.vue";
 import StatusBadge from "./StatusBadge.vue";
 import { useAgent } from "../composables/useAgent";
 import { formatNumber, statusText } from "../data/model";
 import { sourceLabel } from "../services/productLanguage";
-defineEmits<{ source: [] }>();
+defineProps<{ activeProduct?: string | null }>();
+defineEmits<{ source: []; continue: [code: string] }>();
 const { result, selected, messages, pending, retry } = useAgent();
+const metrics = computed(() => result.value?.metrics?.filter(m => m.value != null && m.value.trim() !== "") ?? []);
+const purchaseFields = computed(() => {
+  const rows = result.value?.purchases ?? [];
+  return {shortage: rows.some(r => r.shortage != null), suggested: rows.some(r => r.suggested != null),
+    cost: rows.some(r => r.cost != null), supplier: rows.some(r => r.supplier != null || r.leadTime != null),
+    risk: rows.some(r => r.risk != null || r.reasons.length > 0)};
+});
 const errorTitles = {
   network: "请求失败，请重试",
   mapping: "当前结果暂无法完整展示",
@@ -28,7 +37,17 @@ const errorTitles = {
     <div class="card-heading">
       <h2 id="result-title"><Icon name="file" :size="19" />分析结论</h2>
       <span class="subtle-label">{{
-        pending ? "等待响应" : selected && selected.id !== messages.at(-1)?.id ? "历史回答对应结果（非本次请求）" : result ? "本次回答对应结果" : "本次查询"
+        pending
+          ? "等待响应"
+          : selected &&
+              (selected.id !== messages.at(-1)?.id ||
+                (activeProduct &&
+                  result?.product &&
+                  activeProduct !== result.product))
+            ? "历史回答对应结果（非本次请求）"
+            : result
+              ? "本次回答对应结果"
+              : "本次查询"
       }}</span>
     </div>
     <div v-if="pending" class="result-loading">
@@ -89,6 +108,18 @@ const errorTitles = {
       </div>
     </div>
     <div v-else class="result-body">
+      <p
+        v-if="
+          result.product && activeProduct && result.product !== activeProduct
+        "
+        class="result-explanation"
+        role="note"
+      >
+        此回答属于{{ result.product }}；当前输入产品为{{ activeProduct }}。
+        <button class="text-button" @click="$emit('continue', result.product)">
+          继续分析此产品
+        </button>
+      </p>
       <div class="result-kicker">
         <StatusBadge
           :tone="
@@ -113,10 +144,10 @@ const errorTitles = {
         本次结果仅适用于当前分析范围，不代表完整产品生产放行。
       </p>
       <p class="result-explanation">{{ result.answer }}</p>
-      <div v-if="result.metrics?.length" class="purchase-grid">
-        <div v-for="metric in result.metrics" :key="metric.label">
+      <div v-if="metrics.length" class="purchase-grid">
+        <div v-for="metric in metrics" :key="metric.label">
           <span>{{ metric.label }}</span
-          ><strong>{{ metric.value ?? "未提供" }}</strong>
+          ><strong>{{ metric.value }}</strong>
         </div>
       </div>
       <div
@@ -128,44 +159,43 @@ const errorTitles = {
           <thead>
             <tr>
               <th>物料</th>
-              <th>缺口</th>
-              <th>建议采购</th>
-              <th>成本 / 币种</th>
-              <th>供应商 / 交期</th>
-              <th>风险与依据</th>
+              <th v-if="purchaseFields.shortage">缺口</th>
+              <th v-if="purchaseFields.suggested">建议采购</th>
+              <th v-if="purchaseFields.cost">成本 / 币种</th>
+              <th v-if="purchaseFields.supplier">供应商 / 交期</th>
+              <th v-if="purchaseFields.risk">风险与依据</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(purchase, index) in result.purchases" :key="index">
               <td>{{ purchase.material }}</td>
-              <td>{{ formatNumber(purchase.shortage) }} {{ purchase.unit }}</td>
-              <td>
-                {{ formatNumber(purchase.suggested) }} {{ purchase.unit }}
+              <td v-if="purchaseFields.shortage">{{ purchase.shortage == null ? '—' : formatNumber(purchase.shortage) }} {{ purchase.shortage == null ? '' : purchase.unit }}</td>
+              <td v-if="purchaseFields.suggested">
+                {{ purchase.suggested == null ? '—' : formatNumber(purchase.suggested) }} {{ purchase.suggested == null ? '' : purchase.unit }}
               </td>
-              <td>
-                {{ formatNumber(purchase.cost) }}
-                {{ purchase.currency ?? "币种未提供" }}
+              <td v-if="purchaseFields.cost">
+                {{ purchase.cost == null ? '—' : formatNumber(purchase.cost) }}
+                {{ purchase.cost == null ? '' : purchase.currency ?? '' }}
               </td>
-              <td>
-                {{ purchase.supplier ?? "未提供" }} /
-                {{ purchase.leadTime ?? "未提供" }} 天
+              <td v-if="purchaseFields.supplier">
+                {{ purchase.supplier ?? '' }}
+                <span v-if="purchase.leadTime != null"> {{ purchase.leadTime }} 天</span>
               </td>
-              <td>
-                {{ purchase.risk ?? "风险未知" }}
+              <td v-if="purchaseFields.risk">
+                {{ purchase.risk ?? '' }}
                 <p>{{ purchase.reasons.join("；") }}</p>
-                <p v-if="purchase.missingFields.length">
-                  部分采购事实待补充，不能估算缺失数据。
-                </p>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <div
+      <details
         v-if="result.detailTable"
-        class="table-scroll"
-        aria-label="事实明细表"
+        :key="selected?.id"
+        :open="!result.bookObservation"
       >
+        <summary v-if="result.bookObservation" class="text-button">展开库存记录明细</summary>
+        <div class="table-scroll" aria-label="事实明细表">
         <table>
           <thead>
             <tr>
@@ -177,7 +207,7 @@ const errorTitles = {
           <tbody>
             <tr v-for="(row, index) in result.detailTable.rows" :key="index">
               <td v-for="(cell, column) in row" :key="column">
-                {{ cell ?? "未提供" }}
+                {{ cell ?? "—" }}
               </td>
             </tr>
             <tr v-if="!result.detailTable.rows.length">
@@ -187,23 +217,24 @@ const errorTitles = {
             </tr>
           </tbody>
         </table>
-      </div>
+        </div>
+      </details>
       <div v-if="result.purchase" class="purchase-grid">
-        <div>
+        <div v-if="result.purchase.shortage != null">
           <span>缺料数量</span
           ><strong
             >{{ formatNumber(result.purchase.shortage)
             }}<small>{{ result.purchase.unit }}</small></strong
           >
         </div>
-        <div>
+        <div v-if="result.purchase.safetyStock != null">
           <span>安全库存</span
           ><strong
             >{{ formatNumber(result.purchase.safetyStock)
             }}<small>{{ result.purchase.unit }}</small></strong
           >
         </div>
-        <div>
+        <div v-if="result.purchase.suggested != null">
           <span>建议采购</span
           ><strong
             >{{ formatNumber(result.purchase.suggested)
@@ -214,7 +245,7 @@ const errorTitles = {
       <p v-if="result.purchase" class="purchase-note">
         {{ result.purchase.note }}
       </p>
-      <div class="next-action">
+      <div v-if="result.conclusion || result.nextAction" class="next-action">
         <span class="next-action-icon"><Icon name="arrow" :size="18" /></span>
         <div>
           <strong>{{ result.conclusion }}</strong>

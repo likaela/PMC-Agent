@@ -1,0 +1,15 @@
+[Unit]
+Description=PMC-Agent FastAPI Backend
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/PMC-Agent
+EnvironmentFile=/home/ubuntu/PMC-Agent/.env
+ExecStart=/home/ubuntu/PMC-Agent/venv/bin/uvicorn api.app:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

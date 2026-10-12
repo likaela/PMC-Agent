@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { adaptBackendResponse } from "../src/services/responseAdapter";
 import { envelope, session } from "./agentFixtures";
+test.beforeEach(async ({page})=>{await page.route("**/api/v1/agent/catalog",r=>r.fulfill({status:404,json:{}}));});
 
 function reply(quantity: number, failed = false) {
   return envelope("production_capacity", {
@@ -127,7 +128,13 @@ test("评审推演必须主动选择，场景和历史不污染企业入口", as
   await page.goto("/#/workspace");
   await expect(page.locator("#data-space")).toHaveValue("");
   expect(requests).toBe(0);
-  await page.locator("#data-space").selectOption(scenario);
+  await expect(page.locator(`#data-space option[value="${scenario}"]`)).toHaveCount(0);
+  // Exercise archived pointer compatibility through the test harness, not a removed user entry.
+  await page.evaluate(async (value) => {
+    const path = "/src/composables/useAgent.ts";
+    const module = await import(/* @vite-ignore */ path);
+    await module.useAgent().chooseDataSpace(value);
+  }, scenario);
   await page.getByLabel("输入分析问题").fill("生产50片可以吗");
   await page.getByRole("button",{name:"发送问题",exact:true}).click();
   await expect(page.locator(".result-panel")).toContainText("数量模拟核对（演示库存）");

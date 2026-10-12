@@ -1,5 +1,7 @@
 # 智造 PMC Agent
 
+交互采用三级业务信息展示：默认展示与本轮意图直接相关的结论和有效数值，逐项物料及来源通过明细查看，完整审计信息保留在Evidence中。缺失值不生成空卡片，部分核算不冒充完整产品结论；指定数量查询不主动附加最大产量。新增能力必须遵守[业务结果展示规范](docs/business_result_presentation_rules.md)。
+
 面向制造企业 PMC、计划员与生产协调人员的智能计划助手。
 
 用户描述产品与生产数量，系统查询已发布BOM、计算物料需求、核对库存记录，并给出可追溯结果与自然语言解释。大语言模型用于理解和表达，事实与业务数字来自受控工具和Python计算。
@@ -33,6 +35,14 @@ Planner理解问题，Context Resolver补全有来源的业务条件，Python校
 
 开发环境可以配置DeepSeek。未经批准的企业Evidence不得发送到第三方模型；授权远程版和独立演示版禁用模型出站，使用规则理解与确定性表达。界面不展示思维链或伪造实时执行阶段。
 
+### 产品识别与连续对话
+
+产品解析在服务端按当前目录和权限进行：本轮明确编码优先，其次是唯一名称或别称，未指定时才沿用活动产品。支持“演示产品”“Demo”“DEMO”、目录中唯一的简称（如BHX3588M）及“回到KQ-Z112”。多个候选先澄清；“第一个产品”等指代必须有已展示目录的上下文，不作模糊猜测。
+
+输入框上方的“当前产品”来自服务端确认，可点击切换。产品或范围切换创建独立绑定，清除旧任务数量而保留当前对话中的历史消息；每条结果及Evidence仍属于原产品、范围和数据版本。查看旧回答不会改变活动产品，只有点击“继续分析此产品”才正式切换。迟到响应不能覆盖新产品，刷新按服务端历史恢复。
+
+“有哪些产品”只显示目录，不切换活动产品；“查询演示产品”显示产品概览；BOM、库存和指定数量分析只展示本次相关结果。“最多能生产多少”才展示最大数量，未提供数量不显示目标数量卡片。账户和数据空间隔离仍独立于产品别称解析。
+
 ## 前后端结构
 
 Python3.12、FastAPI/Pydantic、LangChain/LangGraph、SQLite/PostgreSQL、openpyxl/xlrd；Vue3、TypeScript、Vite、Playwright。Node要求>=22.12.0。
@@ -60,7 +70,7 @@ deploy/ scripts/ tests/ docs/    配置模板、验证与文档
 
 企业BOM经原始文件→预检→staging→validation→人工确认→publish进入事实库，保留来源审计。Agent不直接读取raw BOM。当前主库存通过受控Repository读取并验证批准来源，不是实时ERP同步。
 
-完整追溯范围保有已发布BOM；标准分析范围绑定独立版本数据，两者口径不能混用。演示产品使用独立事实与会话空间，不改企业数据。用户、产品、范围和版本分别绑定会话，历史结果不能冒充当前结果。
+KQ-Z112仅使用独立、版本化的当前业务BOM配置（34项）。Repository直接读取经SHA绑定的BOM与库存工作文件，不依赖历史范围兜底。旧企业原件、确认及历史证据保留在私有归档中，不进入日常目录。演示产品使用独立事实与会话空间；用户、产品和数据版本分别绑定会话。
 
 ## 产品目录与推荐体验路径
 
@@ -68,11 +78,11 @@ deploy/ scripts/ tests/ docs/    配置模板、验证与文档
 
 | 产品 | 分析范围 | 推荐体验 |
 | --- | --- | --- |
-| KQ-Z112 / V01 / 片 | 默认标准分析范围34项；可切换完整追溯范围66项 | 物料→库存→1片→2片→限制与来源 |
+| KQ-Z112 / V01-C34 / 片 | 当前BOM34项，唯一活动配置 | 物料→库存→1片→2片→限制与来源 |
 | KQ-BHX3588M / V01 / 片 | 完整追溯范围91项 | BOM→10片需求→对应库存 |
 | DEMO-PMC-01 / V01 / 台（演示产品） | 独立产品分析 | 50台→最大数量→75/76台→100台采购建议 |
 
-当前KQ-Z112标准分析范围最大满足数量1片，1片满足、2片不足；不代表完整产品生产能力。完整两产品库存匹配分别44/66、58/91，无记录保持未知。可选数量模拟范围采用演示库存，单独标注。
+当前KQ-Z112配置最大满足数量1片，1片满足、2片不足；数量核对只适用于当前配置，不等于正式工单放行。KQ-BHX3588M库存匹配58/91，55项可核算；最大数量查询优先计算已核算物料上限，当前上限0片（已核实必需物料存在零库存）。无记录保持未知。KQ-Z112使用真实核验库存，不加入演示数量。
 
 DEMO-PMC-01理论最大75台，50/75台齐套、76/100台不足，100台有4项采购建议。演示产品不用于业务放行。操作详见[使用说明](docs/reviewer_remote_guide.md)。
 
@@ -119,7 +129,7 @@ Review支持授权产品，Trial仅支持演示产品。独立编译入口与模
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File deploy/review/build.ps1
 # 仅新环境首次初始化；现有私有配置会拒绝覆盖
-powershell -NoProfile -ExecutionPolicy Bypass -File deploy/review/setup.ps1 -GenerateRandomPasswords -ApprovedDatasetVersion 20261011T030952Z-b4f34740
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy/review/setup.ps1 -GenerateRandomPasswords -ApprovedDatasetVersion 20261012T015821Z-4eeb6e3d
 powershell -NoProfile -ExecutionPolicy Bypass -File deploy/review/start.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File deploy/review/health.ps1
 ```
@@ -180,3 +190,10 @@ npm run build
 ```
 
 第一条只适用已授权且唯一绑定的当前库存来源；其他环境用`--settings <私有配置路径>`。脚本停止自己的临时进程，不开公网。自动采购执行、实时ERP同步、外部供应风险预测不在当前交付范围。
+
+
+## 当前业务配置更新与私有归档
+
+当前KQ-Z112业务版本为 `V01-C34`，原始来源版本仍在私有审计中保留。配置指针为 `data/facts/confirmations/current_business.json`，指向不可变版本目录中的 `manifest.json`、`bom.json`、`inventory.json` 和私有标识映射。复制授权数据时必须同时复制这些文件；校验失败明确报错，不回退旧配置。
+
+本地工作台和授权工作台使用同一当前配置、独立的会话库。旧版会话不进入当前恢复列表，不改写旧证据。当前配置文件、私有归档和映射不能提交公开仓库，也不进入Trial构建。独立Trial仍只提供DEMO-PMC-01。

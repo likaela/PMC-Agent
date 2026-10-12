@@ -26,16 +26,26 @@ const {
   selectedProduct,
   sessionId,
   selectedId,
+  activeProduct,
+  productCatalog,
+  chooseProduct,
 } = useAgent();
-const questions = computed(() => scenario.value === DEMO_SCENARIO_ID
-  ? demoScenarios.map(s => ({label:s.label, prompt:s.prompt}))
-  : [
-    {label:"查看BOM", prompt:selectedProduct.value ? `查询${selectedProduct.value}的BOM` : "有哪些已发布产品？"},
-    {label:"查看库存", prompt:"看看库存。"},
-    {label:"计算最大数量", prompt:"最多可以生产多少片？"},
-    {label:"生产最大数量", prompt:"生产最大数量可以吗？"},
-    {label:"限制物料", prompt:"哪些物料限制产量？"},
-  ]);
+const questions = computed(() =>
+  scenario.value === DEMO_SCENARIO_ID
+    ? demoScenarios.map((s) => ({ label: s.label, prompt: s.prompt }))
+    : [
+        {
+          label: "查看BOM",
+          prompt: selectedProduct.value
+            ? `查询${selectedProduct.value}的BOM`
+            : "有哪些已发布产品？",
+        },
+        { label: "查看库存", prompt: "看看库存。" },
+        { label: "计算最大数量", prompt: "最多可以生产多少片？" },
+        { label: "生产最大数量", prompt: "生产最大数量可以吗？" },
+        { label: "限制物料", prompt: "哪些物料限制产量？" },
+      ],
+);
 const sources = ref<InstanceType<typeof SourceDetails>>();
 watch(
   () => route.query.scenario,
@@ -100,17 +110,26 @@ async function focusResult() {
           <h2 id="chat-title"><Icon name="chat" :size="19" />PMC助手</h2>
           <span class="assistant-status"><span></span>PMC-Agent</span>
         </div>
-        <SmartQueries :questions="questions" :pending="pending" :context-key="`${scenario ?? ''}:${sessionId ?? ''}:${selectedId ?? ''}`" @choose="send"/>
+        <SmartQueries
+          :questions="questions"
+          :pending="pending"
+          :context-key="`${scenario ?? ''}:${sessionId ?? ''}:${selectedId ?? ''}`"
+          @choose="send"
+        />
         <MessageList />
-        <QueryComposer /><button
-          v-if="result"
-          class="mobile-result-link"
-          @click="focusResult"
-        >
+        <QueryComposer
+          :active-product="activeProduct"
+          :products="productCatalog"
+          @switch="chooseProduct"
+        /><button v-if="result" class="mobile-result-link" @click="focusResult">
           查看本次分析结果<Icon name="down" :size="16" />
         </button>
       </section>
-      <ResultPanel @source="sources?.reveal()" />
+      <ResultPanel
+        :active-product="activeProduct"
+        @continue="chooseProduct"
+        @source="sources?.reveal()"
+      />
     </div>
     <MaterialTable
       :result="result ?? undefined"

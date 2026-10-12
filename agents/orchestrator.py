@@ -65,6 +65,17 @@ class AgentOrchestrator:
         plan, parser_source = self.planner.plan(message, context)
         # Revalidate at the execution boundary, including injected/custom planners.
         plan = AgentPlan.model_validate(plan.model_dump())
+        if self.registry.scope != "enterprise" and "valid_parameters" in plan.missing_parameters and re.search(r"生产|产量", message):
+            return self._information(plan, original_context, "needs_input",
+                "生产数量必须是大于0的整数，请确认输入数量及日期，例如1台或50台。未执行事实计算。")
+        if self.registry.scope != "enterprise" and plan.operation == "explain" and not language.refresh_requested(message):
+            try:
+                reused = self._reuse(plan, original_context, history_loader, message)
+            except Exception:
+                logger.exception("读取场景会话证据失败")
+                return self._information(plan, original_context, "query_failed", "当前会话证据暂不可用，请稍后重试。")
+            if reused is not None:
+                return reused
         if self.registry.scope == "enterprise":
             if plan.operation == "conversation":
                 turn = self._information(plan, original_context, "ok",
@@ -208,7 +219,7 @@ class AgentOrchestrator:
                 " 请补充这些业务条件，我会继续核验已发布事实；未确认的信息不会自行填写。")
             response = dict(intent=plan.intent, status="needs_input", answer=understood + "请补充：" + "、".join(labels) + "。未执行事实计算。" + next_step,
                             structured_data=dict(query={"query_type": plan.intent, **plan.entities.model_dump()},
-                                                 missing_fields=labels, parser_source=parser_source),
+                                                 missing_fields=labels, parser_source=parser_source, completed_steps=[]),
                             provenance=None, warnings=[])
             saved = self._context(context, plan, None)
             if resolution is not None:
@@ -356,11 +367,15 @@ class AgentOrchestrator:
                     "bom": {"published_bom_query"}, "inbound": {"published_inbound_supply_query"}}
                 if kind == "production_capacity":
                     permitted[kind].add("published_bom_context")
+                if self.registry.scope != "enterprise" and kind in PRIMARY_TOOLS:
+                    permitted.setdefault(kind, set()).add(self.registry.resolve(PRIMARY_TOOLS[kind]).name)
                 if ref["tool_name"] not in permitted.get(kind, set()):
                     continue
                 if self.context_resolver is not None and not self.context_resolver.repository.evidence_is_current(ref):
                     continue
                 output = ref["result"]
+                if self.registry.scope != "enterprise" and (output.get("provenance") or {}).get("scenario_id") != self.registry.scope:
+                    continue
                 query, data = output["query"], output.get("data") or {}
                 actual = query.get("resolved_material_code") or query.get("resolved_parent_material_code") or data.get("product") or query.get("material_code") or query.get("product")
                 if actual != code:

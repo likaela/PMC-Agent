@@ -1,0 +1,189 @@
+{
+  "native_object_counts": [
+    {
+      "page": 1,
+      "native_shapes": 17,
+      "native_connectors": 0,
+      "native_tables": 0,
+      "images": 0,
+      "hidden": false
+    },
+    {
+      "page": 2,
+      "native_shapes": 26,
+      "native_connectors": 0,
+      "native_tables": 0,
+      "images": 0,
+      "hidden": false
+    },
+    {
+      "page": 3,
+      "native_shapes": 20,
+      "native_connectors": 0,
+      "native_tables": 0,
+      "images": 0,
+      "hidden": false
+    },
+    {
+      "page": 4,
+      "native_shapes": 15,
+      "native_connectors": 0,
+      "native_tables": 1,
+      "images": 0,
+      "hidden": false
+    },
+    {
+      "page": 5,
+      "native_shapes": 20,
+      "native_connectors": 0,
+      "native_tables": 0,
+      "images": 0,
+      "hidden": false
+    },
+    {
+      "page": 6,
+      "native_shapes": 23,
+      "native_connectors": 6,
+      "native_tables": 0,
+      "images": 0,
+      "hidden": false
+    },
+    {
+      "page": 7,
+      "native_shapes": 26,
+      "native_connectors": 7,
+      "native_tables": 0,
+      "images": 0,
+      "hidden": false
+    },
+    {
+      "page": 8,
+      "native_shapes": 23,
+      "native_connectors": 6,
+      "native_tables": 0,
+      "images": 0,
+      "hidden": false
+    },
+    {
+      "page": 9,
+      "native_shapes": 25,
+      "native_connectors": 6,
+      "native_tables": 0,
+      "images": 0,
+      "hidden": false
+    },
+    {
+      "page": 10,
+      "native_shapes": 23,
+      "native_connectors": 7,
+      "native_tables": 0,
+      "images": 0,
+      "hidden": false
+    },
+    {
+      "page": 11,
+      "native_shapes": 23,
+      "native_connectors": 6,
+      "native_tables": 0,
+      "images": 0,
+      "hidden": false
+    },
+    {
+      "page": 12,
+      "native_shapes": 15,
+      "native_connectors": 0,
+      "native_tables": 1,
+      "images": 0,
+      "hidden": false
+    },
+    {
+      "page": 13,
+      "native_shapes": 15,
+      "native_connectors": 0,
+      "native_tables": 1,
+      "images": 0,
+      "hidden": false
+    },
+    {
+      "page": 14,
+      "native_shapes": 18,
+      "native_connectors": 0,
+      "native_tables": 1,
+      "images": 0,
+      "hidden": false
+    },
+    {
+      "page": 15,
+      "native_shapes": 15,
+      "native_connectors": 0,
+      "native_tables": 1,
+      "images": 0,
+      "hidden": false
+    },
+    {
+      "page": 16,
+      "native_shapes": 20,
+      "native_connectors": 0,
+      "native_tables": 0,
+      "images": 0,
+      "hidden": false
+    },
+    {
+      "page": 17,
+      "native_shapes": 15,
+      "native_connectors": 0,
+      "native_tables": 0,
+      "images": 2,
+      "hidden": false
+    },
+    {
+      "page": 18,
+      "native_shapes": 17,
+      "native_connectors": 0,
+      "native_tables": 0,
+      "images": 2,
+      "hidden": false
+    },
+    {
+      "page": 19,
+      "native_shapes": 16,
+      "native_connectors": 0,
+      "native_tables": 0,
+      "images": 2,
+      "hidden": false
+    },
+    {
+      "page": 20,
+      "native_shapes": 15,
+      "native_connectors": 0,
+      "native_tables": 1,
+      "images": 0,
+      "hidden": false
+    },
+    {
+      "page": 21,
+      "native_shapes": 20,
+      "native_connectors": 0,
+      "native_tables": 0,
+      "images": 0,
+      "hidden": false
+    },
+    {
+      "page": 22,
+      "native_shapes": 17,
+      "native_connectors": 0,
+      "native_tables": 0,
+      "images": 0,
+      "hidden": false
+    }
+  ],
+  "six_diagrams_are_native": true,
+  "connector_anchors_resolve": true,
+  "native_table_count": 6,
+  "notes_count": 22,
+  "business_formulas_verified": true,
+  "PowerPoint_GUI_checked": false,
+  "PowerPoint_native_export_checked": true,
+  "PDF_pages": 22,
+  "PDF_native_text_extractable": true
+}

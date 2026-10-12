@@ -27,7 +27,9 @@ test("隔离合成Demo真实HTTP：BOM、理论上限、缺口与原因", async 
     const hundred = await query("生产100台DEMO-PMC-01");
     expect(hundred.structured_data.data.materials.filter((r: any) => r.is_ready === false)).toHaveLength(4);
     const reason = await query("为什么不能生产");
-    expect(reason.structured_data.data.inventory_sufficient_for_requested).toBe(false);
+    expect(reason.structured_data.reused_result.data.inventory_sufficient_for_requested).toBe(false);
+    expect(reason.structured_data.reused_from_turn_id).toBe(hundred.turn_id);
+    expect(reason.structured_data.completed_steps).toEqual([]);
     expect(reason.provenance).toBeTruthy();
     const history = await client.get(`/api/v1/agent/sessions/${session_id}`);
     expect(history.status()).toBe(200);
@@ -56,15 +58,15 @@ test("合成工作台0与75/76边界、失败不回退、历史选择及恢复",
   expect((await response.json()).structured_data.data.inventory_sufficient_for_requested).toBe(false);
   response = await ask("生产0台");
   const invalid = await response.json();
-  // Preserve the existing Demo API's validation contract (not the Excel adapter's).
   expect(invalid.status).toBe("needs_input");
+  expect(invalid.structured_data.completed_steps).toEqual([]);
   expect(invalid.structured_data.data).toBeFalsy();
-  await expect(page.locator("#analysis-result")).toContainText("未执行事实计算");
+  await expect(page.locator("#analysis-result")).toContainText("生产数量必须是大于0的整数");
   await page.locator(".assistant-message").first().click();
   await expect(page.locator("#analysis-result")).toContainText("历史回答对应结果");
   await page.reload();
   await expect(page.locator(".assistant-message")).toHaveCount(3);
-  await expect(page.locator("#analysis-result")).toContainText("未执行事实计算");
+  await expect(page.locator("#analysis-result")).toContainText("生产数量必须是大于0的整数");
   await page.route("**/api/v1/agent/query", route => route.fulfill({ status: 500, body: "Internal exception" }));
   expect((await ask("生产1台DEMO-PMC-01")).status()).toBe(500);
   await expect(page.locator("#analysis-result")).toContainText("分析服务暂时异常");

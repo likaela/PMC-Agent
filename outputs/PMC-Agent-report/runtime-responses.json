@@ -1,0 +1,4411 @@
+{
+  "date": "2026-10-12",
+  "mode": "isolated-trial-rules",
+  "synthetic": true,
+  "results": [
+    {
+      "q": "生产100台DEMO-PMC-01",
+      "http": 200,
+      "data": {
+        "intent": "production_capacity",
+        "status": "ok",
+        "answer": "按独立演示场景的库存齐套口径，100 台方案缺料，无法立即满足生产需求。 依据已发布BOM及权威可用库存，理论最多可生产 75 台。 本次需求的库存齐套结果：不足。 缺料原因：DEMO-BOARD-01 缺口 25 件；DEMO-CHIP-01 缺口 100 件；DEMO-MOTOR-01 缺口 50 件；DEMO-SCREW-01 缺口 200 件。 限制产量的物料：DEMO-BOARD-01、DEMO-CHIP-01、DEMO-MOTOR-01、DEMO-SCREW-01。这是库存用量分析，不是开工许可或交付承诺。 数据全部为合成演示事实，不代表真实企业库存。",
+        "structured_data": {
+          "query_type": "production_capacity",
+          "query": {
+            "product": "DEMO-PMC-01",
+            "revision": "V01",
+            "effective_date": "2026-10-02",
+            "requested_quantity": 100,
+            "requested_unit": null,
+            "as_of": "2026-10-02T00:00:00+00:00"
+          },
+          "data": {
+            "calculation_scope": "published_multilevel_bom_available_inventory",
+            "product": "DEMO-PMC-01",
+            "revision": "V01",
+            "product_unit": "台",
+            "requested_quantity": 100,
+            "requested_quantity_in_product_unit": "100",
+            "theoretical_max_quantity": 75,
+            "max_producible_quantity": 75,
+            "inventory_sufficient_for_requested": false,
+            "material_type_ready_rate": "0",
+            "quantity_fulfillment_rate": "0.75",
+            "ready_material_count": 0,
+            "total_material_count": 4,
+            "materials": [
+              {
+                "material_code": "DEMO-BOARD-01",
+                "unit": "件",
+                "required_per_product": "1",
+                "required_qty": "100",
+                "available_qty": "75",
+                "shortage_qty": "25",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-BOARD-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 4
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-CHIP-01",
+                "unit": "件",
+                "required_per_product": "4",
+                "required_qty": "400",
+                "available_qty": "300",
+                "shortage_qty": "100",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-CHIP-01",
+                      "qty_per": "4",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 5
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-MOTOR-01",
+                "unit": "件",
+                "required_per_product": "2",
+                "required_qty": "200",
+                "available_qty": "150",
+                "shortage_qty": "50",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MOTOR-01",
+                      "qty_per": "2",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 2
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-SCREW-01",
+                "unit": "件",
+                "required_per_product": "8",
+                "required_qty": "800",
+                "available_qty": "600",
+                "shortage_qty": "200",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-SCREW-01",
+                      "qty_per": "8",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 3
+                      }
+                    }
+                  ]
+                ]
+              }
+            ],
+            "limiting_materials": [
+              {
+                "material_code": "DEMO-BOARD-01",
+                "unit": "件",
+                "required_per_product": "1",
+                "required_qty": "100",
+                "available_qty": "75",
+                "shortage_qty": "25",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-BOARD-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 4
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-CHIP-01",
+                "unit": "件",
+                "required_per_product": "4",
+                "required_qty": "400",
+                "available_qty": "300",
+                "shortage_qty": "100",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-CHIP-01",
+                      "qty_per": "4",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 5
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-MOTOR-01",
+                "unit": "件",
+                "required_per_product": "2",
+                "required_qty": "200",
+                "available_qty": "150",
+                "shortage_qty": "50",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MOTOR-01",
+                      "qty_per": "2",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 2
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-SCREW-01",
+                "unit": "件",
+                "required_per_product": "8",
+                "required_qty": "800",
+                "available_qty": "600",
+                "shortage_qty": "200",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-SCREW-01",
+                      "qty_per": "8",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 3
+                      }
+                    }
+                  ]
+                ]
+              }
+            ],
+            "unavailable_materials": []
+          },
+          "completeness": {
+            "bom": true,
+            "inventory": true,
+            "units": true,
+            "snapshot_coherent": true,
+            "material_type_ready_rate": true,
+            "quantity_fulfillment_rate": true
+          },
+          "parser_source": "rule_fallback",
+          "response_source": "rule_fallback",
+          "completed_steps": [
+            {
+              "operation": "production_analysis",
+              "status": "ok"
+            }
+          ],
+          "presentation": {
+            "show_maximum": false,
+            "result_type": "production",
+            "policy_version": "business_result_v1",
+            "user_warnings": []
+          },
+          "audit_warnings": []
+        },
+        "provenance": {
+          "bom": [
+            {
+              "parent_material_code": "DEMO-PMC-01",
+              "revision": "V01",
+              "source_file": "bom_facts.json",
+              "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+              "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+              "sheet_name": "bom_lines",
+              "bom_version": "V01"
+            },
+            {
+              "parent_material_code": "DEMO-MODULE-01",
+              "revision": "V01",
+              "source_file": "bom_facts.json",
+              "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+              "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+              "sheet_name": "bom_lines",
+              "bom_version": "V01"
+            }
+          ],
+          "inventory": [
+            {
+              "material_code": "DEMO-BOARD-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-CHIP-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-MOTOR-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-SCREW-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            }
+          ],
+          "unit_conversions": [],
+          "scenario_id": "demo_scenario_50_vs_100",
+          "synthetic": true
+        },
+        "warnings": [],
+        "session_id": "96137ddd-b763-497f-9646-2c3d27b1c3d7",
+        "conversation_id": "6d4795e1-3e76-4ed5-9997-ccbfd0e2e2b0",
+        "turn_id": "50713502-1fe5-438a-8760-09499a94087c",
+        "scenario_id": "demo_scenario_50_vs_100"
+      }
+    },
+    {
+      "q": "为什么不能生产",
+      "http": 200,
+      "data": {
+        "intent": "production_capacity",
+        "status": "ok",
+        "answer": "按独立演示场景的库存齐套口径，100 台方案缺料，无法立即满足生产需求。 依据本会话已保存的分析证据（不是最新库存重查）：\n依据已发布BOM及权威可用库存，理论最多可生产 75 台。 本次需求的库存齐套结果：不足。 缺料原因：DEMO-BOARD-01 缺口 25 件；DEMO-CHIP-01 缺口 100 件；DEMO-MOTOR-01 缺口 50 件；DEMO-SCREW-01 缺口 200 件。 限制产量的物料：DEMO-BOARD-01、DEMO-CHIP-01、DEMO-MOTOR-01、DEMO-SCREW-01。这是库存用量分析，不是开工许可或交付承诺。 数据全部为合成演示事实，不代表真实企业库存。",
+        "structured_data": {
+          "query": {
+            "product": "DEMO-PMC-01",
+            "revision": "V01",
+            "effective_date": "2026-10-02",
+            "requested_quantity": 100,
+            "requested_unit": null,
+            "as_of": "2026-10-02T00:00:00+00:00"
+          },
+          "data": null,
+          "completed_steps": [],
+          "operation": "explain",
+          "response_source": "rule_fallback",
+          "reused_result": {
+            "status": "ok",
+            "query": {
+              "product": "DEMO-PMC-01",
+              "revision": "V01",
+              "effective_date": "2026-10-02",
+              "requested_quantity": 100,
+              "requested_unit": null,
+              "as_of": "2026-10-02T00:00:00+00:00"
+            },
+            "data": {
+              "calculation_scope": "published_multilevel_bom_available_inventory",
+              "product": "DEMO-PMC-01",
+              "revision": "V01",
+              "product_unit": "台",
+              "requested_quantity": 100,
+              "requested_quantity_in_product_unit": "100",
+              "theoretical_max_quantity": 75,
+              "max_producible_quantity": 75,
+              "inventory_sufficient_for_requested": false,
+              "material_type_ready_rate": "0",
+              "quantity_fulfillment_rate": "0.75",
+              "ready_material_count": 0,
+              "total_material_count": 4,
+              "materials": [
+                {
+                  "material_code": "DEMO-BOARD-01",
+                  "unit": "件",
+                  "required_per_product": "1",
+                  "required_qty": "100",
+                  "available_qty": "75",
+                  "shortage_qty": "25",
+                  "material_capacity": 75,
+                  "is_ready": false,
+                  "bom_paths": [
+                    [
+                      {
+                        "parent_material_code": "DEMO-PMC-01",
+                        "revision": "V01",
+                        "child_material_code": "DEMO-MODULE-01",
+                        "qty_per": "1",
+                        "line_unit": "件",
+                        "child_unit": "件",
+                        "conversion_factor": "1",
+                        "provenance": {
+                          "source_file": "bom_facts.json",
+                          "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                          "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                          "sheet_name": "bom_lines",
+                          "row_number": 1
+                        }
+                      },
+                      {
+                        "parent_material_code": "DEMO-MODULE-01",
+                        "revision": "V01",
+                        "child_material_code": "DEMO-BOARD-01",
+                        "qty_per": "1",
+                        "line_unit": "件",
+                        "child_unit": "件",
+                        "conversion_factor": "1",
+                        "provenance": {
+                          "source_file": "bom_facts.json",
+                          "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                          "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                          "sheet_name": "bom_lines",
+                          "row_number": 4
+                        }
+                      }
+                    ]
+                  ]
+                },
+                {
+                  "material_code": "DEMO-CHIP-01",
+                  "unit": "件",
+                  "required_per_product": "4",
+                  "required_qty": "400",
+                  "available_qty": "300",
+                  "shortage_qty": "100",
+                  "material_capacity": 75,
+                  "is_ready": false,
+                  "bom_paths": [
+                    [
+                      {
+                        "parent_material_code": "DEMO-PMC-01",
+                        "revision": "V01",
+                        "child_material_code": "DEMO-MODULE-01",
+                        "qty_per": "1",
+                        "line_unit": "件",
+                        "child_unit": "件",
+                        "conversion_factor": "1",
+                        "provenance": {
+                          "source_file": "bom_facts.json",
+                          "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                          "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                          "sheet_name": "bom_lines",
+                          "row_number": 1
+                        }
+                      },
+                      {
+                        "parent_material_code": "DEMO-MODULE-01",
+                        "revision": "V01",
+                        "child_material_code": "DEMO-CHIP-01",
+                        "qty_per": "4",
+                        "line_unit": "件",
+                        "child_unit": "件",
+                        "conversion_factor": "1",
+                        "provenance": {
+                          "source_file": "bom_facts.json",
+                          "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                          "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                          "sheet_name": "bom_lines",
+                          "row_number": 5
+                        }
+                      }
+                    ]
+                  ]
+                },
+                {
+                  "material_code": "DEMO-MOTOR-01",
+                  "unit": "件",
+                  "required_per_product": "2",
+                  "required_qty": "200",
+                  "available_qty": "150",
+                  "shortage_qty": "50",
+                  "material_capacity": 75,
+                  "is_ready": false,
+                  "bom_paths": [
+                    [
+                      {
+                        "parent_material_code": "DEMO-PMC-01",
+                        "revision": "V01",
+                        "child_material_code": "DEMO-MOTOR-01",
+                        "qty_per": "2",
+                        "line_unit": "件",
+                        "child_unit": "件",
+                        "conversion_factor": "1",
+                        "provenance": {
+                          "source_file": "bom_facts.json",
+                          "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                          "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                          "sheet_name": "bom_lines",
+                          "row_number": 2
+                        }
+                      }
+                    ]
+                  ]
+                },
+                {
+                  "material_code": "DEMO-SCREW-01",
+                  "unit": "件",
+                  "required_per_product": "8",
+                  "required_qty": "800",
+                  "available_qty": "600",
+                  "shortage_qty": "200",
+                  "material_capacity": 75,
+                  "is_ready": false,
+                  "bom_paths": [
+                    [
+                      {
+                        "parent_material_code": "DEMO-PMC-01",
+                        "revision": "V01",
+                        "child_material_code": "DEMO-SCREW-01",
+                        "qty_per": "8",
+                        "line_unit": "件",
+                        "child_unit": "件",
+                        "conversion_factor": "1",
+                        "provenance": {
+                          "source_file": "bom_facts.json",
+                          "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                          "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                          "sheet_name": "bom_lines",
+                          "row_number": 3
+                        }
+                      }
+                    ]
+                  ]
+                }
+              ],
+              "limiting_materials": [
+                {
+                  "material_code": "DEMO-BOARD-01",
+                  "unit": "件",
+                  "required_per_product": "1",
+                  "required_qty": "100",
+                  "available_qty": "75",
+                  "shortage_qty": "25",
+                  "material_capacity": 75,
+                  "is_ready": false,
+                  "bom_paths": [
+                    [
+                      {
+                        "parent_material_code": "DEMO-PMC-01",
+                        "revision": "V01",
+                        "child_material_code": "DEMO-MODULE-01",
+                        "qty_per": "1",
+                        "line_unit": "件",
+                        "child_unit": "件",
+                        "conversion_factor": "1",
+                        "provenance": {
+                          "source_file": "bom_facts.json",
+                          "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                          "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                          "sheet_name": "bom_lines",
+                          "row_number": 1
+                        }
+                      },
+                      {
+                        "parent_material_code": "DEMO-MODULE-01",
+                        "revision": "V01",
+                        "child_material_code": "DEMO-BOARD-01",
+                        "qty_per": "1",
+                        "line_unit": "件",
+                        "child_unit": "件",
+                        "conversion_factor": "1",
+                        "provenance": {
+                          "source_file": "bom_facts.json",
+                          "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                          "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                          "sheet_name": "bom_lines",
+                          "row_number": 4
+                        }
+                      }
+                    ]
+                  ]
+                },
+                {
+                  "material_code": "DEMO-CHIP-01",
+                  "unit": "件",
+                  "required_per_product": "4",
+                  "required_qty": "400",
+                  "available_qty": "300",
+                  "shortage_qty": "100",
+                  "material_capacity": 75,
+                  "is_ready": false,
+                  "bom_paths": [
+                    [
+                      {
+                        "parent_material_code": "DEMO-PMC-01",
+                        "revision": "V01",
+                        "child_material_code": "DEMO-MODULE-01",
+                        "qty_per": "1",
+                        "line_unit": "件",
+                        "child_unit": "件",
+                        "conversion_factor": "1",
+                        "provenance": {
+                          "source_file": "bom_facts.json",
+                          "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                          "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                          "sheet_name": "bom_lines",
+                          "row_number": 1
+                        }
+                      },
+                      {
+                        "parent_material_code": "DEMO-MODULE-01",
+                        "revision": "V01",
+                        "child_material_code": "DEMO-CHIP-01",
+                        "qty_per": "4",
+                        "line_unit": "件",
+                        "child_unit": "件",
+                        "conversion_factor": "1",
+                        "provenance": {
+                          "source_file": "bom_facts.json",
+                          "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                          "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                          "sheet_name": "bom_lines",
+                          "row_number": 5
+                        }
+                      }
+                    ]
+                  ]
+                },
+                {
+                  "material_code": "DEMO-MOTOR-01",
+                  "unit": "件",
+                  "required_per_product": "2",
+                  "required_qty": "200",
+                  "available_qty": "150",
+                  "shortage_qty": "50",
+                  "material_capacity": 75,
+                  "is_ready": false,
+                  "bom_paths": [
+                    [
+                      {
+                        "parent_material_code": "DEMO-PMC-01",
+                        "revision": "V01",
+                        "child_material_code": "DEMO-MOTOR-01",
+                        "qty_per": "2",
+                        "line_unit": "件",
+                        "child_unit": "件",
+                        "conversion_factor": "1",
+                        "provenance": {
+                          "source_file": "bom_facts.json",
+                          "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                          "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                          "sheet_name": "bom_lines",
+                          "row_number": 2
+                        }
+                      }
+                    ]
+                  ]
+                },
+                {
+                  "material_code": "DEMO-SCREW-01",
+                  "unit": "件",
+                  "required_per_product": "8",
+                  "required_qty": "800",
+                  "available_qty": "600",
+                  "shortage_qty": "200",
+                  "material_capacity": 75,
+                  "is_ready": false,
+                  "bom_paths": [
+                    [
+                      {
+                        "parent_material_code": "DEMO-PMC-01",
+                        "revision": "V01",
+                        "child_material_code": "DEMO-SCREW-01",
+                        "qty_per": "8",
+                        "line_unit": "件",
+                        "child_unit": "件",
+                        "conversion_factor": "1",
+                        "provenance": {
+                          "source_file": "bom_facts.json",
+                          "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                          "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                          "sheet_name": "bom_lines",
+                          "row_number": 3
+                        }
+                      }
+                    ]
+                  ]
+                }
+              ],
+              "unavailable_materials": []
+            },
+            "completeness": {
+              "bom": true,
+              "inventory": true,
+              "units": true,
+              "snapshot_coherent": true,
+              "material_type_ready_rate": true,
+              "quantity_fulfillment_rate": true
+            },
+            "provenance": {
+              "bom": [
+                {
+                  "parent_material_code": "DEMO-PMC-01",
+                  "revision": "V01",
+                  "source_file": "bom_facts.json",
+                  "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                  "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                  "sheet_name": "bom_lines",
+                  "bom_version": "V01"
+                },
+                {
+                  "parent_material_code": "DEMO-MODULE-01",
+                  "revision": "V01",
+                  "source_file": "bom_facts.json",
+                  "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                  "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                  "sheet_name": "bom_lines",
+                  "bom_version": "V01"
+                }
+              ],
+              "inventory": [
+                {
+                  "material_code": "DEMO-BOARD-01",
+                  "source_file": "inventory_facts.json",
+                  "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                  "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                  "snapshot_at": "2026-10-02T00:00:00+00:00",
+                  "sheet_name": "inventory_lots"
+                },
+                {
+                  "material_code": "DEMO-CHIP-01",
+                  "source_file": "inventory_facts.json",
+                  "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                  "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                  "snapshot_at": "2026-10-02T00:00:00+00:00",
+                  "sheet_name": "inventory_lots"
+                },
+                {
+                  "material_code": "DEMO-MOTOR-01",
+                  "source_file": "inventory_facts.json",
+                  "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                  "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                  "snapshot_at": "2026-10-02T00:00:00+00:00",
+                  "sheet_name": "inventory_lots"
+                },
+                {
+                  "material_code": "DEMO-SCREW-01",
+                  "source_file": "inventory_facts.json",
+                  "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                  "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                  "snapshot_at": "2026-10-02T00:00:00+00:00",
+                  "sheet_name": "inventory_lots"
+                }
+              ],
+              "unit_conversions": [],
+              "scenario_id": "demo_scenario_50_vs_100",
+              "synthetic": true
+            },
+            "warnings": []
+          },
+          "reused_from_turn_id": "50713502-1fe5-438a-8760-09499a94087c",
+          "business_decision": {
+            "status": "NOT_APPROVED",
+            "reason": "CANNOT_PRODUCE_DUE_TO_SHORTAGE"
+          },
+          "presentation": {
+            "show_maximum": false,
+            "result_type": "shortage",
+            "policy_version": "business_result_v1",
+            "user_warnings": []
+          },
+          "audit_warnings": []
+        },
+        "provenance": {
+          "bom": [
+            {
+              "parent_material_code": "DEMO-PMC-01",
+              "revision": "V01",
+              "source_file": "bom_facts.json",
+              "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+              "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+              "sheet_name": "bom_lines",
+              "bom_version": "V01"
+            },
+            {
+              "parent_material_code": "DEMO-MODULE-01",
+              "revision": "V01",
+              "source_file": "bom_facts.json",
+              "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+              "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+              "sheet_name": "bom_lines",
+              "bom_version": "V01"
+            }
+          ],
+          "inventory": [
+            {
+              "material_code": "DEMO-BOARD-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-CHIP-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-MOTOR-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-SCREW-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            }
+          ],
+          "unit_conversions": [],
+          "scenario_id": "demo_scenario_50_vs_100",
+          "synthetic": true
+        },
+        "warnings": [],
+        "session_id": "96137ddd-b763-497f-9646-2c3d27b1c3d7",
+        "conversation_id": "6d4795e1-3e76-4ed5-9997-ccbfd0e2e2b0",
+        "turn_id": "a2766447-5b36-4248-b438-6bf1a6582393",
+        "scenario_id": "demo_scenario_50_vs_100"
+      }
+    },
+    {
+      "q": "生产50台DEMO-PMC-01",
+      "http": 200,
+      "data": {
+        "intent": "production_capacity",
+        "status": "ok",
+        "answer": "按独立演示场景的库存齐套口径，可以生产 50 台。 依据已发布BOM及权威可用库存，理论最多可生产 75 台。 本次需求的库存齐套结果：足够。 限制产量的物料：DEMO-BOARD-01、DEMO-CHIP-01、DEMO-MOTOR-01、DEMO-SCREW-01。这是库存用量分析，不是开工许可或交付承诺。 数据全部为合成演示事实，不代表真实企业库存。",
+        "structured_data": {
+          "query_type": "production_capacity",
+          "query": {
+            "product": "DEMO-PMC-01",
+            "revision": "V01",
+            "effective_date": "2026-10-02",
+            "requested_quantity": 50,
+            "requested_unit": null,
+            "as_of": "2026-10-02T00:00:00+00:00"
+          },
+          "data": {
+            "calculation_scope": "published_multilevel_bom_available_inventory",
+            "product": "DEMO-PMC-01",
+            "revision": "V01",
+            "product_unit": "台",
+            "requested_quantity": 50,
+            "requested_quantity_in_product_unit": "50",
+            "theoretical_max_quantity": 75,
+            "max_producible_quantity": 75,
+            "inventory_sufficient_for_requested": true,
+            "material_type_ready_rate": "1",
+            "quantity_fulfillment_rate": "1",
+            "ready_material_count": 4,
+            "total_material_count": 4,
+            "materials": [
+              {
+                "material_code": "DEMO-BOARD-01",
+                "unit": "件",
+                "required_per_product": "1",
+                "required_qty": "50",
+                "available_qty": "75",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-BOARD-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 4
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-CHIP-01",
+                "unit": "件",
+                "required_per_product": "4",
+                "required_qty": "200",
+                "available_qty": "300",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-CHIP-01",
+                      "qty_per": "4",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 5
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-MOTOR-01",
+                "unit": "件",
+                "required_per_product": "2",
+                "required_qty": "100",
+                "available_qty": "150",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MOTOR-01",
+                      "qty_per": "2",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 2
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-SCREW-01",
+                "unit": "件",
+                "required_per_product": "8",
+                "required_qty": "400",
+                "available_qty": "600",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-SCREW-01",
+                      "qty_per": "8",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 3
+                      }
+                    }
+                  ]
+                ]
+              }
+            ],
+            "limiting_materials": [
+              {
+                "material_code": "DEMO-BOARD-01",
+                "unit": "件",
+                "required_per_product": "1",
+                "required_qty": "50",
+                "available_qty": "75",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-BOARD-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 4
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-CHIP-01",
+                "unit": "件",
+                "required_per_product": "4",
+                "required_qty": "200",
+                "available_qty": "300",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-CHIP-01",
+                      "qty_per": "4",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 5
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-MOTOR-01",
+                "unit": "件",
+                "required_per_product": "2",
+                "required_qty": "100",
+                "available_qty": "150",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MOTOR-01",
+                      "qty_per": "2",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 2
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-SCREW-01",
+                "unit": "件",
+                "required_per_product": "8",
+                "required_qty": "400",
+                "available_qty": "600",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-SCREW-01",
+                      "qty_per": "8",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 3
+                      }
+                    }
+                  ]
+                ]
+              }
+            ],
+            "unavailable_materials": []
+          },
+          "completeness": {
+            "bom": true,
+            "inventory": true,
+            "units": true,
+            "snapshot_coherent": true,
+            "material_type_ready_rate": true,
+            "quantity_fulfillment_rate": true
+          },
+          "parser_source": "rule_fallback",
+          "response_source": "rule_fallback",
+          "completed_steps": [
+            {
+              "operation": "production_analysis",
+              "status": "ok"
+            }
+          ],
+          "presentation": {
+            "show_maximum": false,
+            "result_type": "production",
+            "policy_version": "business_result_v1",
+            "user_warnings": []
+          },
+          "audit_warnings": []
+        },
+        "provenance": {
+          "bom": [
+            {
+              "parent_material_code": "DEMO-PMC-01",
+              "revision": "V01",
+              "source_file": "bom_facts.json",
+              "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+              "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+              "sheet_name": "bom_lines",
+              "bom_version": "V01"
+            },
+            {
+              "parent_material_code": "DEMO-MODULE-01",
+              "revision": "V01",
+              "source_file": "bom_facts.json",
+              "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+              "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+              "sheet_name": "bom_lines",
+              "bom_version": "V01"
+            }
+          ],
+          "inventory": [
+            {
+              "material_code": "DEMO-BOARD-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-CHIP-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-MOTOR-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-SCREW-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            }
+          ],
+          "unit_conversions": [],
+          "scenario_id": "demo_scenario_50_vs_100",
+          "synthetic": true
+        },
+        "warnings": [],
+        "session_id": "96137ddd-b763-497f-9646-2c3d27b1c3d7",
+        "conversation_id": "6d4795e1-3e76-4ed5-9997-ccbfd0e2e2b0",
+        "turn_id": "9fe8db60-4994-49d9-9b3e-d4a6bff35a63",
+        "scenario_id": "demo_scenario_50_vs_100"
+      }
+    },
+    {
+      "q": "最多能生产多少台",
+      "http": 200,
+      "data": {
+        "intent": "production_capacity",
+        "status": "ok",
+        "answer": "按独立演示场景的库存齐套口径，可以生产 50 台。 依据已发布BOM及权威可用库存，理论最多可生产 75 台。 本次需求的库存齐套结果：足够。 限制产量的物料：DEMO-BOARD-01、DEMO-CHIP-01、DEMO-MOTOR-01、DEMO-SCREW-01。这是库存用量分析，不是开工许可或交付承诺。 数据全部为合成演示事实，不代表真实企业库存。",
+        "structured_data": {
+          "query_type": "production_capacity",
+          "query": {
+            "product": "DEMO-PMC-01",
+            "revision": "V01",
+            "effective_date": "2026-10-02",
+            "requested_quantity": 50,
+            "requested_unit": null,
+            "as_of": "2026-10-02T00:00:00+00:00"
+          },
+          "data": {
+            "calculation_scope": "published_multilevel_bom_available_inventory",
+            "product": "DEMO-PMC-01",
+            "revision": "V01",
+            "product_unit": "台",
+            "requested_quantity": 50,
+            "requested_quantity_in_product_unit": "50",
+            "theoretical_max_quantity": 75,
+            "max_producible_quantity": 75,
+            "inventory_sufficient_for_requested": true,
+            "material_type_ready_rate": "1",
+            "quantity_fulfillment_rate": "1",
+            "ready_material_count": 4,
+            "total_material_count": 4,
+            "materials": [
+              {
+                "material_code": "DEMO-BOARD-01",
+                "unit": "件",
+                "required_per_product": "1",
+                "required_qty": "50",
+                "available_qty": "75",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-BOARD-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 4
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-CHIP-01",
+                "unit": "件",
+                "required_per_product": "4",
+                "required_qty": "200",
+                "available_qty": "300",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-CHIP-01",
+                      "qty_per": "4",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 5
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-MOTOR-01",
+                "unit": "件",
+                "required_per_product": "2",
+                "required_qty": "100",
+                "available_qty": "150",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MOTOR-01",
+                      "qty_per": "2",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 2
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-SCREW-01",
+                "unit": "件",
+                "required_per_product": "8",
+                "required_qty": "400",
+                "available_qty": "600",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-SCREW-01",
+                      "qty_per": "8",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 3
+                      }
+                    }
+                  ]
+                ]
+              }
+            ],
+            "limiting_materials": [
+              {
+                "material_code": "DEMO-BOARD-01",
+                "unit": "件",
+                "required_per_product": "1",
+                "required_qty": "50",
+                "available_qty": "75",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-BOARD-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 4
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-CHIP-01",
+                "unit": "件",
+                "required_per_product": "4",
+                "required_qty": "200",
+                "available_qty": "300",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-CHIP-01",
+                      "qty_per": "4",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 5
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-MOTOR-01",
+                "unit": "件",
+                "required_per_product": "2",
+                "required_qty": "100",
+                "available_qty": "150",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MOTOR-01",
+                      "qty_per": "2",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 2
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-SCREW-01",
+                "unit": "件",
+                "required_per_product": "8",
+                "required_qty": "400",
+                "available_qty": "600",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-SCREW-01",
+                      "qty_per": "8",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 3
+                      }
+                    }
+                  ]
+                ]
+              }
+            ],
+            "unavailable_materials": []
+          },
+          "completeness": {
+            "bom": true,
+            "inventory": true,
+            "units": true,
+            "snapshot_coherent": true,
+            "material_type_ready_rate": true,
+            "quantity_fulfillment_rate": true
+          },
+          "parser_source": "rule_fallback",
+          "response_source": "rule_fallback",
+          "completed_steps": [
+            {
+              "operation": "production_analysis",
+              "status": "ok"
+            }
+          ],
+          "presentation": {
+            "show_maximum": true,
+            "result_type": "maximum",
+            "policy_version": "business_result_v1",
+            "user_warnings": []
+          },
+          "audit_warnings": []
+        },
+        "provenance": {
+          "bom": [
+            {
+              "parent_material_code": "DEMO-PMC-01",
+              "revision": "V01",
+              "source_file": "bom_facts.json",
+              "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+              "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+              "sheet_name": "bom_lines",
+              "bom_version": "V01"
+            },
+            {
+              "parent_material_code": "DEMO-MODULE-01",
+              "revision": "V01",
+              "source_file": "bom_facts.json",
+              "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+              "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+              "sheet_name": "bom_lines",
+              "bom_version": "V01"
+            }
+          ],
+          "inventory": [
+            {
+              "material_code": "DEMO-BOARD-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-CHIP-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-MOTOR-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-SCREW-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            }
+          ],
+          "unit_conversions": [],
+          "scenario_id": "demo_scenario_50_vs_100",
+          "synthetic": true
+        },
+        "warnings": [],
+        "session_id": "96137ddd-b763-497f-9646-2c3d27b1c3d7",
+        "conversation_id": "6d4795e1-3e76-4ed5-9997-ccbfd0e2e2b0",
+        "turn_id": "a2c64675-b8e1-41cd-ac21-af27e1f3f596",
+        "scenario_id": "demo_scenario_50_vs_100"
+      }
+    },
+    {
+      "q": "生产75台",
+      "http": 200,
+      "data": {
+        "intent": "production_capacity",
+        "status": "ok",
+        "answer": "按独立演示场景的库存齐套口径，可以生产 75 台。 依据已发布BOM及权威可用库存，理论最多可生产 75 台。 本次需求的库存齐套结果：足够。 限制产量的物料：DEMO-BOARD-01、DEMO-CHIP-01、DEMO-MOTOR-01、DEMO-SCREW-01。这是库存用量分析，不是开工许可或交付承诺。 数据全部为合成演示事实，不代表真实企业库存。",
+        "structured_data": {
+          "query_type": "production_capacity",
+          "query": {
+            "product": "DEMO-PMC-01",
+            "revision": "V01",
+            "effective_date": "2026-10-02",
+            "requested_quantity": 75,
+            "requested_unit": null,
+            "as_of": "2026-10-02T00:00:00+00:00"
+          },
+          "data": {
+            "calculation_scope": "published_multilevel_bom_available_inventory",
+            "product": "DEMO-PMC-01",
+            "revision": "V01",
+            "product_unit": "台",
+            "requested_quantity": 75,
+            "requested_quantity_in_product_unit": "75",
+            "theoretical_max_quantity": 75,
+            "max_producible_quantity": 75,
+            "inventory_sufficient_for_requested": true,
+            "material_type_ready_rate": "1",
+            "quantity_fulfillment_rate": "1",
+            "ready_material_count": 4,
+            "total_material_count": 4,
+            "materials": [
+              {
+                "material_code": "DEMO-BOARD-01",
+                "unit": "件",
+                "required_per_product": "1",
+                "required_qty": "75",
+                "available_qty": "75",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-BOARD-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 4
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-CHIP-01",
+                "unit": "件",
+                "required_per_product": "4",
+                "required_qty": "300",
+                "available_qty": "300",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-CHIP-01",
+                      "qty_per": "4",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 5
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-MOTOR-01",
+                "unit": "件",
+                "required_per_product": "2",
+                "required_qty": "150",
+                "available_qty": "150",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MOTOR-01",
+                      "qty_per": "2",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 2
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-SCREW-01",
+                "unit": "件",
+                "required_per_product": "8",
+                "required_qty": "600",
+                "available_qty": "600",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-SCREW-01",
+                      "qty_per": "8",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 3
+                      }
+                    }
+                  ]
+                ]
+              }
+            ],
+            "limiting_materials": [
+              {
+                "material_code": "DEMO-BOARD-01",
+                "unit": "件",
+                "required_per_product": "1",
+                "required_qty": "75",
+                "available_qty": "75",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-BOARD-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 4
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-CHIP-01",
+                "unit": "件",
+                "required_per_product": "4",
+                "required_qty": "300",
+                "available_qty": "300",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-CHIP-01",
+                      "qty_per": "4",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 5
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-MOTOR-01",
+                "unit": "件",
+                "required_per_product": "2",
+                "required_qty": "150",
+                "available_qty": "150",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MOTOR-01",
+                      "qty_per": "2",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 2
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-SCREW-01",
+                "unit": "件",
+                "required_per_product": "8",
+                "required_qty": "600",
+                "available_qty": "600",
+                "shortage_qty": "0",
+                "material_capacity": 75,
+                "is_ready": true,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-SCREW-01",
+                      "qty_per": "8",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 3
+                      }
+                    }
+                  ]
+                ]
+              }
+            ],
+            "unavailable_materials": []
+          },
+          "completeness": {
+            "bom": true,
+            "inventory": true,
+            "units": true,
+            "snapshot_coherent": true,
+            "material_type_ready_rate": true,
+            "quantity_fulfillment_rate": true
+          },
+          "parser_source": "rule_fallback",
+          "response_source": "rule_fallback",
+          "completed_steps": [
+            {
+              "operation": "production_analysis",
+              "status": "ok"
+            }
+          ],
+          "presentation": {
+            "show_maximum": false,
+            "result_type": "production",
+            "policy_version": "business_result_v1",
+            "user_warnings": []
+          },
+          "audit_warnings": []
+        },
+        "provenance": {
+          "bom": [
+            {
+              "parent_material_code": "DEMO-PMC-01",
+              "revision": "V01",
+              "source_file": "bom_facts.json",
+              "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+              "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+              "sheet_name": "bom_lines",
+              "bom_version": "V01"
+            },
+            {
+              "parent_material_code": "DEMO-MODULE-01",
+              "revision": "V01",
+              "source_file": "bom_facts.json",
+              "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+              "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+              "sheet_name": "bom_lines",
+              "bom_version": "V01"
+            }
+          ],
+          "inventory": [
+            {
+              "material_code": "DEMO-BOARD-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-CHIP-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-MOTOR-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-SCREW-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            }
+          ],
+          "unit_conversions": [],
+          "scenario_id": "demo_scenario_50_vs_100",
+          "synthetic": true
+        },
+        "warnings": [],
+        "session_id": "96137ddd-b763-497f-9646-2c3d27b1c3d7",
+        "conversation_id": "6d4795e1-3e76-4ed5-9997-ccbfd0e2e2b0",
+        "turn_id": "9dde6352-0fa8-4338-9709-dc817eedeb61",
+        "scenario_id": "demo_scenario_50_vs_100"
+      }
+    },
+    {
+      "q": "生产76台",
+      "http": 200,
+      "data": {
+        "intent": "production_capacity",
+        "status": "ok",
+        "answer": "按独立演示场景的库存齐套口径，76 台方案缺料，无法立即满足生产需求。 依据已发布BOM及权威可用库存，理论最多可生产 75 台。 本次需求的库存齐套结果：不足。 缺料原因：DEMO-BOARD-01 缺口 1 件；DEMO-CHIP-01 缺口 4 件；DEMO-MOTOR-01 缺口 2 件；DEMO-SCREW-01 缺口 8 件。 限制产量的物料：DEMO-BOARD-01、DEMO-CHIP-01、DEMO-MOTOR-01、DEMO-SCREW-01。这是库存用量分析，不是开工许可或交付承诺。 数据全部为合成演示事实，不代表真实企业库存。",
+        "structured_data": {
+          "query_type": "production_capacity",
+          "query": {
+            "product": "DEMO-PMC-01",
+            "revision": "V01",
+            "effective_date": "2026-10-02",
+            "requested_quantity": 76,
+            "requested_unit": null,
+            "as_of": "2026-10-02T00:00:00+00:00"
+          },
+          "data": {
+            "calculation_scope": "published_multilevel_bom_available_inventory",
+            "product": "DEMO-PMC-01",
+            "revision": "V01",
+            "product_unit": "台",
+            "requested_quantity": 76,
+            "requested_quantity_in_product_unit": "76",
+            "theoretical_max_quantity": 75,
+            "max_producible_quantity": 75,
+            "inventory_sufficient_for_requested": false,
+            "material_type_ready_rate": "0",
+            "quantity_fulfillment_rate": "0.9868421052631578947368421053",
+            "ready_material_count": 0,
+            "total_material_count": 4,
+            "materials": [
+              {
+                "material_code": "DEMO-BOARD-01",
+                "unit": "件",
+                "required_per_product": "1",
+                "required_qty": "76",
+                "available_qty": "75",
+                "shortage_qty": "1",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-BOARD-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 4
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-CHIP-01",
+                "unit": "件",
+                "required_per_product": "4",
+                "required_qty": "304",
+                "available_qty": "300",
+                "shortage_qty": "4",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-CHIP-01",
+                      "qty_per": "4",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 5
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-MOTOR-01",
+                "unit": "件",
+                "required_per_product": "2",
+                "required_qty": "152",
+                "available_qty": "150",
+                "shortage_qty": "2",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MOTOR-01",
+                      "qty_per": "2",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 2
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-SCREW-01",
+                "unit": "件",
+                "required_per_product": "8",
+                "required_qty": "608",
+                "available_qty": "600",
+                "shortage_qty": "8",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-SCREW-01",
+                      "qty_per": "8",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 3
+                      }
+                    }
+                  ]
+                ]
+              }
+            ],
+            "limiting_materials": [
+              {
+                "material_code": "DEMO-BOARD-01",
+                "unit": "件",
+                "required_per_product": "1",
+                "required_qty": "76",
+                "available_qty": "75",
+                "shortage_qty": "1",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-BOARD-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 4
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-CHIP-01",
+                "unit": "件",
+                "required_per_product": "4",
+                "required_qty": "304",
+                "available_qty": "300",
+                "shortage_qty": "4",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-CHIP-01",
+                      "qty_per": "4",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 5
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-MOTOR-01",
+                "unit": "件",
+                "required_per_product": "2",
+                "required_qty": "152",
+                "available_qty": "150",
+                "shortage_qty": "2",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MOTOR-01",
+                      "qty_per": "2",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 2
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-SCREW-01",
+                "unit": "件",
+                "required_per_product": "8",
+                "required_qty": "608",
+                "available_qty": "600",
+                "shortage_qty": "8",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-SCREW-01",
+                      "qty_per": "8",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 3
+                      }
+                    }
+                  ]
+                ]
+              }
+            ],
+            "unavailable_materials": []
+          },
+          "completeness": {
+            "bom": true,
+            "inventory": true,
+            "units": true,
+            "snapshot_coherent": true,
+            "material_type_ready_rate": true,
+            "quantity_fulfillment_rate": true
+          },
+          "parser_source": "rule_fallback",
+          "response_source": "rule_fallback",
+          "completed_steps": [
+            {
+              "operation": "production_analysis",
+              "status": "ok"
+            }
+          ],
+          "presentation": {
+            "show_maximum": false,
+            "result_type": "production",
+            "policy_version": "business_result_v1",
+            "user_warnings": []
+          },
+          "audit_warnings": []
+        },
+        "provenance": {
+          "bom": [
+            {
+              "parent_material_code": "DEMO-PMC-01",
+              "revision": "V01",
+              "source_file": "bom_facts.json",
+              "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+              "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+              "sheet_name": "bom_lines",
+              "bom_version": "V01"
+            },
+            {
+              "parent_material_code": "DEMO-MODULE-01",
+              "revision": "V01",
+              "source_file": "bom_facts.json",
+              "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+              "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+              "sheet_name": "bom_lines",
+              "bom_version": "V01"
+            }
+          ],
+          "inventory": [
+            {
+              "material_code": "DEMO-BOARD-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-CHIP-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-MOTOR-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-SCREW-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            }
+          ],
+          "unit_conversions": [],
+          "scenario_id": "demo_scenario_50_vs_100",
+          "synthetic": true
+        },
+        "warnings": [],
+        "session_id": "96137ddd-b763-497f-9646-2c3d27b1c3d7",
+        "conversation_id": "6d4795e1-3e76-4ed5-9997-ccbfd0e2e2b0",
+        "turn_id": "9fb92376-57d9-4b3d-b29b-123956eb300f",
+        "scenario_id": "demo_scenario_50_vs_100"
+      }
+    },
+    {
+      "q": "生产100台",
+      "http": 200,
+      "data": {
+        "intent": "production_capacity",
+        "status": "ok",
+        "answer": "按独立演示场景的库存齐套口径，100 台方案缺料，无法立即满足生产需求。 依据已发布BOM及权威可用库存，理论最多可生产 75 台。 本次需求的库存齐套结果：不足。 缺料原因：DEMO-BOARD-01 缺口 25 件；DEMO-CHIP-01 缺口 100 件；DEMO-MOTOR-01 缺口 50 件；DEMO-SCREW-01 缺口 200 件。 限制产量的物料：DEMO-BOARD-01、DEMO-CHIP-01、DEMO-MOTOR-01、DEMO-SCREW-01。这是库存用量分析，不是开工许可或交付承诺。 数据全部为合成演示事实，不代表真实企业库存。",
+        "structured_data": {
+          "query_type": "production_capacity",
+          "query": {
+            "product": "DEMO-PMC-01",
+            "revision": "V01",
+            "effective_date": "2026-10-02",
+            "requested_quantity": 100,
+            "requested_unit": null,
+            "as_of": "2026-10-02T00:00:00+00:00"
+          },
+          "data": {
+            "calculation_scope": "published_multilevel_bom_available_inventory",
+            "product": "DEMO-PMC-01",
+            "revision": "V01",
+            "product_unit": "台",
+            "requested_quantity": 100,
+            "requested_quantity_in_product_unit": "100",
+            "theoretical_max_quantity": 75,
+            "max_producible_quantity": 75,
+            "inventory_sufficient_for_requested": false,
+            "material_type_ready_rate": "0",
+            "quantity_fulfillment_rate": "0.75",
+            "ready_material_count": 0,
+            "total_material_count": 4,
+            "materials": [
+              {
+                "material_code": "DEMO-BOARD-01",
+                "unit": "件",
+                "required_per_product": "1",
+                "required_qty": "100",
+                "available_qty": "75",
+                "shortage_qty": "25",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-BOARD-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 4
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-CHIP-01",
+                "unit": "件",
+                "required_per_product": "4",
+                "required_qty": "400",
+                "available_qty": "300",
+                "shortage_qty": "100",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-CHIP-01",
+                      "qty_per": "4",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 5
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-MOTOR-01",
+                "unit": "件",
+                "required_per_product": "2",
+                "required_qty": "200",
+                "available_qty": "150",
+                "shortage_qty": "50",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MOTOR-01",
+                      "qty_per": "2",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 2
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-SCREW-01",
+                "unit": "件",
+                "required_per_product": "8",
+                "required_qty": "800",
+                "available_qty": "600",
+                "shortage_qty": "200",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-SCREW-01",
+                      "qty_per": "8",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 3
+                      }
+                    }
+                  ]
+                ]
+              }
+            ],
+            "limiting_materials": [
+              {
+                "material_code": "DEMO-BOARD-01",
+                "unit": "件",
+                "required_per_product": "1",
+                "required_qty": "100",
+                "available_qty": "75",
+                "shortage_qty": "25",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-BOARD-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 4
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-CHIP-01",
+                "unit": "件",
+                "required_per_product": "4",
+                "required_qty": "400",
+                "available_qty": "300",
+                "shortage_qty": "100",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MODULE-01",
+                      "qty_per": "1",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 1
+                      }
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-CHIP-01",
+                      "qty_per": "4",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 5
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-MOTOR-01",
+                "unit": "件",
+                "required_per_product": "2",
+                "required_qty": "200",
+                "available_qty": "150",
+                "shortage_qty": "50",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-MOTOR-01",
+                      "qty_per": "2",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 2
+                      }
+                    }
+                  ]
+                ]
+              },
+              {
+                "material_code": "DEMO-SCREW-01",
+                "unit": "件",
+                "required_per_product": "8",
+                "required_qty": "800",
+                "available_qty": "600",
+                "shortage_qty": "200",
+                "material_capacity": 75,
+                "is_ready": false,
+                "bom_paths": [
+                  [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "child_material_code": "DEMO-SCREW-01",
+                      "qty_per": "8",
+                      "line_unit": "件",
+                      "child_unit": "件",
+                      "conversion_factor": "1",
+                      "provenance": {
+                        "source_file": "bom_facts.json",
+                        "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                        "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                        "sheet_name": "bom_lines",
+                        "row_number": 3
+                      }
+                    }
+                  ]
+                ]
+              }
+            ],
+            "unavailable_materials": []
+          },
+          "completeness": {
+            "bom": true,
+            "inventory": true,
+            "units": true,
+            "snapshot_coherent": true,
+            "material_type_ready_rate": true,
+            "quantity_fulfillment_rate": true
+          },
+          "parser_source": "rule_fallback",
+          "response_source": "rule_fallback",
+          "completed_steps": [
+            {
+              "operation": "production_analysis",
+              "status": "ok"
+            }
+          ],
+          "presentation": {
+            "show_maximum": false,
+            "result_type": "production",
+            "policy_version": "business_result_v1",
+            "user_warnings": []
+          },
+          "audit_warnings": []
+        },
+        "provenance": {
+          "bom": [
+            {
+              "parent_material_code": "DEMO-PMC-01",
+              "revision": "V01",
+              "source_file": "bom_facts.json",
+              "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+              "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+              "sheet_name": "bom_lines",
+              "bom_version": "V01"
+            },
+            {
+              "parent_material_code": "DEMO-MODULE-01",
+              "revision": "V01",
+              "source_file": "bom_facts.json",
+              "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+              "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+              "sheet_name": "bom_lines",
+              "bom_version": "V01"
+            }
+          ],
+          "inventory": [
+            {
+              "material_code": "DEMO-BOARD-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-CHIP-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-MOTOR-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            },
+            {
+              "material_code": "DEMO-SCREW-01",
+              "source_file": "inventory_facts.json",
+              "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+              "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+              "snapshot_at": "2026-10-02T00:00:00+00:00",
+              "sheet_name": "inventory_lots"
+            }
+          ],
+          "unit_conversions": [],
+          "scenario_id": "demo_scenario_50_vs_100",
+          "synthetic": true
+        },
+        "warnings": [],
+        "session_id": "96137ddd-b763-497f-9646-2c3d27b1c3d7",
+        "conversation_id": "6d4795e1-3e76-4ed5-9997-ccbfd0e2e2b0",
+        "turn_id": "be8920c1-2194-48c4-b253-17b17d56b4d8",
+        "scenario_id": "demo_scenario_50_vs_100"
+      }
+    },
+    {
+      "q": "帮我生成采购建议",
+      "http": 200,
+      "data": {
+        "intent": "purchase_planning",
+        "status": "ok",
+        "answer": "采购分析基于已发布参数、库存和在途事实。 DEMO-CHIP-01：建议采购 100 件。 DEMO-MOTOR-01：建议采购 50 件。 DEMO-BOARD-01：建议采购 30 件。 DEMO-SCREW-01：建议采购 200 件。 未知的数量、价格或交期不作估算；建议不代表已下单或已到货。",
+        "structured_data": {
+          "query_type": "purchase_planning",
+          "query": {
+            "product": "DEMO-PMC-01",
+            "revision": "V01",
+            "effective_date": "2026-10-02",
+            "quantity": 100,
+            "start_date": "2026-10-20",
+            "as_of": "2026-10-02T00:00:00+00:00",
+            "suppliers": null,
+            "availability_basis": "source_only"
+          },
+          "data": {
+            "product": "DEMO-PMC-01",
+            "revision": "V01",
+            "quantity": 100,
+            "recommendations": [
+              {
+                "material": "DEMO-CHIP-01",
+                "unit": "件",
+                "required_qty": "400",
+                "current_available_qty": "300",
+                "available_qty": "300",
+                "eligible_inbound_qty": "0",
+                "safety_stock_qty": "0",
+                "shortage": "100",
+                "shortage_qty": "100",
+                "shortage_ratio": "0.25",
+                "net_purchase_requirement_qty": "100",
+                "suggested_purchase_qty": "100",
+                "constraint_extra_qty": "0",
+                "effective_order_multiple": "50",
+                "minimum_order_quantity": "50",
+                "purchase_parameters": {
+                  "minimum_order_quantity": "50",
+                  "order_multiple": "50",
+                  "packaging_multiple": null,
+                  "order_multiple_status": "applicable",
+                  "packaging_multiple_status": "not_applicable",
+                  "purchase_unit": "件"
+                },
+                "supplier": "DEMO-SUP-CHIP",
+                "lead_time_days": 12,
+                "earliest_arrival_date": "2026-10-14",
+                "arrival_assumption": "仅模拟分析日下单后的交期，不代表已下单或供应商承诺到货",
+                "unit_price": "2.00",
+                "currency": "CNY",
+                "purchase_cost": "200.00",
+                "unconstrained_cost": "200.00",
+                "constraint_cost_impact": "0.00",
+                "risk_level": "high",
+                "long_lead_time": true,
+                "risk_reasons": [
+                  "权威交期超过 7 天"
+                ],
+                "cost_rank_in_currency": 3,
+                "constraint_cost_impact_rank_in_currency": 2,
+                "reason": [
+                  "补足生产需求并保留明确安全库存，扣除开工日前已确认计划供给",
+                  "采购量取满足 MOQ 与全部明确倍数约束的最小值；净需求为零时不触发 MOQ"
+                ],
+                "recommendation_status": "ok",
+                "missing_fields": [],
+                "completeness": {
+                  "quantity": true,
+                  "parameters": true,
+                  "price": true,
+                  "cost": true,
+                  "risk": true
+                },
+                "provenance": {
+                  "bom": [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "source_file": "bom_facts.json",
+                      "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                      "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                      "sheet_name": "bom_lines",
+                      "bom_version": "V01"
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "source_file": "bom_facts.json",
+                      "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                      "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                      "sheet_name": "bom_lines",
+                      "bom_version": "V01"
+                    }
+                  ],
+                  "bom_paths": [
+                    [
+                      {
+                        "parent_material_code": "DEMO-PMC-01",
+                        "revision": "V01",
+                        "child_material_code": "DEMO-MODULE-01",
+                        "qty_per": "1",
+                        "line_unit": "件",
+                        "child_unit": "件",
+                        "conversion_factor": "1",
+                        "provenance": {
+                          "source_file": "bom_facts.json",
+                          "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                          "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                          "sheet_name": "bom_lines",
+                          "row_number": 1
+                        }
+                      },
+                      {
+                        "parent_material_code": "DEMO-MODULE-01",
+                        "revision": "V01",
+                        "child_material_code": "DEMO-CHIP-01",
+                        "qty_per": "4",
+                        "line_unit": "件",
+                        "child_unit": "件",
+                        "conversion_factor": "1",
+                        "provenance": {
+                          "source_file": "bom_facts.json",
+                          "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                          "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                          "sheet_name": "bom_lines",
+                          "row_number": 5
+                        }
+                      }
+                    ]
+                  ],
+                  "unit_conversions": [],
+                  "inventory": {
+                    "source_file": "inventory_facts.json",
+                    "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                    "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                    "snapshot_at": "2026-10-02T00:00:00+00:00",
+                    "observed_at": "2026-10-02T00:00:00+00:00",
+                    "lots": [
+                      {
+                        "source_file": "inventory_facts.json",
+                        "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                        "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                        "sheet_name": "inventory_lots",
+                        "row_number": 3,
+                        "snapshot_at": "2026-10-02T00:00:00+00:00"
+                      },
+                      {
+                        "source_file": "inventory_facts.json",
+                        "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                        "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                        "sheet_name": "inventory_lots",
+                        "row_number": 4,
+                        "snapshot_at": "2026-10-02T00:00:00+00:00"
+                      }
+                    ],
+                    "risk_policy": {
+                      "source_file": "purchase_parameters.json",
+                      "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                      "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                      "sheet_name": "safety_stock",
+                      "row_number": 2
+                    },
+                    "threshold_overrides": {}
+                  },
+                  "inbound": {
+                    "source_file": "inbound_facts.json",
+                    "content_sha256": "1ed7401239a723f403fef875403bac54be652cf4f274272c4e6f03465643cbd4",
+                    "import_batch_id": "b4fda030-9a79-5cbe-924b-0fb65c58c604",
+                    "observed_at": "2026-10-02T00:00:00+00:00",
+                    "lines": [
+                      {
+                        "source_file": "inbound_facts.json",
+                        "content_sha256": "1ed7401239a723f403fef875403bac54be652cf4f274272c4e6f03465643cbd4",
+                        "import_batch_id": "b4fda030-9a79-5cbe-924b-0fb65c58c604",
+                        "sheet_name": "closed_orders",
+                        "row_number": 2
+                      }
+                    ]
+                  },
+                  "safety_stock": {
+                    "source_file": "purchase_parameters.json",
+                    "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                    "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                    "sheet_name": "safety_stock",
+                    "row_number": 2
+                  },
+                  "parameters": {
+                    "source_file": "purchase_parameters.json",
+                    "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                    "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                    "sheet_name": "purchase_parameters",
+                    "row_number": 2
+                  },
+                  "price": {
+                    "source_file": "purchase_parameters.json",
+                    "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                    "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                    "sheet_name": "prices",
+                    "row_number": 2
+                  }
+                },
+                "priority": 1
+              },
+              {
+                "material": "DEMO-MOTOR-01",
+                "unit": "件",
+                "required_qty": "200",
+                "current_available_qty": "150",
+                "available_qty": "150",
+                "eligible_inbound_qty": "0",
+                "safety_stock_qty": "0",
+                "shortage": "50",
+                "shortage_qty": "50",
+                "shortage_ratio": "0.25",
+                "net_purchase_requirement_qty": "50",
+                "suggested_purchase_qty": "50",
+                "constraint_extra_qty": "0",
+                "effective_order_multiple": "10",
+                "minimum_order_quantity": "20",
+                "purchase_parameters": {
+                  "minimum_order_quantity": "20",
+                  "order_multiple": "10",
+                  "packaging_multiple": null,
+                  "order_multiple_status": "applicable",
+                  "packaging_multiple_status": "not_applicable",
+                  "purchase_unit": "件"
+                },
+                "supplier": "DEMO-SUP-MOTOR",
+                "lead_time_days": 8,
+                "earliest_arrival_date": "2026-10-10",
+                "arrival_assumption": "仅模拟分析日下单后的交期，不代表已下单或供应商承诺到货",
+                "unit_price": "15.00",
+                "currency": "CNY",
+                "purchase_cost": "750.00",
+                "unconstrained_cost": "750.00",
+                "constraint_cost_impact": "0.00",
+                "risk_level": "high",
+                "long_lead_time": true,
+                "risk_reasons": [
+                  "权威交期超过 7 天"
+                ],
+                "cost_rank_in_currency": 1,
+                "constraint_cost_impact_rank_in_currency": 3,
+                "reason": [
+                  "补足生产需求并保留明确安全库存，扣除开工日前已确认计划供给",
+                  "采购量取满足 MOQ 与全部明确倍数约束的最小值；净需求为零时不触发 MOQ"
+                ],
+                "recommendation_status": "ok",
+                "missing_fields": [],
+                "completeness": {
+                  "quantity": true,
+                  "parameters": true,
+                  "price": true,
+                  "cost": true,
+                  "risk": true
+                },
+                "provenance": {
+                  "bom": [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "source_file": "bom_facts.json",
+                      "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                      "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                      "sheet_name": "bom_lines",
+                      "bom_version": "V01"
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "source_file": "bom_facts.json",
+                      "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                      "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                      "sheet_name": "bom_lines",
+                      "bom_version": "V01"
+                    }
+                  ],
+                  "bom_paths": [
+                    [
+                      {
+                        "parent_material_code": "DEMO-PMC-01",
+                        "revision": "V01",
+                        "child_material_code": "DEMO-MOTOR-01",
+                        "qty_per": "2",
+                        "line_unit": "件",
+                        "child_unit": "件",
+                        "conversion_factor": "1",
+                        "provenance": {
+                          "source_file": "bom_facts.json",
+                          "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                          "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                          "sheet_name": "bom_lines",
+                          "row_number": 2
+                        }
+                      }
+                    ]
+                  ],
+                  "unit_conversions": [],
+                  "inventory": {
+                    "source_file": "inventory_facts.json",
+                    "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                    "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                    "snapshot_at": "2026-10-02T00:00:00+00:00",
+                    "observed_at": "2026-10-02T00:00:00+00:00",
+                    "lots": [
+                      {
+                        "source_file": "inventory_facts.json",
+                        "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                        "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                        "sheet_name": "inventory_lots",
+                        "row_number": 5,
+                        "snapshot_at": "2026-10-02T00:00:00+00:00"
+                      },
+                      {
+                        "source_file": "inventory_facts.json",
+                        "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                        "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                        "sheet_name": "inventory_lots",
+                        "row_number": 6,
+                        "snapshot_at": "2026-10-02T00:00:00+00:00"
+                      }
+                    ],
+                    "risk_policy": {
+                      "source_file": "purchase_parameters.json",
+                      "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                      "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                      "sheet_name": "safety_stock",
+                      "row_number": 3
+                    },
+                    "threshold_overrides": {}
+                  },
+                  "inbound": {
+                    "source_file": "inbound_facts.json",
+                    "content_sha256": "1ed7401239a723f403fef875403bac54be652cf4f274272c4e6f03465643cbd4",
+                    "import_batch_id": "b4fda030-9a79-5cbe-924b-0fb65c58c604",
+                    "observed_at": "2026-10-02T00:00:00+00:00",
+                    "lines": [
+                      {
+                        "source_file": "inbound_facts.json",
+                        "content_sha256": "1ed7401239a723f403fef875403bac54be652cf4f274272c4e6f03465643cbd4",
+                        "import_batch_id": "b4fda030-9a79-5cbe-924b-0fb65c58c604",
+                        "sheet_name": "closed_orders",
+                        "row_number": 3
+                      }
+                    ]
+                  },
+                  "safety_stock": {
+                    "source_file": "purchase_parameters.json",
+                    "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                    "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                    "sheet_name": "safety_stock",
+                    "row_number": 3
+                  },
+                  "parameters": {
+                    "source_file": "purchase_parameters.json",
+                    "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                    "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                    "sheet_name": "purchase_parameters",
+                    "row_number": 3
+                  },
+                  "price": {
+                    "source_file": "purchase_parameters.json",
+                    "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                    "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                    "sheet_name": "prices",
+                    "row_number": 3
+                  }
+                },
+                "priority": 2
+              },
+              {
+                "material": "DEMO-BOARD-01",
+                "unit": "件",
+                "required_qty": "100",
+                "current_available_qty": "75",
+                "available_qty": "75",
+                "eligible_inbound_qty": "0",
+                "safety_stock_qty": "0",
+                "shortage": "25",
+                "shortage_qty": "25",
+                "shortage_ratio": "0.25",
+                "net_purchase_requirement_qty": "25",
+                "suggested_purchase_qty": "30",
+                "constraint_extra_qty": "5",
+                "effective_order_multiple": "10",
+                "minimum_order_quantity": "10",
+                "purchase_parameters": {
+                  "minimum_order_quantity": "10",
+                  "order_multiple": "10",
+                  "packaging_multiple": null,
+                  "order_multiple_status": "applicable",
+                  "packaging_multiple_status": "not_applicable",
+                  "purchase_unit": "件"
+                },
+                "supplier": "DEMO-SUP-BOARD",
+                "lead_time_days": 5,
+                "earliest_arrival_date": "2026-10-07",
+                "arrival_assumption": "仅模拟分析日下单后的交期，不代表已下单或供应商承诺到货",
+                "unit_price": "20.00",
+                "currency": "CNY",
+                "purchase_cost": "600.00",
+                "unconstrained_cost": "500.00",
+                "constraint_cost_impact": "100.00",
+                "risk_level": "general",
+                "long_lead_time": false,
+                "risk_reasons": [],
+                "cost_rank_in_currency": 2,
+                "constraint_cost_impact_rank_in_currency": 1,
+                "reason": [
+                  "补足生产需求并保留明确安全库存，扣除开工日前已确认计划供给",
+                  "采购量取满足 MOQ 与全部明确倍数约束的最小值；净需求为零时不触发 MOQ"
+                ],
+                "recommendation_status": "ok",
+                "missing_fields": [],
+                "completeness": {
+                  "quantity": true,
+                  "parameters": true,
+                  "price": true,
+                  "cost": true,
+                  "risk": true
+                },
+                "provenance": {
+                  "bom": [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "source_file": "bom_facts.json",
+                      "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                      "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                      "sheet_name": "bom_lines",
+                      "bom_version": "V01"
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "source_file": "bom_facts.json",
+                      "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                      "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                      "sheet_name": "bom_lines",
+                      "bom_version": "V01"
+                    }
+                  ],
+                  "bom_paths": [
+                    [
+                      {
+                        "parent_material_code": "DEMO-PMC-01",
+                        "revision": "V01",
+                        "child_material_code": "DEMO-MODULE-01",
+                        "qty_per": "1",
+                        "line_unit": "件",
+                        "child_unit": "件",
+                        "conversion_factor": "1",
+                        "provenance": {
+                          "source_file": "bom_facts.json",
+                          "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                          "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                          "sheet_name": "bom_lines",
+                          "row_number": 1
+                        }
+                      },
+                      {
+                        "parent_material_code": "DEMO-MODULE-01",
+                        "revision": "V01",
+                        "child_material_code": "DEMO-BOARD-01",
+                        "qty_per": "1",
+                        "line_unit": "件",
+                        "child_unit": "件",
+                        "conversion_factor": "1",
+                        "provenance": {
+                          "source_file": "bom_facts.json",
+                          "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                          "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                          "sheet_name": "bom_lines",
+                          "row_number": 4
+                        }
+                      }
+                    ]
+                  ],
+                  "unit_conversions": [],
+                  "inventory": {
+                    "source_file": "inventory_facts.json",
+                    "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                    "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                    "snapshot_at": "2026-10-02T00:00:00+00:00",
+                    "observed_at": "2026-10-02T00:00:00+00:00",
+                    "lots": [
+                      {
+                        "source_file": "inventory_facts.json",
+                        "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                        "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                        "sheet_name": "inventory_lots",
+                        "row_number": 1,
+                        "snapshot_at": "2026-10-02T00:00:00+00:00"
+                      },
+                      {
+                        "source_file": "inventory_facts.json",
+                        "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                        "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                        "sheet_name": "inventory_lots",
+                        "row_number": 2,
+                        "snapshot_at": "2026-10-02T00:00:00+00:00"
+                      }
+                    ],
+                    "risk_policy": {
+                      "source_file": "purchase_parameters.json",
+                      "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                      "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                      "sheet_name": "safety_stock",
+                      "row_number": 1
+                    },
+                    "threshold_overrides": {}
+                  },
+                  "inbound": {
+                    "source_file": "inbound_facts.json",
+                    "content_sha256": "1ed7401239a723f403fef875403bac54be652cf4f274272c4e6f03465643cbd4",
+                    "import_batch_id": "b4fda030-9a79-5cbe-924b-0fb65c58c604",
+                    "observed_at": "2026-10-02T00:00:00+00:00",
+                    "lines": [
+                      {
+                        "source_file": "inbound_facts.json",
+                        "content_sha256": "1ed7401239a723f403fef875403bac54be652cf4f274272c4e6f03465643cbd4",
+                        "import_batch_id": "b4fda030-9a79-5cbe-924b-0fb65c58c604",
+                        "sheet_name": "closed_orders",
+                        "row_number": 1
+                      }
+                    ]
+                  },
+                  "safety_stock": {
+                    "source_file": "purchase_parameters.json",
+                    "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                    "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                    "sheet_name": "safety_stock",
+                    "row_number": 1
+                  },
+                  "parameters": {
+                    "source_file": "purchase_parameters.json",
+                    "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                    "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                    "sheet_name": "purchase_parameters",
+                    "row_number": 1
+                  },
+                  "price": {
+                    "source_file": "purchase_parameters.json",
+                    "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                    "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                    "sheet_name": "prices",
+                    "row_number": 1
+                  }
+                },
+                "priority": 3
+              },
+              {
+                "material": "DEMO-SCREW-01",
+                "unit": "件",
+                "required_qty": "800",
+                "current_available_qty": "600",
+                "available_qty": "600",
+                "eligible_inbound_qty": "0",
+                "safety_stock_qty": "0",
+                "shortage": "200",
+                "shortage_qty": "200",
+                "shortage_ratio": "0.25",
+                "net_purchase_requirement_qty": "200",
+                "suggested_purchase_qty": "200",
+                "constraint_extra_qty": "0",
+                "effective_order_multiple": "100",
+                "minimum_order_quantity": "100",
+                "purchase_parameters": {
+                  "minimum_order_quantity": "100",
+                  "order_multiple": "100",
+                  "packaging_multiple": null,
+                  "order_multiple_status": "applicable",
+                  "packaging_multiple_status": "not_applicable",
+                  "purchase_unit": "件"
+                },
+                "supplier": "DEMO-SUP-SCREW",
+                "lead_time_days": 3,
+                "earliest_arrival_date": "2026-10-05",
+                "arrival_assumption": "仅模拟分析日下单后的交期，不代表已下单或供应商承诺到货",
+                "unit_price": "0.05",
+                "currency": "CNY",
+                "purchase_cost": "10.00",
+                "unconstrained_cost": "10.00",
+                "constraint_cost_impact": "0.00",
+                "risk_level": "general",
+                "long_lead_time": false,
+                "risk_reasons": [],
+                "cost_rank_in_currency": 4,
+                "constraint_cost_impact_rank_in_currency": 4,
+                "reason": [
+                  "补足生产需求并保留明确安全库存，扣除开工日前已确认计划供给",
+                  "采购量取满足 MOQ 与全部明确倍数约束的最小值；净需求为零时不触发 MOQ"
+                ],
+                "recommendation_status": "ok",
+                "missing_fields": [],
+                "completeness": {
+                  "quantity": true,
+                  "parameters": true,
+                  "price": true,
+                  "cost": true,
+                  "risk": true
+                },
+                "provenance": {
+                  "bom": [
+                    {
+                      "parent_material_code": "DEMO-PMC-01",
+                      "revision": "V01",
+                      "source_file": "bom_facts.json",
+                      "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                      "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                      "sheet_name": "bom_lines",
+                      "bom_version": "V01"
+                    },
+                    {
+                      "parent_material_code": "DEMO-MODULE-01",
+                      "revision": "V01",
+                      "source_file": "bom_facts.json",
+                      "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                      "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                      "sheet_name": "bom_lines",
+                      "bom_version": "V01"
+                    }
+                  ],
+                  "bom_paths": [
+                    [
+                      {
+                        "parent_material_code": "DEMO-PMC-01",
+                        "revision": "V01",
+                        "child_material_code": "DEMO-SCREW-01",
+                        "qty_per": "8",
+                        "line_unit": "件",
+                        "child_unit": "件",
+                        "conversion_factor": "1",
+                        "provenance": {
+                          "source_file": "bom_facts.json",
+                          "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                          "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                          "sheet_name": "bom_lines",
+                          "row_number": 3
+                        }
+                      }
+                    ]
+                  ],
+                  "unit_conversions": [],
+                  "inventory": {
+                    "source_file": "inventory_facts.json",
+                    "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                    "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                    "snapshot_at": "2026-10-02T00:00:00+00:00",
+                    "observed_at": "2026-10-02T00:00:00+00:00",
+                    "lots": [
+                      {
+                        "source_file": "inventory_facts.json",
+                        "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                        "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                        "sheet_name": "inventory_lots",
+                        "row_number": 7,
+                        "snapshot_at": "2026-10-02T00:00:00+00:00"
+                      },
+                      {
+                        "source_file": "inventory_facts.json",
+                        "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                        "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                        "sheet_name": "inventory_lots",
+                        "row_number": 8,
+                        "snapshot_at": "2026-10-02T00:00:00+00:00"
+                      }
+                    ],
+                    "risk_policy": {
+                      "source_file": "purchase_parameters.json",
+                      "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                      "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                      "sheet_name": "safety_stock",
+                      "row_number": 4
+                    },
+                    "threshold_overrides": {}
+                  },
+                  "inbound": {
+                    "source_file": "inbound_facts.json",
+                    "content_sha256": "1ed7401239a723f403fef875403bac54be652cf4f274272c4e6f03465643cbd4",
+                    "import_batch_id": "b4fda030-9a79-5cbe-924b-0fb65c58c604",
+                    "observed_at": "2026-10-02T00:00:00+00:00",
+                    "lines": [
+                      {
+                        "source_file": "inbound_facts.json",
+                        "content_sha256": "1ed7401239a723f403fef875403bac54be652cf4f274272c4e6f03465643cbd4",
+                        "import_batch_id": "b4fda030-9a79-5cbe-924b-0fb65c58c604",
+                        "sheet_name": "closed_orders",
+                        "row_number": 4
+                      }
+                    ]
+                  },
+                  "safety_stock": {
+                    "source_file": "purchase_parameters.json",
+                    "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                    "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                    "sheet_name": "safety_stock",
+                    "row_number": 4
+                  },
+                  "parameters": {
+                    "source_file": "purchase_parameters.json",
+                    "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                    "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                    "sheet_name": "purchase_parameters",
+                    "row_number": 4
+                  },
+                  "price": {
+                    "source_file": "purchase_parameters.json",
+                    "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                    "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                    "sheet_name": "prices",
+                    "row_number": 4
+                  }
+                },
+                "priority": 4
+              }
+            ],
+            "total_purchase_cost": "1560.00",
+            "total_cost_currency": "CNY",
+            "total_constraint_cost_impact": "100.00",
+            "known_cost_subtotals_by_currency": {
+              "CNY": "1560.00"
+            },
+            "known_constraint_cost_impact_by_currency": {
+              "CNY": "100.00"
+            },
+            "priority_rule": "数据缺口优先核验；风险等级降序、交期降序、缺口比例降序、同币种完整成本降序、料号升序",
+            "cost_ranking_applied": true,
+            "missing_fields": {}
+          },
+          "completeness": {
+            "bom": true,
+            "snapshot_coherent": true,
+            "quantity": true,
+            "parameters": true,
+            "cost": true,
+            "single_currency": true
+          },
+          "parser_source": "rule_fallback",
+          "response_source": "rule_fallback",
+          "completed_steps": [
+            {
+              "operation": "purchase_plan",
+              "status": "ok"
+            }
+          ],
+          "presentation": {
+            "show_maximum": false,
+            "result_type": "purchase",
+            "policy_version": "business_result_v1",
+            "user_warnings": []
+          },
+          "audit_warnings": [
+            "采购建议不代表订单已执行或物料已到货，不修改生产可行性结论"
+          ]
+        },
+        "provenance": {
+          "bom": [
+            {
+              "parent_material_code": "DEMO-PMC-01",
+              "revision": "V01",
+              "source_file": "bom_facts.json",
+              "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+              "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+              "sheet_name": "bom_lines",
+              "bom_version": "V01"
+            },
+            {
+              "parent_material_code": "DEMO-MODULE-01",
+              "revision": "V01",
+              "source_file": "bom_facts.json",
+              "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+              "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+              "sheet_name": "bom_lines",
+              "bom_version": "V01"
+            }
+          ],
+          "materials": {
+            "DEMO-CHIP-01": {
+              "bom": [
+                {
+                  "parent_material_code": "DEMO-PMC-01",
+                  "revision": "V01",
+                  "source_file": "bom_facts.json",
+                  "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                  "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                  "sheet_name": "bom_lines",
+                  "bom_version": "V01"
+                },
+                {
+                  "parent_material_code": "DEMO-MODULE-01",
+                  "revision": "V01",
+                  "source_file": "bom_facts.json",
+                  "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                  "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                  "sheet_name": "bom_lines",
+                  "bom_version": "V01"
+                }
+              ],
+              "bom_paths": [
+                [
+                  {
+                    "parent_material_code": "DEMO-PMC-01",
+                    "revision": "V01",
+                    "child_material_code": "DEMO-MODULE-01",
+                    "qty_per": "1",
+                    "line_unit": "件",
+                    "child_unit": "件",
+                    "conversion_factor": "1",
+                    "provenance": {
+                      "source_file": "bom_facts.json",
+                      "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                      "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                      "sheet_name": "bom_lines",
+                      "row_number": 1
+                    }
+                  },
+                  {
+                    "parent_material_code": "DEMO-MODULE-01",
+                    "revision": "V01",
+                    "child_material_code": "DEMO-CHIP-01",
+                    "qty_per": "4",
+                    "line_unit": "件",
+                    "child_unit": "件",
+                    "conversion_factor": "1",
+                    "provenance": {
+                      "source_file": "bom_facts.json",
+                      "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                      "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                      "sheet_name": "bom_lines",
+                      "row_number": 5
+                    }
+                  }
+                ]
+              ],
+              "unit_conversions": [],
+              "inventory": {
+                "source_file": "inventory_facts.json",
+                "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                "snapshot_at": "2026-10-02T00:00:00+00:00",
+                "observed_at": "2026-10-02T00:00:00+00:00",
+                "lots": [
+                  {
+                    "source_file": "inventory_facts.json",
+                    "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                    "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                    "sheet_name": "inventory_lots",
+                    "row_number": 3,
+                    "snapshot_at": "2026-10-02T00:00:00+00:00"
+                  },
+                  {
+                    "source_file": "inventory_facts.json",
+                    "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                    "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                    "sheet_name": "inventory_lots",
+                    "row_number": 4,
+                    "snapshot_at": "2026-10-02T00:00:00+00:00"
+                  }
+                ],
+                "risk_policy": {
+                  "source_file": "purchase_parameters.json",
+                  "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                  "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                  "sheet_name": "safety_stock",
+                  "row_number": 2
+                },
+                "threshold_overrides": {}
+              },
+              "inbound": {
+                "source_file": "inbound_facts.json",
+                "content_sha256": "1ed7401239a723f403fef875403bac54be652cf4f274272c4e6f03465643cbd4",
+                "import_batch_id": "b4fda030-9a79-5cbe-924b-0fb65c58c604",
+                "observed_at": "2026-10-02T00:00:00+00:00",
+                "lines": [
+                  {
+                    "source_file": "inbound_facts.json",
+                    "content_sha256": "1ed7401239a723f403fef875403bac54be652cf4f274272c4e6f03465643cbd4",
+                    "import_batch_id": "b4fda030-9a79-5cbe-924b-0fb65c58c604",
+                    "sheet_name": "closed_orders",
+                    "row_number": 2
+                  }
+                ]
+              },
+              "safety_stock": {
+                "source_file": "purchase_parameters.json",
+                "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                "sheet_name": "safety_stock",
+                "row_number": 2
+              },
+              "parameters": {
+                "source_file": "purchase_parameters.json",
+                "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                "sheet_name": "purchase_parameters",
+                "row_number": 2
+              },
+              "price": {
+                "source_file": "purchase_parameters.json",
+                "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                "sheet_name": "prices",
+                "row_number": 2
+              }
+            },
+            "DEMO-MOTOR-01": {
+              "bom": [
+                {
+                  "parent_material_code": "DEMO-PMC-01",
+                  "revision": "V01",
+                  "source_file": "bom_facts.json",
+                  "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                  "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                  "sheet_name": "bom_lines",
+                  "bom_version": "V01"
+                },
+                {
+                  "parent_material_code": "DEMO-MODULE-01",
+                  "revision": "V01",
+                  "source_file": "bom_facts.json",
+                  "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                  "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                  "sheet_name": "bom_lines",
+                  "bom_version": "V01"
+                }
+              ],
+              "bom_paths": [
+                [
+                  {
+                    "parent_material_code": "DEMO-PMC-01",
+                    "revision": "V01",
+                    "child_material_code": "DEMO-MOTOR-01",
+                    "qty_per": "2",
+                    "line_unit": "件",
+                    "child_unit": "件",
+                    "conversion_factor": "1",
+                    "provenance": {
+                      "source_file": "bom_facts.json",
+                      "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                      "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                      "sheet_name": "bom_lines",
+                      "row_number": 2
+                    }
+                  }
+                ]
+              ],
+              "unit_conversions": [],
+              "inventory": {
+                "source_file": "inventory_facts.json",
+                "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                "snapshot_at": "2026-10-02T00:00:00+00:00",
+                "observed_at": "2026-10-02T00:00:00+00:00",
+                "lots": [
+                  {
+                    "source_file": "inventory_facts.json",
+                    "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                    "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                    "sheet_name": "inventory_lots",
+                    "row_number": 5,
+                    "snapshot_at": "2026-10-02T00:00:00+00:00"
+                  },
+                  {
+                    "source_file": "inventory_facts.json",
+                    "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                    "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                    "sheet_name": "inventory_lots",
+                    "row_number": 6,
+                    "snapshot_at": "2026-10-02T00:00:00+00:00"
+                  }
+                ],
+                "risk_policy": {
+                  "source_file": "purchase_parameters.json",
+                  "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                  "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                  "sheet_name": "safety_stock",
+                  "row_number": 3
+                },
+                "threshold_overrides": {}
+              },
+              "inbound": {
+                "source_file": "inbound_facts.json",
+                "content_sha256": "1ed7401239a723f403fef875403bac54be652cf4f274272c4e6f03465643cbd4",
+                "import_batch_id": "b4fda030-9a79-5cbe-924b-0fb65c58c604",
+                "observed_at": "2026-10-02T00:00:00+00:00",
+                "lines": [
+                  {
+                    "source_file": "inbound_facts.json",
+                    "content_sha256": "1ed7401239a723f403fef875403bac54be652cf4f274272c4e6f03465643cbd4",
+                    "import_batch_id": "b4fda030-9a79-5cbe-924b-0fb65c58c604",
+                    "sheet_name": "closed_orders",
+                    "row_number": 3
+                  }
+                ]
+              },
+              "safety_stock": {
+                "source_file": "purchase_parameters.json",
+                "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                "sheet_name": "safety_stock",
+                "row_number": 3
+              },
+              "parameters": {
+                "source_file": "purchase_parameters.json",
+                "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                "sheet_name": "purchase_parameters",
+                "row_number": 3
+              },
+              "price": {
+                "source_file": "purchase_parameters.json",
+                "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                "sheet_name": "prices",
+                "row_number": 3
+              }
+            },
+            "DEMO-BOARD-01": {
+              "bom": [
+                {
+                  "parent_material_code": "DEMO-PMC-01",
+                  "revision": "V01",
+                  "source_file": "bom_facts.json",
+                  "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                  "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                  "sheet_name": "bom_lines",
+                  "bom_version": "V01"
+                },
+                {
+                  "parent_material_code": "DEMO-MODULE-01",
+                  "revision": "V01",
+                  "source_file": "bom_facts.json",
+                  "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                  "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                  "sheet_name": "bom_lines",
+                  "bom_version": "V01"
+                }
+              ],
+              "bom_paths": [
+                [
+                  {
+                    "parent_material_code": "DEMO-PMC-01",
+                    "revision": "V01",
+                    "child_material_code": "DEMO-MODULE-01",
+                    "qty_per": "1",
+                    "line_unit": "件",
+                    "child_unit": "件",
+                    "conversion_factor": "1",
+                    "provenance": {
+                      "source_file": "bom_facts.json",
+                      "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                      "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                      "sheet_name": "bom_lines",
+                      "row_number": 1
+                    }
+                  },
+                  {
+                    "parent_material_code": "DEMO-MODULE-01",
+                    "revision": "V01",
+                    "child_material_code": "DEMO-BOARD-01",
+                    "qty_per": "1",
+                    "line_unit": "件",
+                    "child_unit": "件",
+                    "conversion_factor": "1",
+                    "provenance": {
+                      "source_file": "bom_facts.json",
+                      "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                      "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                      "sheet_name": "bom_lines",
+                      "row_number": 4
+                    }
+                  }
+                ]
+              ],
+              "unit_conversions": [],
+              "inventory": {
+                "source_file": "inventory_facts.json",
+                "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                "snapshot_at": "2026-10-02T00:00:00+00:00",
+                "observed_at": "2026-10-02T00:00:00+00:00",
+                "lots": [
+                  {
+                    "source_file": "inventory_facts.json",
+                    "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                    "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                    "sheet_name": "inventory_lots",
+                    "row_number": 1,
+                    "snapshot_at": "2026-10-02T00:00:00+00:00"
+                  },
+                  {
+                    "source_file": "inventory_facts.json",
+                    "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                    "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                    "sheet_name": "inventory_lots",
+                    "row_number": 2,
+                    "snapshot_at": "2026-10-02T00:00:00+00:00"
+                  }
+                ],
+                "risk_policy": {
+                  "source_file": "purchase_parameters.json",
+                  "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                  "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                  "sheet_name": "safety_stock",
+                  "row_number": 1
+                },
+                "threshold_overrides": {}
+              },
+              "inbound": {
+                "source_file": "inbound_facts.json",
+                "content_sha256": "1ed7401239a723f403fef875403bac54be652cf4f274272c4e6f03465643cbd4",
+                "import_batch_id": "b4fda030-9a79-5cbe-924b-0fb65c58c604",
+                "observed_at": "2026-10-02T00:00:00+00:00",
+                "lines": [
+                  {
+                    "source_file": "inbound_facts.json",
+                    "content_sha256": "1ed7401239a723f403fef875403bac54be652cf4f274272c4e6f03465643cbd4",
+                    "import_batch_id": "b4fda030-9a79-5cbe-924b-0fb65c58c604",
+                    "sheet_name": "closed_orders",
+                    "row_number": 1
+                  }
+                ]
+              },
+              "safety_stock": {
+                "source_file": "purchase_parameters.json",
+                "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                "sheet_name": "safety_stock",
+                "row_number": 1
+              },
+              "parameters": {
+                "source_file": "purchase_parameters.json",
+                "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                "sheet_name": "purchase_parameters",
+                "row_number": 1
+              },
+              "price": {
+                "source_file": "purchase_parameters.json",
+                "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                "sheet_name": "prices",
+                "row_number": 1
+              }
+            },
+            "DEMO-SCREW-01": {
+              "bom": [
+                {
+                  "parent_material_code": "DEMO-PMC-01",
+                  "revision": "V01",
+                  "source_file": "bom_facts.json",
+                  "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                  "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                  "sheet_name": "bom_lines",
+                  "bom_version": "V01"
+                },
+                {
+                  "parent_material_code": "DEMO-MODULE-01",
+                  "revision": "V01",
+                  "source_file": "bom_facts.json",
+                  "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                  "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                  "sheet_name": "bom_lines",
+                  "bom_version": "V01"
+                }
+              ],
+              "bom_paths": [
+                [
+                  {
+                    "parent_material_code": "DEMO-PMC-01",
+                    "revision": "V01",
+                    "child_material_code": "DEMO-SCREW-01",
+                    "qty_per": "8",
+                    "line_unit": "件",
+                    "child_unit": "件",
+                    "conversion_factor": "1",
+                    "provenance": {
+                      "source_file": "bom_facts.json",
+                      "content_sha256": "6d22c1489f7e79cad1f2e5f992f383313f77242aa9fd4af11ce72544641e3a8b",
+                      "import_batch_id": "cb83b832-629d-5b88-ae6b-8fd152244de1",
+                      "sheet_name": "bom_lines",
+                      "row_number": 3
+                    }
+                  }
+                ]
+              ],
+              "unit_conversions": [],
+              "inventory": {
+                "source_file": "inventory_facts.json",
+                "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                "snapshot_at": "2026-10-02T00:00:00+00:00",
+                "observed_at": "2026-10-02T00:00:00+00:00",
+                "lots": [
+                  {
+                    "source_file": "inventory_facts.json",
+                    "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                    "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                    "sheet_name": "inventory_lots",
+                    "row_number": 7,
+                    "snapshot_at": "2026-10-02T00:00:00+00:00"
+                  },
+                  {
+                    "source_file": "inventory_facts.json",
+                    "content_sha256": "13fba74bd75322efb2436bb7043e0d559ba9887f1a8b0db65bd47685144d3b8d",
+                    "import_batch_id": "01e97c35-c87f-5812-8075-82e0d7cff385",
+                    "sheet_name": "inventory_lots",
+                    "row_number": 8,
+                    "snapshot_at": "2026-10-02T00:00:00+00:00"
+                  }
+                ],
+                "risk_policy": {
+                  "source_file": "purchase_parameters.json",
+                  "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                  "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                  "sheet_name": "safety_stock",
+                  "row_number": 4
+                },
+                "threshold_overrides": {}
+              },
+              "inbound": {
+                "source_file": "inbound_facts.json",
+                "content_sha256": "1ed7401239a723f403fef875403bac54be652cf4f274272c4e6f03465643cbd4",
+                "import_batch_id": "b4fda030-9a79-5cbe-924b-0fb65c58c604",
+                "observed_at": "2026-10-02T00:00:00+00:00",
+                "lines": [
+                  {
+                    "source_file": "inbound_facts.json",
+                    "content_sha256": "1ed7401239a723f403fef875403bac54be652cf4f274272c4e6f03465643cbd4",
+                    "import_batch_id": "b4fda030-9a79-5cbe-924b-0fb65c58c604",
+                    "sheet_name": "closed_orders",
+                    "row_number": 4
+                  }
+                ]
+              },
+              "safety_stock": {
+                "source_file": "purchase_parameters.json",
+                "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                "sheet_name": "safety_stock",
+                "row_number": 4
+              },
+              "parameters": {
+                "source_file": "purchase_parameters.json",
+                "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                "sheet_name": "purchase_parameters",
+                "row_number": 4
+              },
+              "price": {
+                "source_file": "purchase_parameters.json",
+                "content_sha256": "d79e25dd8f4464fb54364f33183e0d61c16ae43f3db2aaf954d70fe2567cd0fc",
+                "import_batch_id": "fd1053f8-6e07-5e15-95b2-987e44f480f9",
+                "sheet_name": "prices",
+                "row_number": 4
+              }
+            }
+          },
+          "scenario_id": "demo_scenario_50_vs_100",
+          "synthetic": true
+        },
+        "warnings": [
+          "采购建议不代表订单已执行或物料已到货，不修改生产可行性结论"
+        ],
+        "session_id": "96137ddd-b763-497f-9646-2c3d27b1c3d7",
+        "conversation_id": "6d4795e1-3e76-4ed5-9997-ccbfd0e2e2b0",
+        "turn_id": "0dfe3579-da39-4088-9796-62b5fbfc019b",
+        "scenario_id": "demo_scenario_50_vs_100"
+      }
+    },
+    {
+      "q": "生产0台",
+      "http": 200,
+      "data": {
+        "intent": "clarification",
+        "status": "needs_input",
+        "answer": "生产数量必须是大于0的整数，请确认输入数量及日期，例如1台或50台。未执行事实计算。",
+        "structured_data": {
+          "query": {
+            "material_code": null,
+            "revision": null,
+            "effective_date": null,
+            "as_of": null,
+            "start_date": null,
+            "quantity": null
+          },
+          "data": null,
+          "operation": "query",
+          "completed_steps": [],
+          "presentation": {
+            "show_maximum": false,
+            "result_type": "clarification",
+            "policy_version": "business_result_v1",
+            "user_warnings": [
+              "生产数量必须是大于0的整数，请确认输入数量及日期，例如1台或50台。未执行事实计算。"
+            ]
+          },
+          "audit_warnings": [
+            "生产数量必须是大于0的整数，请确认输入数量及日期，例如1台或50台。未执行事实计算。"
+          ]
+        },
+        "provenance": null,
+        "warnings": [
+          "生产数量必须是大于0的整数，请确认输入数量及日期，例如1台或50台。未执行事实计算。"
+        ],
+        "session_id": "96137ddd-b763-497f-9646-2c3d27b1c3d7",
+        "conversation_id": "6d4795e1-3e76-4ed5-9997-ccbfd0e2e2b0",
+        "turn_id": "af415b02-8a99-4a96-be4f-386ac644d286",
+        "scenario_id": "demo_scenario_50_vs_100"
+      }
+    }
+  ]
+}

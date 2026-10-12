@@ -16,7 +16,15 @@ for key in ("DEEPSEEK_API_KEY", "MIMO_API_KEY", "OPENAI_API_KEY"):
 
 settings_path = Path(os.environ["PMC_REVIEW_SETTINGS"]).resolve(strict=True)
 settings = json.loads(settings_path.read_text(encoding="utf-8"))
-approved = {(root / settings[k]).resolve(strict=True) for k in ("facts_path", "inventory_path", "units_path", "quantity_path", "slim_dataset_path")}
+approved = {(root / settings[k]).resolve(strict=True) for k in ("facts_path", "inventory_path", "units_path", "quantity_path", "slim_dataset_path", "business_manifest_path") if settings.get(k)}
+if settings.get("business_manifest_path"):
+    manifest_path = (root / settings["business_manifest_path"]).resolve(strict=True)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for key in ("bom", "inventory", "aliases"):
+        path = (manifest_path.parent / manifest["files"][key]["path"]).resolve(strict=True)
+        if path.parent != manifest_path.parent:
+            raise ValueError("Current business source must stay in its immutable version directory")
+        approved.add(path)
 private_roots = tuple((root / "data" / d).resolve() for d in ("raw", "facts", "normalized"))
 
 def controlled_path(value):

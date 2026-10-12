@@ -222,4 +222,8 @@ def test_review_date_is_not_misclassified_as_unauthorized_material(review, date)
     sid = new(client)
     response = ask(client, sid, f"{date}最多能生产多少片")
     assert response.status_code == 200
-    assert response.json()["status"] == "data_unavailable"
+    result = response.json()
+    assert result["status"] == "ok"
+    assert result["structured_data"]["data"]["verified_material_count"] == 2
+    assert result["structured_data"]["data"]["verified_material_capacity"] == 0
+    assert result["structured_data"]["data"]["capacity_scope"] == "verified_subset"

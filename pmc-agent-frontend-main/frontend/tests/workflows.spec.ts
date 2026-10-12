@@ -137,11 +137,10 @@ test("首页进入空白企业工作台，HTTP资料缺口和缺失库存保持�
   for (const material of ["电机", "螺丝"]) {
     const row = page.getByRole("row").filter({ hasText: material });
     await expect(
-      row.getByRole("cell", { name: "未知", exact: true }),
-    ).toHaveCount(1);
-    await expect(
-      row.getByRole("cell", { name: "未提供", exact: true }),
-    ).toHaveCount(1);
+      row.getByRole("cell", { name: "—", exact: true }),
+    ).toHaveCount(2);
+    await expect(row).not.toContainText("未提供");
+    await expect(row.getByRole("cell", {name:"0",exact:true})).toHaveCount(0);
   }
   await page.getByRole("button", { name: "查看主板来源", exact: true }).click();
   await expect(
@@ -284,7 +283,7 @@ test("数据空间切换隔离Demo，企业HTTP失败不回退本地响应", asy
   await send(page, "模拟请求失败与重试");
   await expect(page.locator(".error-state")).toBeVisible();
   await expect(page.locator("tbody")).toHaveCount(0);
-  await expect(page.locator(".mode-banner")).toContainText("完整追溯范围");
+  await expect(page.locator(".mode-banner")).toContainText("业务查询");
   expect(
     requests.filter((r) => r.url.endsWith("/query")).at(-1)!.body,
   ).not.toHaveProperty("scenario_id");
@@ -370,8 +369,10 @@ for (const width of [1440, 1280, 1024, 390, 320]) {
         .click();
       await noOverflow(page);
       await expect(
-        page.getByText("来源发布时间", { exact: true }),
+        page.getByText("库存快照时点", { exact: true }),
       ).toBeVisible();
+      await expect(page.getByText("来源发布时间", {exact:true})).toHaveCount(0);
+      await expect(page.locator("#source-details")).not.toContainText("未提供");
       if (width === 1440 || width === 390)
         await page.screenshot({
           path: join(screenshots, "sources-" + width + ".png"),

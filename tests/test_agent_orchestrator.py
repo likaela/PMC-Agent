@@ -157,7 +157,9 @@ class AgentOrchestratorTests(unittest.TestCase):
         result = self.query("生产50台DEMO-PMC-01")
         self.assertNotIn("9999", result["answer"])
         self.assertNotIn("预计", result["answer"])
-        self.assertIn("75", result["answer"])
+        self.assertIn("50", result["answer"])
+        self.assertNotIn("理论最多", result["answer"])
+        self.assertEqual(result["structured_data"]["data"]["theoretical_max_quantity"], 75)
         self.assertEqual(result["structured_data"]["response_source"], "rule_fallback")
 
     def test_unknown_evidence_cannot_be_omitted_or_changed_to_zero(self):
@@ -178,7 +180,9 @@ class AgentOrchestratorTests(unittest.TestCase):
         self.payload = proposal("inventory", "DEMO-BOARD-01")
         response = self.query("DEMO-BOARD-01库存")
         self.assertIsNone(response["structured_data"]["data"]["available_qty"])
-        self.assertIn("未知", response["answer"])
+        self.assertIn("75", response["answer"])
+        self.assertNotIn("可用库存0", response["answer"])
+        self.assertNotIn("预留数量0", response["answer"])
         self.assertIsNone(self.history()["turns"][0]["fact_references"][0]["result"]["data"]["available_qty"])
 
     def test_new_product_does_not_inherit_demo_version_and_date(self):
@@ -250,8 +254,9 @@ class AgentOrchestratorTests(unittest.TestCase):
 
     def test_api_contract_and_history_remain_valid_without_frontend_change(self):
         client = TestClient(app)
-        with patch("services.demo_scenario_agent_service.build_demo_scenario_agent",
-                   side_effect=lambda: build_demo_scenario_agent(runtime_root=self.root)):
+        with patch("services.local_business_binding.local_business_binding", return_value=None), \
+             patch("services.demo_scenario_agent_service.build_demo_scenario_agent",
+                   side_effect=lambda **kwargs: build_demo_scenario_agent(runtime_root=self.root)):
             response = client.post("/api/v1/agent/query", json={"scenario_id": SCENARIO_ID, "message": "生产50台DEMO-PMC-01"})
             self.assertEqual(response.status_code, 200)
             result = response.json()

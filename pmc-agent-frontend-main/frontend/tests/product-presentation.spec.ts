@@ -28,14 +28,16 @@ test("产品目录仅以演示产品区分，不伪装数据性质", () => {
   ]});
   r.structured_data!.query_type = "product_search";
   const vm = adaptBackendResponse(r);
-  expect(vm.detailTable?.rows[0][2]).toBe("已发布");
-  expect(vm.detailTable?.rows[1][2]).toBe("演示产品");
+  const statusColumn = vm.detailTable!.columns.indexOf("BOM状态");
+  expect(vm.detailTable?.rows[0][statusColumn]).toBe("已发布");
+  expect(vm.detailTable?.rows[1][statusColumn]).toBe("演示产品");
   expect(vm.answer).toContain("DEMO-PMC-01（演示产品）");
   expect(vm.answer).not.toMatch(internal);
   expect((r.structured_data!.data as any).products[1].synthetic).toBe(true);
 });
 
 test("智能查询默认收起、点选收起、新会话及刷新保持紧凑，窄屏不溢出", async ({page}) => {
+  await page.route("**/api/v1/agent/resolve", r => r.fulfill({json:{status:"ok",product_code:null,catalog_query:true}}));
   let calls = 0;
   await page.route("**/api/v1/agent/catalog", r => r.fulfill({json:{products:[{
     product_code:"EXAMPLE-A", synthetic:false, default_mode:"full",

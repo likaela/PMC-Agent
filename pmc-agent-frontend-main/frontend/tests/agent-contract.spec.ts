@@ -38,8 +38,9 @@ test("已发布产品目录只映射结构化数据，不将产品发现当成�
       published_bom_status: "published", revisions: [{ revision: "V01" }] }],
   }, { answer: "文本包含不存在的产品FAKE-999", provenance: { bom_sources: [source] } }));
   expect(vm.title).toBe("已发布产品目录");
-  expect(vm.detailTable?.rows).toEqual([["KQ-Z112", null, "已发布", "V01"]]);
-  expect(vm.conclusion).toContain("不代表");
+  expect(vm.detailTable?.rows).toEqual([["KQ-Z112", "已发布", "V01"]]);
+  expect(vm.detailTable?.columns).not.toContain("产品名称");
+  expect(vm.status).not.toBe("ready");
   expect(vm.sources[0]?.reference).toBe("inventory_facts.json");
   expect(vm.materials).toEqual([]);
 });
@@ -71,7 +72,8 @@ test("100 台成功查询仍显示缺料，不将 ok 变为 ready", () => {
   ]);
   expect(
     result.metrics?.find((m) => m.label === "理论最大生产数量")?.value,
-  ).toBe("75");
+  ).toBeUndefined();
+  expect((production(100).structured_data!.data as any).theoretical_max_quantity).toBe(75);
 });
 test("无库存事实不生成零库存行", () => {
   const result = adaptBackendResponse(
@@ -79,7 +81,8 @@ test("无库存事实不生成零库存行", () => {
   );
   expect(result.status).toBe("no-facts");
   expect(result.materials).toEqual([]);
-  expect(result.metrics?.find((m) => m.label === "在库数量")?.value).toBeNull();
+  expect(result.metrics?.find((m) => m.label === "在库数量")).toBeUndefined();
+  expect(result.backend?.structured_data?.data).toBeNull();
 });
 test("来源保留文件、批次、快照、工作表、行号和完整 hash", () => {
   const result = adaptBackendResponse(inventory());
@@ -169,14 +172,9 @@ test("批次与在途明细未知字段保持 null", () => {
       batches: [{ on_hand_qty: "0", batch_no: "B1" }],
     }),
   );
-  expect(batch.detailTable?.rows[0]).toEqual([
-    "B1",
-    null,
-    "0",
-    null,
-    null,
-    null,
-  ]);
+  expect(batch.detailTable?.rows[0]).toEqual(["B1", "0"]);
+  expect(batch.detailTable?.columns).toEqual(["批次", "在库数量"]);
+  expect((batch.backend?.structured_data?.data as Record<string,unknown>).batches).toEqual([{on_hand_qty:"0",batch_no:"B1"}]);
   const inbound = adaptBackendResponse(
     envelope("inbound", {
       ordered_qty: "10",
@@ -185,8 +183,9 @@ test("批次与在途明细未知字段保持 null", () => {
     }),
   );
   expect(
-    inbound.metrics?.find((m) => m.label === "在途数量")?.value,
-  ).toBeNull();
+    inbound.metrics?.find((m) => m.label === "在途数量"),
+  ).toBeUndefined();
+  expect((inbound.backend?.structured_data?.data as Record<string,unknown>).in_transit_qty).toBeNull();
 });
 test("异常结构或数值类型拒绝，不把 number 误当 Decimal", () => {
   expect(() => adaptBackendResponse({ intent: "inventory" })).toThrow();
@@ -223,6 +222,19 @@ test("queryAgent 仅发送约定字段，不泄漏旧 workflow 上下文", async
     },
   });
 });
+test("目录序号随真实API发送，仍保留原始问题", async () => {
+  let body: any;
+  const client = createAgentClient({
+    baseUrl: "http://localhost:8000",
+    fetch: async (_url, options) => {
+      body = JSON.parse(String(options?.body));
+      return Response.json(inventory());
+    },
+  });
+  await client.queryAgent({ message: "切换到第一个产品", catalog_order: ["EXAMPLE-A"] });
+  expect(body).toEqual({ message: "切换到第一个产品", catalog_order: ["EXAMPLE-A"] });
+});
+
 test("创建与恢复 Demo 会话始终传递 scenario_id", async () => {
   const urls: string[] = [];
   const bodies: unknown[] = [];

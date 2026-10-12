@@ -98,6 +98,8 @@ export function createAgentClient(options: ClientOptions = {}) {
       if (input.scenario_id) body.scenario_id = input.scenario_id;
       if (input.persist_session !== undefined)
         body.persist_session = input.persist_session;
+      if (input.catalog_order !== undefined)
+        body.catalog_order = input.catalog_order;
       return validateBackendResponse(
         await request("/api/v1/agent/query", body, signal),
       );
@@ -105,11 +107,15 @@ export function createAgentClient(options: ClientOptions = {}) {
     async createSession(
       scenarioId?: ScenarioId,
       signal?: AbortSignal,
+      productCode?: string,
     ): Promise<BackendSession> {
       return validateSession(
         await request(
           "/api/v1/agent/sessions",
-          scenarioId ? { scenario_id: scenarioId } : {},
+          {
+            ...(scenarioId ? { scenario_id: scenarioId } : {}),
+            ...(productCode ? { product_code: productCode } : {}),
+          },
           signal,
         ),
       );

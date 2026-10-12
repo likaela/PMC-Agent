@@ -25,15 +25,15 @@ async function ask(page: Page, message: string, quick = false) {
 test("最新精简：默认生产、边界、复用、零数量与刷新", async ({page, request}) => {
   await page.goto("/");
   await page.locator("#review-product").selectOption("KQ-Z112");
-  await expect(page.locator("#review-scope")).toHaveValue("slim");
-  await expect(page.locator("#review-scope option:checked")).toContainText("标准分析范围");
+  await expect(page.locator("#review-scope")).toHaveCount(0);
+  await expect(page.getByRole("note")).toContainText("当前BOM");
   await expect(page.getByRole("button", {name:"展开推荐问题"})).toHaveAttribute("aria-expanded","false");
   const collapsed = (await page.locator(".smart-queries").boundingBox())!.height;
   await page.getByRole("button", {name:"展开推荐问题"}).click();
   expect((await page.locator(".smart-queries").boundingBox())!.height).toBeGreaterThan(collapsed);
   await page.getByRole("button", {name:"收起",exact:true}).click();
   await expect(page.getByRole("note")).toContainText("34项BOM");
-  await expect(page.getByRole("note")).toContainText("20261011T030952Z-b4f34740");
+  await expect(page.getByRole("note")).toContainText(process.env.PMC_CURRENT_DATASET_VERSION!);
   await page.getByRole("button", {name:"产品物料目录", exact:true}).click();
   await expect(page.locator(".catalog-scroll tbody tr")).toHaveCount(34);
   const messages = ["查询KQ-Z112的BOM", "这个产品有多少项物料？", "最多能生产多少片？", "生产1件。",
@@ -52,7 +52,7 @@ test("最新精简：默认生产、边界、复用、零数量与刷新", async
     }
     expect(data.materials).toHaveLength(34);
     expect(data.theoretical_max_quantity).toBe(1);
-    expect(data.dataset_version).toBe("20261011T030952Z-b4f34740");
+    expect(data.dataset_version).toBe(process.env.PMC_CURRENT_DATASET_VERSION!);
     expect(data.synthetic).toBe(false);
     if (data.requested_quantity === 1) expect(data.inventory_sufficient_for_requested).toBe(true);
     if (data.requested_quantity === 2) {
@@ -70,7 +70,7 @@ test("最新精简：默认生产、边界、复用、零数量与刷新", async
   expect(history.turns[5].response.structured_data.reused_from_turn_id).toBeTruthy();
   await page.reload();
   await expect(page.locator(".assistant-message")).toHaveCount(messages.length);
-  await expect(page.locator("#review-scope")).toHaveValue("slim");
+  await expect(page.locator("#review-scope")).toHaveCount(0);
   await expect(page.locator("#analysis-result")).toContainText("100");
   await expect(page.getByRole("button", {name:"展开推荐问题"})).toHaveAttribute("aria-expanded","false");
   await page.locator(".assistant-message").nth(3).click();
@@ -95,23 +95,23 @@ test("最新精简：目录指南、完整切换、第二产品与Demo不串话"
   expect((await ask(page,"有哪些Demo产品？")).structured_data.data.products).toHaveLength(1);
   expect((await ask(page,"只查看正式发布的企业BOM产品。")).structured_data.data.products).toHaveLength(2);
   expect((await ask(page,"只显示正式企业已发布BOM。")).structured_data.data.products).toHaveLength(2);
-  expect((await ask(page,"切换到标准分析范围")).structured_data.data.materials).toHaveLength(34);
+  expect((await ask(page,"查询KQ-Z112的BOM")).structured_data.data.materials).toHaveLength(34);
   expect((await ask(page,"查看KQ-Z112有哪些物料。")).structured_data.data.materials).toHaveLength(34);
   const directory = await ask(page,"看看库存。");
   const alias = directory.structured_data.data.materials[0].material_code;
   expect((await ask(page,`查询${alias}库存`)).structured_data.data.materials).toHaveLength(1);
   expect((await ask(page,"查询MAT-053库存")).structured_data.data.materials[0].material_code).toBe("MAT-053");
-  expect((await ask(page,"查看KQ-Z112完整BOM。")).structured_data.data.line_count).toBe(66);
-  await expect(page.locator("#review-scope")).toHaveValue("full");
-  expect((await ask(page,"查询KQ-Z112完整物料。")).structured_data.data.line_count).toBe(66);
+  expect((await ask(page,"查看KQ-Z112全部BOM。")).structured_data.data.line_count).toBe(34);
+  await expect(page.locator("#review-scope")).toHaveCount(0);
+  expect((await ask(page,"查询KQ-Z112全部物料。")).structured_data.data.line_count).toBe(34);
 });
 
 test("最新精简：切换指南、第二产品与Demo不串话", async ({page}) => {
   await page.goto("/");
   await page.locator("#review-product").selectOption("KQ-Z112");
-  expect((await ask(page,"查看KQ-Z112完整BOM。")).structured_data.data.line_count).toBe(66);
-  expect((await ask(page,"生产10片需要哪些物料？")).structured_data.data.materials).toHaveLength(66);
-  expect((await ask(page,"查看对应库存。")).structured_data.data.matched_material_count).toBe(44);
+  expect((await ask(page,"查看KQ-Z112全部BOM。")).structured_data.data.line_count).toBe(34);
+  expect((await ask(page,"生产10片需要哪些物料？")).structured_data.data.materials).toHaveLength(34);
+  expect((await ask(page,"查看对应库存。")).structured_data.data.matched_material_count).toBe(34);
   await page.locator("#review-product").selectOption("KQ-BHX3588M");
   expect((await ask(page,"查询这个产品的BOM。")).structured_data.data.line_count).toBe(91);
   expect((await ask(page,"生产10片需要哪些物料？")).structured_data.data.materials).toHaveLength(91);
@@ -119,7 +119,7 @@ test("最新精简：切换指南、第二产品与Demo不串话", async ({page}
   expect((await ask(page,"查询DEMO-PMC-01。")).status).toBe("ok");
   expect((await ask(page,"最多生产多少台？")).structured_data.data.theoretical_max_quantity).toBe(75);
   await page.locator("#review-product").selectOption("KQ-Z112");
-  await expect(page.locator("#review-scope")).toHaveValue("slim");
+  await expect(page.locator("#review-scope")).toHaveCount(0);
   expect((await ask(page,"生产1片可以吗？")).structured_data.data.inventory_sufficient_for_requested).toBe(true);
 });
 

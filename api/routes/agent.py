@@ -1,6 +1,7 @@
 """新统一入口：只分流，PMC/Fact Query 各自沿用现有受控实现。"""
 
 from __future__ import annotations
+import os
 
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
@@ -20,9 +21,34 @@ from workflows.pmc_graph import get_pmc_workflow_state
 from repositories.agent_conversation_repository import AgentConversationRepository, SessionNotFound, SessionConflict
 from repositories.fact_store import create_fact_store
 from services.persistent_agent_service import PersistentAgentService
-
-
+from pydantic import BaseModel, Field, ConfigDict
 router = APIRouter(prefix="/api/v1/agent", tags=["Unified Agent"])
+
+
+class ProductResolveRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    message: str = Field(min_length=1, max_length=2000)
+    session_id: str | None = None
+    scenario_id: ScenarioId | None = None
+    catalog_order: list[str] | None = None
+
+
+@router.post("/resolve")
+def resolve_agent_product(request: ProductResolveRequest):
+    from agents.product_resolver import resolve_product
+    from services.local_reviewer_catalog import local_review_catalog
+    current = None
+    if request.session_id:
+        try:
+            service = (_current_service(session_id=request.session_id) if request.scenario_id is None else None) or _persistent_service(request.scenario_id)
+            context = service.repository.get_session(request.session_id)["context"]
+            current = _product_context(context).get("product_code")
+        except SessionNotFound as error:
+            return _session_error(error)
+    return resolve_product(request.message, local_review_catalog(create_fact_store()), current_product=current,
+        catalog_order=request.catalog_order)
+
+
 
 
 @router.get("/catalog")
@@ -54,18 +80,51 @@ def _persistent_service(scenario_id: ScenarioId | None = None) -> PersistentAgen
     return service
 
 
+def _current_service(product=None, session_id=None):
+    from services.local_business_binding import local_business_service
+    return local_business_service(product=product, session_id=session_id)
+
+
 def _session_error(error: Exception) -> JSONResponse:
     if isinstance(error, SessionNotFound):
         return JSONResponse(status_code=404, content={"code": "SESSION_NOT_FOUND", "user_message": "当前企业会话不存在，请重新创建会话。"})
     return JSONResponse(status_code=409, content={"code": "SESSION_CONFLICT", "user_message": "当前会话已有新消息，请刷新后重试。"})
 
 
+def _product_context(context):
+    """Activity belongs to a product, not to a subsequently queried child material."""
+    binding = context.get("product_context")
+    if binding:
+        return binding
+    task = context.get("production") or context.get("fact") or {}
+    return dict(product_code=task.get("material_code"), revision=task.get("revision"),
+        scenario_id=context.get("scenario_id"))
+
+
 @router.post("/sessions", response_model=AgentSessionResponse)
 def create_agent_session(request: AgentSessionCreate | None = None):
     """创建企业会话或显式独立场景会话；不初始化或重建旧 Demo Workflow。"""
-    service = _persistent_service(request.scenario_id if request else None)
-    session = service.repository.create_session()
-    return service.public_session(session) if hasattr(service, "public_session") else session
+    from services.local_business_binding import local_business_binding
+    if local_business_binding() and request and request.scenario_id in ("kq_z112_review_slim", "kq_z112_review_slim_synthetic", "review_real_bom_simulation"):
+        return JSONResponse(status_code=422, content={"code":"ARCHIVED_CONFIGURATION", "user_message":"旧版本配置已归档，请新建当前产品分析。"})
+    product = request.product_code if request else None
+    service = _current_service(product=product) if not (request and request.scenario_id) else None
+    service = service or _persistent_service(request.scenario_id if request else None)
+    entry = None
+    if product:
+        from services.local_reviewer_catalog import local_review_catalog
+        entry = next((p for p in local_review_catalog(create_fact_store()) if p["product_code"] == product), None)
+        if not entry or not any(m["scenario_id"] == request.scenario_id for m in entry["modes"]):
+            return JSONResponse(status_code=422, content={"code":"PRODUCT_REQUIRED", "user_message":"请选择可访问的产品和分析范围。"})
+    initial = dict(active_domain="fact", fact=dict(material_code=product, revision=entry["revision"], quantity=None, query_type="bom"),
+        production=dict(material_code=product, revision=entry["revision"], quantity=None, query_type="production_capacity")) if product and request.scenario_id is None else None
+    if initial:
+        initial["product_context"] = dict(product_code=product, scenario_id=None, revision=entry["revision"])
+    session = service.repository.create_session(**({"initial_context":initial} if initial else {}))
+    result = service.public_session(session) if hasattr(service, "public_session") else session
+    if product:
+        result.setdefault("product_context", dict(product_code=product, scenario_id=request.scenario_id, revision=entry["revision"]))
+    return result
 
 
 @router.get("/sessions/{session_id}", response_model=AgentSessionHistory)
@@ -73,9 +132,13 @@ def get_agent_session(session_id: str, after: int = Query(0, ge=0), limit: int =
                       scenario_id: ScenarioId | None = Query(None)):
     """分页恢复问答、上下文及每次调用的来源证据；不重新查询/计算历史事实。"""
     try:
-        service = _persistent_service(scenario_id)
+        service = (_current_service(session_id=session_id) if scenario_id is None else None) or _persistent_service(scenario_id)
         history = service.repository.history(session_id, after=after, limit=limit)
-        return service.public_session(history) if hasattr(service, "public_session") else history
+        result = service.public_session(history) if hasattr(service, "public_session") else history
+        binding = _product_context(history["context"])
+        if binding["product_code"]:
+            result["product_context"] = binding
+        return result
     except SessionNotFound as error:
         return _session_error(error)
 
@@ -83,16 +146,49 @@ def get_agent_session(session_id: str, after: int = Query(0, ge=0), limit: int =
 @router.post("/query", response_model=UnifiedAgentResponse)
 def unified_agent_query(request: UnifiedAgentRequest) -> UnifiedAgentResponse:
     """统一自然语言入口，不改变旧 Chat、Demo 或 LangGraph 执行链。"""
-    if request.session_id or request.persist_session or request.scenario_id:
-        service = _persistent_service(request.scenario_id)
+    from services.local_business_binding import local_business_binding
+    current_binding = local_business_binding() if (request.session_id or request.persist_session or request.scenario_id or os.getenv("PMC_LOCAL_REVIEW") == "1") else None
+    if current_binding and request.scenario_id in ("kq_z112_review_slim", "kq_z112_review_slim_synthetic", "review_real_bom_simulation"):
+        return JSONResponse(status_code=422, content={"code":"ARCHIVED_CONFIGURATION", "user_message":"旧版本配置已归档，请新建当前产品分析。"})
+    if request.session_id or request.persist_session or request.scenario_id or os.getenv("PMC_LOCAL_REVIEW") == "1":
+        service = (_current_service(session_id=request.session_id) if request.scenario_id is None else None) or _persistent_service(request.scenario_id)
         session_id = request.session_id or service.repository.create_session()["session_id"]
         try:
             from agents.reviewer_catalog_queries import catalog_query, catalog_kind
             from pathlib import Path
             from repositories.fact_store import DEFAULT_SQLITE_PATH
             database = getattr(create_fact_store(), "database_path", None)
-            import os
-            if catalog_kind(request.message) and database and (Path(database).resolve() == DEFAULT_SQLITE_PATH.resolve() or os.getenv("PMC_LOCAL_REVIEW") == "1"):
+            if current_binding or os.getenv("PMC_LOCAL_REVIEW") == "1":
+                service.intent_presentation = True
+                from services.local_reviewer_catalog import local_review_catalog
+                from agents.product_resolver import resolve_product, product_overview_requested
+                entries = local_review_catalog(create_fact_store())
+                context = service.repository.get_session(session_id)["context"]
+                service.presentation_binding = _product_context(context)
+                current = _product_context(context).get("product_code")
+                resolved = resolve_product(request.message, entries, current_product=current,
+                    catalog_order=request.catalog_order)
+                if resolved["status"] != "ok":
+                    return UnifiedAgentResponse(intent="clarification", status=resolved["status"], answer=resolved["answer"],
+                        structured_data={"data":None,"completed_steps":[]}, provenance=None, warnings=[], session_id=session_id)
+                code = resolved.get("product_code")
+                message = resolved.get("message", request.message)
+                if code and current and code != current:
+                    return JSONResponse(status_code=409, content={"code":"PRODUCT_SWITCH_REQUIRED", "user_message":"请为新产品创建会话；原分析已保留。"})
+                entry = next((p for p in entries if p["product_code"] == code), None)
+                if entry and entry["default_mode"] == "current" and not hasattr(service, "presentation"):
+                    if current:
+                        return JSONResponse(status_code=409, content={"code":"ARCHIVED_CONFIGURATION", "user_message":"该会话属于已归档BOM版本，请新建当前产品分析；历史结果未修改。"})
+                    service = _current_service(product=code)
+                    session_id = service.repository.create_session()["session_id"]
+                    service.presentation_binding = _product_context(service.repository.get_session(session_id)["context"])
+                if entry and product_overview_requested(message, code):
+                    from agents.reviewer_catalog_queries import overview_query
+                    scope = next(m for m in entry["modes"] if m["scenario_id"] == request.scenario_id)
+                    return UnifiedAgentResponse.model_validate(overview_query(service, session_id, request.message, entry, scope))
+                if not resolved.get("catalog_query"):
+                    return UnifiedAgentResponse.model_validate(service.query(session_id, request.message, execution_message=message))
+            if catalog_kind(request.message) and database and (current_binding or Path(database).resolve() == DEFAULT_SQLITE_PATH.resolve() or os.getenv("PMC_LOCAL_REVIEW") == "1"):
                 from services.local_reviewer_catalog import local_review_catalog
                 result = catalog_query(service, session_id, request.message, local_review_catalog(create_fact_store()))
                 return UnifiedAgentResponse.model_validate(result)

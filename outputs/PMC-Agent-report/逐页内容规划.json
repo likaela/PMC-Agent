@@ -1,0 +1,240 @@
+[
+  {
+    "page": 1,
+    "title": "智造 PMC Agent",
+    "question": "面向制造企业的可追溽物料计划助手",
+    "sources": [
+      "README.md"
+    ],
+    "conclusion": "项目定位为辅助数量核对和证据查询"
+  },
+  {
+    "page": 2,
+    "title": "目录",
+    "question": "围绕任务、方法、证据与边界展开汇报",
+    "sources": [
+      "README.md"
+    ],
+    "conclusion": "22页主文组织为四章节"
+  },
+  {
+    "page": 3,
+    "title": "业务场景：生产任务的物料核对",
+    "question": "计划员提出生产数量后，需要哪些事实才能判断？",
+    "sources": [
+      "README.md",
+      "services/published_planning_service.py"
+    ],
+    "conclusion": "齐套判断依赖版本化BOM和权威可用库存"
+  },
+  {
+    "page": 4,
+    "title": "现有困难：缺失、歧义与时点",
+    "question": "哪些信息问题会让一个看似完整的回答失去依据？",
+    "sources": [
+      "agents/context_resolver.py",
+      "services/published_planning_service.py",
+      "agents/response_generator.py"
+    ],
+    "conclusion": "不能从语言猜测缺失业务条件"
+  },
+  {
+    "page": 5,
+    "title": "研究问题与实现目标",
+    "question": "如何让自然语言任务得到可验证的业务结果？",
+    "sources": [
+      "agents/orchestrator.py",
+      "services/published_planning_service.py",
+      "agents/response_generator.py"
+    ],
+    "conclusion": "建立理解、计算和证据的职责边界"
+  },
+  {
+    "page": 6,
+    "title": "图5  系统总览与职责分工",
+    "question": "当前 Trial 如何完成从页面到事实再到回答的调用？",
+    "sources": [
+      "services/persistent_agent_service.py",
+      "agents/orchestrator.py",
+      "tools/demo_scenario_tools.py",
+      "api/trial_app.py"
+    ],
+    "conclusion": "Trial独立事实库与规则模式形成实测闭环"
+  },
+  {
+    "page": 7,
+    "title": "图4  受控事实导入与发布",
+    "question": "原始 BOM 在什么条件下可以进入可查询事实？",
+    "sources": [
+      "services/bom_import_service.py",
+      "repositories/fact_repository.py"
+    ],
+    "conclusion": "发布前存在校验与按条件人工确认"
+  },
+  {
+    "page": 8,
+    "title": "图6  问题规划及产品上下文",
+    "question": "怎样避免产品歧义与上一轮条件污染？",
+    "sources": [
+      "agents/planner.py",
+      "agents/context_resolver.py",
+      "agents/product_resolver.py",
+      "services/persistent_agent_service.py"
+    ],
+    "conclusion": "区分企业目录解析和Trial固定产品上下文"
+  },
+  {
+    "page": 9,
+    "title": "图7  物料需求与库存核对",
+    "question": "多层 BOM 如何转化为需求、缺口和理论数量？",
+    "sources": [
+      "services/published_planning_service.py",
+      "services/production_feasibility_query_service.py",
+      "tools/demo_scenario_tools.py"
+    ],
+    "conclusion": "effective_date存在时实际进入多层PublishedPlanningService"
+  },
+  {
+    "page": 10,
+    "title": "图8  证据校验与结果输出",
+    "question": "工具结果如何进入回答，语言层又能改动什么？",
+    "sources": [
+      "agents/orchestrator.py",
+      "agents/evidence.py",
+      "agents/response_generator.py",
+      "services/persistent_agent_service.py"
+    ],
+    "conclusion": "模型仅受约束组织事实说明，失败回退业务模板"
+  },
+  {
+    "page": 11,
+    "title": "图9  连续追问及证据复用",
+    "question": "“为什么不能生产”是否需要再次计算库存？",
+    "sources": [
+      "agents/orchestrator.py",
+      "services/persistent_agent_service.py",
+      "outputs/PMC-Agent-report/runtime-responses.json"
+    ],
+    "conclusion": "实测原因追问复用100台turn，completed_steps为空"
+  },
+  {
+    "page": 12,
+    "title": "完整案例：100台不足，50台齐套",
+    "question": "同一数据版本下，任务修改与原因追问得到什么结果？",
+    "sources": [
+      "outputs/PMC-Agent-report/runtime-responses.json",
+      "services/published_planning_service.py",
+      "services/published_purchase_planning_service.py"
+    ],
+    "conclusion": "仅支持合成数据上的数量和采购案例"
+  },
+  {
+    "page": 13,
+    "title": "实验设置与版本绑定",
+    "question": "这些结果在哪个环境、模式和数据时点下产生？",
+    "sources": [
+      "api/trial_app.py",
+      "repositories/demo_scenario_repository.py",
+      "outputs/PMC-Agent-report/runtime-responses.json"
+    ],
+    "conclusion": "本地隔离合成Trial复测，非LLM效果实验"
+  },
+  {
+    "page": 14,
+    "title": "数量边界：四种物料同时限制75台",
+    "question": "75台与76台的分界能否由原始用量和库存复算？",
+    "sources": [
+      "services/published_planning_service.py",
+      "outputs/PMC-Agent-report/runtime-responses.json",
+      "data/demo/demo_scenario_50_vs_100/bom_facts.json",
+      "data/demo/demo_scenario_50_vs_100/inventory_facts.json"
+    ],
+    "conclusion": "min floor(库存/单位用量)=75，与实跑一致"
+  },
+  {
+    "page": 15,
+    "title": "异常与交互：失败不产生替代数字",
+    "question": "非法数量和证据追问如何影响工具调用？",
+    "sources": [
+      "agents/orchestrator.py",
+      "outputs/PMC-Agent-report/runtime-responses.json",
+      "tests/test_remote_trial.py"
+    ],
+    "conclusion": "0台拒绝且无completed_steps；追问复用证据"
+  },
+  {
+    "page": 16,
+    "title": "验收覆盖与尚缺的效果比较",
+    "question": "当前证据足以支持哪些结论，哪些比较仍无法开展？",
+    "sources": [
+      "outputs/PMC-Agent-report/runtime-responses.json",
+      "tests/test_demo_scenario_50_100.py",
+      "tests/test_demo_purchase_parameters.py",
+      "tests/test_remote_trial.py"
+    ],
+    "conclusion": "仅报告案例与专项测试，不宣称胜过人工"
+  },
+  {
+    "page": 17,
+    "title": "当前系统截图：100台缺料",
+    "question": "页面是否展示与真实响应一致的缺口？",
+    "sources": [
+      "outputs/PMC-Agent-report/runtime-responses.json",
+      "raw-screenshots/01-100.png"
+    ],
+    "conclusion": "实跑四项缺料，页面原始截图与响应一致"
+  },
+  {
+    "page": 18,
+    "title": "当前系统截图：追问与50台齐套",
+    "question": "从解释原因到修改数量，页面是否同步新任务？",
+    "sources": [
+      "outputs/PMC-Agent-report/runtime-responses.json",
+      "raw-screenshots/02-reason.png",
+      "raw-screenshots/03-50.png"
+    ],
+    "conclusion": "追问说明证据复用，50台页面齐套"
+  },
+  {
+    "page": 19,
+    "title": "当前系统截图：来源与适用条件",
+    "question": "结论能否定位到具体事实文件、版本和库存时点？",
+    "sources": [
+      "outputs/PMC-Agent-report/runtime-responses.json",
+      "raw-screenshots/04-source.png"
+    ],
+    "conclusion": "实际来源展开含事实文件与快照信息"
+  },
+  {
+    "page": 20,
+    "title": "能力边界：数量核对与业务放行",
+    "question": "系统的计算结果能否直接用于排产、采购或交期承诺？",
+    "sources": [
+      "README.md",
+      "services/published_planning_service.py",
+      "services/published_purchase_planning_service.py"
+    ],
+    "conclusion": "只能支持数据条件下的辅助分析"
+  },
+  {
+    "page": 21,
+    "title": "局限与后续验证",
+    "question": "当前演示与真实生产部署之间还缺哪些证据？",
+    "sources": [
+      "README.md",
+      "outputs/PMC-Agent-report/runtime-responses.json"
+    ],
+    "conclusion": "合成场景验证不能外推真实生产效果"
+  },
+  {
+    "page": 22,
+    "title": "结论与致谢",
+    "question": "本次可验证的项目贡献是什么？",
+    "sources": [
+      "agents/orchestrator.py",
+      "services/published_planning_service.py",
+      "outputs/PMC-Agent-report/runtime-responses.json"
+    ],
+    "conclusion": "职责分工和固定场景闭环成立，效果泛化待验证"
+  }
+]

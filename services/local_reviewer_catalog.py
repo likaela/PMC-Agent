@@ -11,6 +11,10 @@ from tools.published_product_tools import build_published_product_search
 
 
 def local_review_catalog(store):
+    from services.local_business_binding import local_business_binding
+    binding = local_business_binding()
+    if binding:
+        return list(binding.catalog.values())
     result = build_published_product_search(store).invoke({"limit": 100})
     facts = FactQueryService(FactQueryRepository(FactRepository(store)))
     rows = []
@@ -26,7 +30,16 @@ def local_review_catalog(store):
             synthetic=False, unit=data["parent_item"].get("unit"), default_mode="full",
             modes=[dict(mode="full", label="完整追溯范围", scenario_id=None, line_count=data["line_count"], dataset_version=None)]))
     profile = PROJECT_ROOT / "data/facts/confirmations/review_slim.json"
-    if profile.is_file():
+    from repositories.current_business_repository import active_manifest, CurrentBusinessRepository
+    from services.current_business_service import current_entry
+    manifest = active_manifest()
+    from repositories.fact_store import DEFAULT_SQLITE_PATH
+    from pathlib import Path
+    path = getattr(store, "database_path", None)
+    current = CurrentBusinessRepository(manifest) if manifest and path and Path(path).resolve() == DEFAULT_SQLITE_PATH.resolve() else None
+    if current:
+        rows = [current_entry(current) if row["product_code"] == current.product else row for row in rows]
+    elif not manifest and profile.is_file():
         dataset = load_dataset(PROJECT_ROOT / json.loads(profile.read_text(encoding="utf-8"))[REAL_SLIM])
         for product in rows:
             if product["product_code"] == dataset["product"] and not dataset["synthetic"]:

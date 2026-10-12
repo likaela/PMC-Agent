@@ -20,14 +20,17 @@ const stateLabel = computed(() =>
 </script>
 <template>
   <section class="summary-grid" aria-label="任务摘要">
-    <article class="summary-card card">
+    <article v-if="result?.product && !pending" class="summary-card card">
       <div class="summary-label">查询对象<Icon name="box" :size="18" /></div>
       <strong :class="{ 'summary-empty': !result?.product }">{{
-        result?.product ?? (pending ? "等待结果" : "未提供")
+        result.product
       }}</strong
       ><small>本次查询的产品或物料编码</small>
     </article>
-    <article class="summary-card card">
+    <article
+      v-if="result?.quantity != null && !pending"
+      class="summary-card card"
+    >
       <div class="summary-label">目标数量<Icon name="layers" :size="18" /></div>
       <strong :class="{ 'summary-empty': result?.quantity == null }"
         >{{ formatNumber(result?.quantity)
@@ -56,14 +59,24 @@ const stateLabel = computed(() =>
         selected ? `请求时间 ${selected.requestedAt}` : "等待发起本次查询"
       }}</small>
     </article>
-    <article class="summary-card card">
+    <article v-if="result?.sources.length && !pending" class="summary-card card">
       <div class="summary-label">
         数据来源<Icon name="database" :size="18" />
       </div>
       <strong class="summary-mode">{{
-        (result?.backend?.scenario_id ?? scenario) === 'kq_z112_review_slim' ? '标准分析范围' : (result?.backend?.scenario_id ?? scenario) === 'kq_z112_review_slim_synthetic' ? '数量模拟范围' : result?.backend?.scenario_id || scenario ? "演示产品" : "业务记录"
+        (result ? result.backend?.scenario_id : scenario) ===
+        "kq_z112_review_slim"
+          ? "标准分析范围"
+          : (result ? result.backend?.scenario_id : scenario) ===
+              "kq_z112_review_slim_synthetic"
+            ? "数量模拟范围"
+            : (result ? result.backend?.scenario_id : scenario)
+              ? "演示产品"
+              : "业务记录"
       }}</strong
-      ><small>{{ sourceLabel(result?.sources[0]?.kind) || "等待查询结果" }}</small>
+      ><small>{{
+        sourceLabel(result?.sources[0]?.kind) || "等待查询结果"
+      }}</small>
     </article>
   </section>
 </template>

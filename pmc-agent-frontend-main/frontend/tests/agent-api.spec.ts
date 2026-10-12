@@ -249,7 +249,7 @@ test("澄清信息正常显示，不伪造结果卡片数值", async ({ page }) 
   await online(page);
   await send(page, "KQ-Z112能生产多少");
   await expect(
-    page.getByRole("heading", { name: "需要补充查询信息" }),
+    page.getByRole("heading", { name: "请明确本次查询" }),
   ).toBeVisible();
   await expect(page.locator("tbody")).toHaveCount(0);
   await expect(page.locator(".result-body")).toContainText("生效日期");

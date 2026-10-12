@@ -6,10 +6,10 @@ if ((Test-Path -LiteralPath $reviewVault) -or (Test-Path -LiteralPath $reviewSet
 if (!(Test-Path -LiteralPath $reviewCaddy)) { throw 'Prepare the verified portable Caddy first.' }
 $unitsPath = Join-Path $reviewRoot 'data/facts/confirmations/inventory_units.json'
 $quantityPath = Join-Path $reviewRoot 'data/facts/confirmations/inventory_quantity_use.json'
-$profile = Read-ReviewJson (Join-Path $reviewRoot 'data/facts/confirmations/review_slim.json')
-$datasetPath = $profile.kq_z112_review_slim
+$profile = Read-ReviewJson (Join-Path $reviewRoot 'data/facts/confirmations/current_business.json')
+$datasetPath = $profile.manifest_path
 $dataset = Read-ReviewJson (Join-Path $reviewRoot $datasetPath)
-if ($dataset.dataset_version -ne $ApprovedDatasetVersion -or $dataset.synthetic -ne $false -or $dataset.retained_material_count -ne 34) {
+if ($dataset.dataset_version -ne $ApprovedDatasetVersion -or $dataset.synthetic -ne $false -or $dataset.format -ne 'current_business_bom_v1') {
     throw 'The explicitly approved real analysis dataset does not match.'
 }
 $units = (Read-ReviewJson $unitsPath).confirmations
@@ -53,7 +53,7 @@ $settings = @{
     facts_path='data/facts/pmc_facts.db'; inventory_path=$units[0].source_uri
     units_path='data/facts/confirmations/inventory_units.json'
     quantity_path='data/facts/confirmations/inventory_quantity_use.json'
-    slim_dataset_path=$datasetPath
+    business_manifest_path=$datasetPath
     users=@{ 'reviewer-a'=@('KQ-Z112','KQ-BHX3588M','DEMO-PMC-01'); 'reviewer-b'=@('KQ-Z112','KQ-BHX3588M','DEMO-PMC-01'); 'demo-only'=@('DEMO-PMC-01') }
 }
 $vault = @{ ProxySecret=(ConvertTo-SecureString (New-ReviewSecret) -AsPlainText -Force); Accounts=$accounts }

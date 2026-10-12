@@ -33,6 +33,8 @@ class ReviewSessionCreate(BaseModel):
 class ResolveRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     message: str = Field(min_length=1, max_length=2000)
+    session_id: str | None = None
+    catalog_order: list[str] | None = None
 
 
 def create_review_app(binding: ReviewBinding, proxy_secret: str, users: dict[str, list[str]]) -> FastAPI:
@@ -103,7 +105,7 @@ def create_review_app(binding: ReviewBinding, proxy_secret: str, users: dict[str
         if mode is None:
             raise HTTPException(422)
         service = binding.service(product, mode["mode"])
-        if product == DEMO_PRODUCT or mode["mode"] == "slim":
+        if product == DEMO_PRODUCT or mode["mode"] in ("slim", "current"):
             session = service.repository.create_session()
         else:
             task = dict(material_code=product, revision=binding.catalog[product]["revision"], quantity=None)
@@ -121,14 +123,24 @@ def create_review_app(binding: ReviewBinding, proxy_secret: str, users: dict[str
         if value not in (None, expected):
             raise HTTPException(422)
 
+    def with_binding(result, product, analysis_mode):
+        mode = binding.mode(product, analysis_mode)
+        result = public_review_payload(result)
+        context = dict(product_code=product, analysis_mode=analysis_mode, scenario_id=mode["scenario_id"],
+            dataset_version=mode["dataset_version"], revision=binding.catalog[product]["revision"])
+        if "structured_data" in result:
+            result.setdefault("structured_data", {})["product_context"] = context
+        for turn in result.get("turns", []):
+            turn["response"].setdefault("structured_data", {})["product_context"] = context
+        return {**result, "review_product": product, "review_mode": analysis_mode,
+            "dataset_version": mode["dataset_version"], "scenario_id": mode["scenario_id"]}
+
     def explicit_product(request, message):
-        matches = [p for p in binding.catalog if re.search(r"(?<![A-Za-z0-9_-])" + re.escape(p) + r"(?![A-Za-z0-9_-])", message)]
-        if len(matches) > 1:
+        from agents.product_resolver import resolve_product
+        result = resolve_product(message, [binding.catalog[p] for p in request.state.products])
+        if result["status"] != "ok":
             raise HTTPException(422)
-        if matches:
-            permit(request, matches[0])
-            return matches[0]
-        return None
+        return result["product_code"] if result.get("explicit") else None
 
     @app.exception_handler(HTTPException)
     @app.exception_handler(SessionNotFound)
@@ -168,10 +180,10 @@ def create_review_app(binding: ReviewBinding, proxy_secret: str, users: dict[str
 
     @app.post("/api/v1/review/resolve")
     def resolve(request: Request, body: ResolveRequest):
-        from agents.reviewer_catalog_queries import catalog_kind
-        product = explicit_product(request, body.message)
-        mode = "full" if re.search(r"完整|全部.*物料|使用完整企业|正式企业数据", body.message) and not catalog_kind(body.message) else "slim" if re.search(r"精简|标准分析", body.message) else None
-        return {"product_code": product, "analysis_mode": mode, "catalog_query": catalog_kind(body.message) is not None}
+        from agents.product_resolver import resolve_product
+        current = owner_product(request, body.session_id)[0] if body.session_id else None
+        return resolve_product(body.message, [binding.catalog[p] for p in request.state.products],
+            current_product=current, catalog_order=body.catalog_order)
 
     @app.post("/api/v1/agent/sessions")
     def sessions(request: Request, body: ReviewSessionCreate):
@@ -191,8 +203,7 @@ def create_review_app(binding: ReviewBinding, proxy_secret: str, users: dict[str
         if hasattr(service, "public_session"):
             result = service.public_session(result)
         mode = binding.mode(product, analysis_mode)
-        return {**public_review_payload(result), "review_product": product, "review_mode": analysis_mode,
-            "dataset_version": mode["dataset_version"], "scenario_id": mode["scenario_id"]}
+        return with_binding(result, product, analysis_mode)
 
     @app.post("/api/v1/agent/query")
     def query(request: Request, body: UnifiedAgentRequest):
@@ -207,12 +218,18 @@ def create_review_app(binding: ReviewBinding, proxy_secret: str, users: dict[str
             return error(422, "PRODUCT_REQUIRED", "请先选择产品。")
         analysis_mode = analysis_mode or binding.mode(product)["mode"]
         scenario(product, analysis_mode, body.scenario_id)
-        explicit = explicit_product(request, body.message)
+        from agents.product_resolver import resolve_product, product_overview_requested
+        resolution = resolve_product(body.message, [binding.catalog[p] for p in request.state.products],
+            current_product=product, catalog_order=body.catalog_order)
+        if resolution["status"] != "ok":
+            return error(422, "PRODUCT_REQUIRED", resolution["answer"])
+        explicit = resolution["product_code"] if resolution.get("explicit") else None
         if explicit and explicit != product:
             return error(409, "PRODUCT_SWITCH_REQUIRED", "请切换产品并新建分析，原会话仍保留。")
         if re.search(r"完整|全部66项|使用完整企业", body.message) and analysis_mode == "slim" and not catalog_kind(body.message):
             return error(409, "MODE_SWITCH_REQUIRED", "请切换到完整追溯范围并新建分析，当前会话仍保留。")
-        code_message = re.sub(r"\b\d{4}-\d{1,2}-\d{1,2}\b", "", normalize_business_dates(body.message))
+        execution_message = resolution.get("message", body.message)
+        code_message = re.sub(r"\b\d{4}-\d{1,2}-\d{1,2}\b", "", normalize_business_dates(execution_message))
         code_message = re.sub(r"(?:\d+(?:\.\d+)?|[零〇一二三四五六七八九十百千万两]+)\s*(?:台|片|个|件|套)", "", code_message)
         code = _explicit_material_code(identifier_message(code_message))
         if code and code != product and not catalog_kind(body.message):
@@ -220,7 +237,7 @@ def create_review_app(binding: ReviewBinding, proxy_secret: str, users: dict[str
                 allowed = {p["material_code"] for p in binding.materials(product)}
                 if code not in allowed:
                     raise HTTPException(404)
-            elif analysis_mode == "slim":
+            elif analysis_mode in ("slim", "current"):
                 if code not in {r["material_code"] for r in binding.materials(product, analysis_mode)}:
                     raise HTTPException(404)
             elif binding.facts[product].repository.resolve_item(code) is None:
@@ -231,12 +248,15 @@ def create_review_app(binding: ReviewBinding, proxy_secret: str, users: dict[str
             return error(429, "REVIEW_BUSY", "当前体验人数较多，请稍后重试。")
         try:
             service = binding.service(product, analysis_mode)
-            result = catalog_query(service, sid, body.message, [binding.catalog[p] for p in request.state.products])
+            result = catalog_query(service, sid, body.message, [binding.catalog[p] for p in request.state.products]) if resolution.get("catalog_query") else None
             if result is None:
-                result = service.query(sid, body.message)
+                if product_overview_requested(execution_message, product):
+                    from agents.reviewer_catalog_queries import overview_query
+                    result = overview_query(service, sid, body.message, binding.catalog[product], binding.mode(product, analysis_mode))
+                else:
+                    result = service.query(sid, body.message, execution_message=execution_message)
             mode = binding.mode(product, analysis_mode)
-            return {**public_review_payload(result), "review_product": product,
-                    "review_mode": analysis_mode, "dataset_version": mode["dataset_version"], "scenario_id": mode["scenario_id"]}
+            return with_binding(result, product, analysis_mode)
         finally:
             slots.release()
     return app
@@ -249,10 +269,12 @@ def configured_app():
         raise RuntimeError("Use the dedicated review launcher")
     settings = json.loads(Path(os.environ["PMC_REVIEW_SETTINGS"]).read_text(encoding="utf-8"))
     required = {"facts_path", "inventory_path", "units_path", "quantity_path", "users"}
-    if set(settings) - {"slim_dataset_path"} != required:
+    if set(settings) - {"slim_dataset_path", "business_manifest_path"} != required:
         raise ValueError("Explicit private review settings required")
-    if not settings.get("slim_dataset_path"):
+    if not settings.get("business_manifest_path") and not settings.get("slim_dataset_path"):
         raise ValueError("Explicit approved default filtered dataset required")
     binding = ReviewBinding(**{k: root / settings[k] for k in required - {"users"}},
-        slim_dataset_path=root / settings["slim_dataset_path"], runtime_root=root / ".runtime/authorized-review")
+        slim_dataset_path=root / settings["slim_dataset_path"] if settings.get("slim_dataset_path") else None,
+        business_manifest_path=root / settings["business_manifest_path"] if settings.get("business_manifest_path") else None,
+        runtime_root=root / ".runtime/authorized-review")
     return create_review_app(binding, os.environ["PMC_REVIEW_PROXY_SECRET"], settings["users"])

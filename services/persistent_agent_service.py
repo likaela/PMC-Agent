@@ -236,7 +236,9 @@ class PersistentAgentService:
             response_generator=ResponseGenerator(formatter=formatter, **llm_options),
             context_resolver=context_resolver, inventory_operations=inventory_operations)
 
-    def query(self, session_id: str, message: str) -> dict:
+    def query(self, session_id: str, message: str, *, execution_message: str | None = None) -> dict:
+        original_message = message
+        message = execution_message or message
         if self.orchestrator is not None:
             session = self.repository.get_session(session_id)
             history_loader = lambda: self.repository.history(session_id,
@@ -268,10 +270,13 @@ class PersistentAgentService:
                     from agents.business_answer import visible_warnings
                     relevant = price_requested(message)
                     response["warnings"] = visible_warnings(response["warnings"], price_relevant=relevant)
-                    response["structured_data"]["presentation"] = {"price_relevant": relevant}
+                    response["structured_data"].setdefault("presentation", {}).update(price_relevant=relevant)
+                if response.get("structured_data") is not None:
+                    from agents.query_presentation import present_query
+                    response = present_query(response, message, getattr(self, "presentation_binding", None))
                 if self.response_adapter is not None:
                     response = self.response_adapter(response)
-                response["turn_id"] = self.repository.append_turn(session, message, response, turn.context, turn.references)
+                response["turn_id"] = self.repository.append_turn(session, original_message, response, turn.context, turn.references)
                 return response
         return self._legacy_query(session_id, message)
 

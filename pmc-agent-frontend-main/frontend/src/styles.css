@@ -858,7 +858,7 @@ main {
 }
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   gap: 16px;
   margin-bottom: 20px;
 }
@@ -1410,7 +1410,7 @@ main {
 }
 .purchase-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
   gap: 10px;
   margin-bottom: 12px;
 }

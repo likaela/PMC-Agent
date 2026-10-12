@@ -20,6 +20,8 @@ class UnifiedAgentRequest(BaseModel):
     session_id: str | None = Field(default=None, min_length=1, max_length=64)
     persist_session: bool = False
     scenario_id: ScenarioId | None = None
+    # Order of the catalog actually displayed in this conversation, never a permission grant.
+    catalog_order: list[str] | None = Field(default=None, max_length=100)
 
     @model_validator(mode="after")
     def isolate_published_session(self):
@@ -45,6 +47,7 @@ class UnifiedAgentResponse(BaseModel):
 class AgentSessionCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     scenario_id: ScenarioId | None = None
+    product_code: str | None = Field(default=None, min_length=1, max_length=128)
 
 
 class AgentSessionResponse(BaseModel):
@@ -55,6 +58,7 @@ class AgentSessionResponse(BaseModel):
     context_version: int
     context: dict[str, Any]
     scenario_id: ScenarioId | None = None
+    product_context: dict[str, Any] | None = None
 
 
 class AgentFactReference(BaseModel):

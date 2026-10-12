@@ -3,6 +3,11 @@ import { ref } from "vue";
 import { useAgent } from "../composables/useAgent";
 import Icon from "./Icon.vue";
 const { draft, pending, send, cancel } = useAgent();
+defineProps<{
+  activeProduct?: string | null;
+  products?: { product_code: string }[];
+}>();
+defineEmits<{ switch: [code: string] }>();
 const composing = ref(false);
 function onKey(event: KeyboardEvent) {
   if (
@@ -19,6 +24,25 @@ function onKey(event: KeyboardEvent) {
 </script>
 <template>
   <form class="composer" @submit.prevent="send()">
+    <div class="active-product" aria-label="当前活动产品">
+      <label for="active-product-select">当前产品</label>
+      <select
+        v-if="products?.length"
+        id="active-product-select"
+        :value="activeProduct ?? ''"
+        @change="$emit('switch', ($event.target as HTMLSelectElement).value)"
+      >
+        <option value="" disabled>未选择产品</option>
+        <option
+          v-for="p in products"
+          :key="p.product_code"
+          :value="p.product_code"
+        >
+          {{ p.product_code }}
+        </option>
+      </select>
+      <span v-else>{{ activeProduct ?? "未选择产品" }}</span>
+    </div>
     <label for="query-input" class="sr-only">输入分析问题</label>
     <div class="composer-input">
       <textarea
@@ -55,7 +79,27 @@ function onKey(event: KeyboardEvent) {
       </div>
     </div>
     <p class="composer-hint">
-      请填写产品编码；会话自动保存，必要信息不足时 Agent 会请求补充。
+      可输入产品编码或别称；后续问题沿用当前产品，会话自动保存。
     </p>
   </form>
 </template>
+<style scoped>
+.active-product {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #526581;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.active-product select {
+  max-width: 100%;
+  border: 1px solid #dbe5f3;
+  border-radius: 6px;
+  background: #f2f7ff;
+  color: #27528c;
+  padding: 3px 8px;
+  font-size: 12px;
+}
+</style>

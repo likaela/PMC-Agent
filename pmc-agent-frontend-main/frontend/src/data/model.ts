@@ -1,7 +1,11 @@
 // Public HTTP contract is deliberately separate from the UI display model.
 export type DecimalText = string;
 export type JsonObject = Record<string, unknown>;
-export type ScenarioId = "demo_scenario_50_vs_100" | "review_real_bom_simulation" | "kq_z112_review_slim" | "kq_z112_review_slim_synthetic";
+export type ScenarioId =
+  | "demo_scenario_50_vs_100"
+  | "review_real_bom_simulation"
+  | "kq_z112_review_slim"
+  | "kq_z112_review_slim_synthetic";
 export type AgentIntent =
   | "pmc_analysis"
   | "fact_query"
@@ -17,6 +21,7 @@ export interface BackendRequest {
   session_id?: string;
   scenario_id?: ScenarioId;
   persist_session?: boolean;
+  catalog_order?: string[];
 }
 export interface BackendResponse {
   intent: AgentIntent;
@@ -29,6 +34,9 @@ export interface BackendResponse {
   conversation_id?: string | null;
   turn_id?: string | null;
   scenario_id?: ScenarioId | null;
+  review_product?: string | null;
+  review_mode?: string;
+  dataset_version?: string | null;
 }
 export interface BackendSession {
   session_id: string;
@@ -38,6 +46,11 @@ export interface BackendSession {
   context_version: number;
   context: JsonObject;
   scenario_id?: ScenarioId | null;
+  product_context?: {
+    product_code: string;
+    scenario_id: ScenarioId | null;
+    revision?: string;
+  };
 }
 export interface BackendTurn {
   turn_id: string;
@@ -93,7 +106,13 @@ export interface Material {
 export interface Source {
   id: string;
   title: string;
-  kind: "项目资料示例" | "人工构造演示样例" | "已发布事实" | "合成演示事实" | "Excel账面记录" | "人工业务确认";
+  kind:
+    | "项目资料示例"
+    | "人工构造演示样例"
+    | "已发布事实"
+    | "合成演示事实"
+    | "Excel账面记录"
+    | "人工业务确认";
   scope: string;
   reference: string;
   version: string | null;

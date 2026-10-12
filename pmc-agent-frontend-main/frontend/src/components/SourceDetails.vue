@@ -86,8 +86,6 @@ defineExpose({ reveal });
             <dt>引用范围</dt>
             <dd>
               {{ source.scope
-              }}{{
-                result?.slimReview || source.sheet || source.row ? "" : "（未提供字段级原始定位）"
               }}
             </dd>
           </div>
@@ -95,13 +93,13 @@ defineExpose({ reveal });
             <dt>来源文件 / 记录</dt>
             <dd>{{ source.reference }}</dd>
           </div>
-          <div v-if="!result?.slimReview || source.version">
+          <div v-if="source.version">
             <dt>数据版本</dt>
-            <dd>{{ source.version ?? "未提供" }}</dd>
+            <dd>{{ source.version }}</dd>
           </div>
-          <div v-if="!result?.slimReview || source.publishedAt">
+          <div v-if="source.publishedAt">
             <dt>来源发布时间</dt>
-            <dd>{{ source.publishedAt ?? "未提供" }}</dd>
+            <dd>{{ source.publishedAt }}</dd>
           </div>
           <div v-if="source.snapshotAt">
             <dt>库存快照时点</dt>

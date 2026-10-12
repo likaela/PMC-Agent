@@ -101,7 +101,8 @@ def _bound_tools(facts, capacity):
 
 
 class ReviewBinding:
-    def __init__(self, *, facts_path, inventory_path, units_path, quantity_path, runtime_root, slim_dataset_path=None):
+    def __init__(self, *, facts_path, inventory_path, units_path, quantity_path, runtime_root, slim_dataset_path=None,
+                 business_manifest_path=None):
         self.runtime = Path(runtime_root).resolve()
         if Path(facts_path).resolve() == self.runtime / "sessions.sqlite3":
             raise ValueError("Facts and conversation stores must differ")
@@ -125,6 +126,16 @@ class ReviewBinding:
             quantity_confirmations=InventoryQuantityConfirmationRepository(quantity_path))
         self.services, self.facts, self.catalog = {}, {}, {}
         for product in ENTERPRISE_PRODUCTS:
+            if business_manifest_path is not None:
+                from services.current_business_service import build_current_business_agent, current_entry
+                from repositories.current_business_repository import CurrentBusinessRepository
+                current_source = CurrentBusinessRepository(business_manifest_path)
+                if current_source.product == product:
+                    current = build_current_business_agent(business_manifest_path, runtime_root=self.runtime / "current-business")
+                    self.services[product] = current
+                    self.facts[product] = current.book_service.facts
+                    self.catalog[product] = current_entry(current_source)
+                    continue
             repository = ScopedFacts(self.fact_store, product)
             facts = FactQueryService(repository)
             self.facts[product] = facts
@@ -156,8 +167,8 @@ class ReviewBinding:
             data = facts.query_bom(product, repository.revision)["data"]
             self.catalog[product] = dict(product_code=product, product_name=data["parent_item"].get("name"),
                 revision=repository.revision, unit=data["parent_item"].get("unit"), line_count=data["line_count"],
-                synthetic=False, capabilities=["BOM结构", "主库存查询", "生产需求数量", "已知库存数量核对", "来源及连续追问"],
-                limitations=["无库存记录保持未知；不能证明完整齐套", "不等于正式工单放行；没有实时ERP同步", "完整最大产量与采购成本须完整事实"])
+                synthetic=False, capabilities=["BOM结构", "主库存查询", "生产需求数量", "已知库存数量核对", "已核算物料产量上限", "来源及连续追问"],
+                limitations=["数量核算仅采用已核验库存记录", "数量核对不代表正式工单放行"])
         demo = build_demo_scenario_agent(runtime_root=self.runtime / "demo")
         demo.enable_orchestrator()
         # Defense independent of global model configuration/import order.
@@ -174,11 +185,13 @@ class ReviewBinding:
             capabilities=["BOM与库存", "齐套与最大理论量", "采购建议", "历史恢复"], limitations=["演示产品数据，仅用于体验分析流程，不用于业务放行"])
         for product, entry in self.catalog.items():
             entry["scenario_id"] = DEMO_SCENARIO if product == DEMO_PRODUCT else None
+            if entry.get("default_mode") == "current":
+                continue
             entry["default_mode"] = "full"
             entry["modes"] = [dict(mode="full", label="产品分析" if entry["synthetic"] else "完整追溯范围",
                 scenario_id=entry["scenario_id"], line_count=entry["line_count"], dataset_version=None)]
         self.slim = None
-        if slim_dataset_path is not None:
+        if business_manifest_path is None and slim_dataset_path is not None:
             from services.slim_scenario_agent_service import build_slim_scenario_agent
             from agents.slim_review_queries import SlimReviewQueries
             from services.slim_review_service import REAL_SLIM
@@ -199,9 +212,12 @@ class ReviewBinding:
         return next((m for m in self.catalog[product]["modes"] if m["mode"] == mode), None)
 
     def service(self, product, mode):
+        for service in [*self.services.values(), self.slim]:
+            if service is not None:
+                service.intent_presentation = True
         if mode == "slim" and self.slim and product == self.slim.book_service.dataset["product"]:
             return self.slim
-        if mode == "full":
+        if mode in ("full", "current") and self.mode(product, mode):
             return self.services[product]
         raise ValueError("Unknown review scope")
 
@@ -218,10 +234,12 @@ class ReviewBinding:
         selected = self.mode(product, mode)
         if selected is None:
             raise ValueError("Unknown review scope")
-        if selected["mode"] == "slim":
+        if selected["mode"] in ("slim", "current"):
             from services.slim_review_presentation import SlimReviewPresentation
-            result = self.slim.book_service.analyze(product)
-            data = SlimReviewPresentation(self.slim.book_service.dataset).result(result)["data"]
+            service = self.service(product, selected["mode"])
+            result = service.book_service.analyze(product)
+            presentation = getattr(service, "presentation", SlimReviewPresentation(service.book_service.dataset))
+            data = presentation.result(result)["data"]
             return [dict(material_code=r["material_code"], name=r["name"], qty_per=r["qty_per"],
                 unit=r["unit"], stock_qty=r["recorded_stock_qty"]) for r in data["materials"]]
         facts = self.demo_facts if product == DEMO_PRODUCT else self.facts[product]

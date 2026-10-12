@@ -70,9 +70,8 @@ test("明确成本询问保留价格不足提示和来源", () => {
   const vm = adaptBackendResponse(backend, "完整成本多少钱？");
   expect(vm.answer).toContain("缺少可靠的价格数据");
   expect(vm.warnings[0]).toContain("price_missing");
-  expect(vm.metrics?.find((m) => m.label === "待核实事实")?.value).toContain(
-    "价格",
-  );
+  expect(vm.metrics?.find((m) => m.label === "待核实事实")).toBeUndefined();
+  expect((vm.backend?.structured_data?.completeness as Record<string,unknown>).price).toBe(false);
   expect(vm.sources.length).toBeGreaterThan(0);
 });
 

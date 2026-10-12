@@ -15,8 +15,25 @@ const showPurchase = computed(
   () => !props.result?.bookObservation && props.result?.queryType === "purchase_planning",
 );
 function inventoryQuantity(value: string | null | undefined): string {
-  return value == null ? "未知" : formatNumber(value);
+  return value == null ? "—" : formatNumber(value);
 }
+// Intent selects eligible columns; evidence selects populated columns. A known
+// zero is valid, while an entirely null column has no business display value.
+const columns = computed(() => {
+  const r = props.result;
+  const rows = r?.materials ?? [];
+  const bom = r?.queryType === "bom";
+  const maximum = (r?.backend?.structured_data?.presentation as {show_maximum?: boolean} | undefined)?.show_maximum === true ||
+    (r?.backend?.structured_data?.data as {capacity_query?: boolean} | undefined)?.capacity_query === true;
+  const any = (field: keyof typeof rows[number]) => rows.some(row => row[field] != null && row[field] !== "");
+  return {per: (bom || maximum || r?.bookObservation) && any("qtyPer"),
+    required: !bom && !maximum && any("required"), available: !bom && any("available"),
+    recorded: !bom && r?.bookObservation && any("recordedStock"),
+    records: !bom && r?.bookObservation && !r?.slimReview && any("recordCount"),
+    onHand: !bom && showStockDetails.value && any("onHand"),
+    reserved: !bom && showStockDetails.value && any("reserved"),
+    shortage: !bom && !maximum && any("shortage"), purchase: showPurchase.value && any("purchaseQty")};
+});
 watch(
   () => props.result,
   () => {
@@ -112,17 +129,15 @@ const rows = computed(() =>
                   />
                 </button>
               </th>
-              <th v-if="result?.slimReview" class="numeric">BOM单耗</th>
-              <th class="numeric">
-                {{ result?.queryType === "bom" ? "单位用量" : "需求数量" }}
-              </th>
-              <th v-if="!result?.quantityReview" class="numeric">可用库存</th>
-              <th v-if="result?.bookObservation" class="numeric">{{ result?.quantityReview ? "实际库存数量" : "Excel账面数量" }}</th>
-              <th v-if="result?.bookObservation && !result?.slimReview" class="numeric">记录数</th>
-              <th v-if="showStockDetails" class="numeric">在库数量</th>
-              <th v-if="showStockDetails" class="numeric">预留数量</th>
-              <th v-if="!result?.bookObservation || result?.quantityReview" class="numeric">缺口数量</th>
-              <th v-if="showPurchase" class="numeric">建议采购量</th>
+              <th v-if="columns.per" class="numeric">{{ result?.queryType === 'bom' ? '单位用量' : 'BOM单耗' }}</th>
+              <th v-if="columns.required" class="numeric">需求数量</th>
+              <th v-if="columns.available" class="numeric">可用库存</th>
+              <th v-if="columns.recorded" class="numeric">{{ result?.quantityReview ? "实际库存数量" : "Excel账面数量" }}</th>
+              <th v-if="columns.records" class="numeric">记录数</th>
+              <th v-if="columns.onHand" class="numeric">在库数量</th>
+              <th v-if="columns.reserved" class="numeric">预留数量</th>
+              <th v-if="columns.shortage" class="numeric">缺口数量</th>
+              <th v-if="columns.purchase" class="numeric">建议采购量</th>
               <th>物料状态</th>
               <th>数据来源</th>
             </tr>
@@ -144,13 +159,14 @@ const rows = computed(() =>
                   </div>
                 </div>
               </td>
-              <td v-if="result?.slimReview" class="numeric">{{ formatNumber(row.qtyPer) }} {{ row.unit }}</td>
+              <td v-if="columns.per" class="numeric">{{ inventoryQuantity(row.qtyPer) }} {{ row.qtyPer == null ? '' : row.unit }}</td>
               <td
+                v-if="columns.required"
                 class="numeric"
                 :class="{ 'missing-value': row.required == null }"
               >
                 {{
-                  formatNumber(
+                  inventoryQuantity(
                     result?.queryType === "bom" ? row.qtyPer : row.required,
                   )
                 }}<small
@@ -162,7 +178,7 @@ const rows = computed(() =>
                 >
               </td>
               <td
-                v-if="!result?.quantityReview"
+                v-if="columns.available"
                 class="numeric"
                 :class="{ 'missing-value': row.available == null }"
               >
@@ -174,42 +190,42 @@ const rows = computed(() =>
                   " " + row.unit
                 }}</small>
               </td>
-              <td v-if="result?.bookObservation" class="numeric">
+              <td v-if="columns.recorded" class="numeric">
                 {{ row.recordFound === false ? "无记录" : inventoryQuantity(row.recordedStock) }}
-                <small v-if="row.recordFound !== false">{{ row.inventoryUnit ?? "单位未知" }}</small>
+                <small v-if="row.recordedStock != null">{{ row.inventoryUnit ?? '' }}</small>
               </td>
-              <td v-if="result?.bookObservation && !result?.slimReview" class="numeric">{{ row.recordCount ?? "未知" }}</td>
-              <td v-if="showStockDetails" class="numeric">
+              <td v-if="columns.records" class="numeric">{{ row.recordCount ?? "—" }}</td>
+              <td v-if="columns.onHand" class="numeric">
                 {{ inventoryQuantity(row.onHand)
                 }}<small v-if="row.onHand != null">{{ " " + row.unit }}</small>
               </td>
-              <td v-if="showStockDetails" class="numeric">
+              <td v-if="columns.reserved" class="numeric">
                 {{ inventoryQuantity(row.reserved)
                 }}<small v-if="row.reserved != null">{{
                   " " + row.unit
                 }}</small>
               </td>
               <td
-                v-if="!result?.bookObservation || result?.quantityReview"
+                v-if="columns.shortage"
                 class="numeric"
                 :class="{
                   'shortage-number': row.state === 'shortage',
                   'missing-value': row.shortage == null,
                 }"
               >
-                {{ formatNumber(row.shortage)
+                {{ inventoryQuantity(row.shortage)
                 }}<small v-if="row.shortage != null">{{
                   " " + row.unit
                 }}</small>
               </td>
               <td
-                v-if="showPurchase"
+                v-if="columns.purchase"
                 class="numeric"
                 :class="{ 'missing-value': row.purchaseQty == null }"
               >
                 {{
                   row.purchaseQty == null
-                    ? "未知"
+                    ? "—"
                     : formatNumber(row.purchaseQty)
                 }}<small v-if="row.purchaseQty != null">{{
                   " " + row.unit
@@ -242,7 +258,7 @@ const rows = computed(() =>
             <tr v-if="!rows.length">
               <td
                 :colspan="
-                  6 + (result?.bookObservation ? 1 : 0) + (showStockDetails ? 2 : 0) + (showPurchase ? 1 : 0)
+                  3 + Object.values(columns).filter(Boolean).length
                 "
                 class="filter-empty"
               >
@@ -254,8 +270,7 @@ const rows = computed(() =>
       </div>
       <div class="table-footnote">
         <span
-          ><Icon name="info" :size="14" />未提供 ≠
-          0；{{ result?.bookObservation ? "原始记录保留，重复疑点不叠加为确定合计" : "缺口仅来自后端结果" }}</span
+          ><Icon name="info" :size="14" />{{ result?.bookObservation ? "按本次核验记录展示数量" : "数值来自本次分析结果" }}</span
         ><span>共 {{ rows.length }} 项物料</span>
       </div></template
     >
@@ -264,7 +279,7 @@ const rows = computed(() =>
       <p>
         {{
           result
-            ? "本次结果未提供可展示的物料明细"
+            ? "本次结果没有物料明细"
             : "发起一次查询后，物料明细会显示在这里"
         }}
       </p>

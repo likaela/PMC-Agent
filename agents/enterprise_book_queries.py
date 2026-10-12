@@ -30,6 +30,8 @@ class EnterpriseBookQueries:
         except ValueError:
             return self._invalid_quantity(context)
         previous = context.get("book_analysis", {})
+        from agents.query_presentation import maximum_requested
+        maximum = maximum_requested(text)
         active = context.get(context.get("active_domain"), {})
         # The currently selected query object wins over a prior book-analysis
         # object, including after a published BOM query or a failed product switch.
@@ -44,17 +46,22 @@ class EnterpriseBookQueries:
         if revision is None and same:
             revision = previous.get("revision")
         stock = bool(re.search(r"库存|存量|还有多少|还有几件|余量", text))
+        if stock and parsed.quantity is None:
+            quantity = None  # Inventory intent never inherits a production target.
+        if maximum:
+            quantity = None
         demand = bool(re.search(r"生产|需求|需要多少(?:物料|材料)|数量对照|账面", text)) and quantity is not None
         if parsed.quantity is not None and re.fullmatch(r"\s*(?:\d+|[零〇一二三四五六七八九十百千万两]+)\s*(?:片|个|件)\s*[。？！?！]?\s*", text):
             demand = True
         needs_quantity = quantity is None and bool(re.search(r"生产|做", text))
         purchase = bool(re.search(r"采购建议|给个采购|采购多少|补货|需要采购|材料需要采购", text))
-        followup = bool(re.search(r"不够|不足|缺料|差多少|缺口|未匹配|没.*记录|为什么|依据|来源|来自哪里|怎么.*判断|哪些(?:物料|材料).*影响|限制在哪里", text))
+        followup = bool(re.search(r"不够|不足|缺料|差多少|缺口|未匹配|没.*记录|为什么|依据|来源|来自哪里|怎么.*判断|哪些(?:物料|材料).*(?:影响|限制)|限制在哪里", text))
         switch = bool(re.search(r"换成|切换", text)) and bool(previous)
-        if not (stock or demand or purchase or followup or switch or needs_quantity):
+        if not (stock or demand or purchase or followup or switch or needs_quantity or maximum):
             return None
-        # Explicit dated authority/FIFO/max-capacity queries use the strict path.
-        if re.search(r"FIFO|批次.*优先|最多|最大(?:可)?(?:生产|产能|产量)|产能|临期|呆滞|按最新库存|权威可用", text, re.I):
+        # Explicit authority/FIFO queries retain their existing strict semantics.
+        # Capacity uses this source-scoped actual-quantity path, not snapshot gates.
+        if re.search(r"FIFO|批次.*优先|临期|呆滞|权威可用", text, re.I):
             return None
         if stock and parsed.as_of:
             return None
@@ -63,7 +70,7 @@ class EnterpriseBookQueries:
         if previous and same and (purchase or followup) and not language.refresh_requested(text):
             for turn in reversed(history_loader()):
                 for reference in turn["fact_references"]:
-                    if reference["tool_name"] != "enterprise_book_demand_analysis":
+                    if reference["tool_name"] not in ("enterprise_book_demand_analysis", "enterprise_book_capacity_query"):
                         continue
                     result = reference["result"]
                     query = result["query"]
@@ -79,6 +86,11 @@ class EnterpriseBookQueries:
             if result["status"] == "item_not_found":
                 return None  # Existing identity handling, not a fake raw match.
             return self._turn(result, context, inventory=True, message=message)
+        if maximum:
+            result = self.tools["enterprise_book_capacity_query"].invoke(dict(product=code, revision=revision))
+            if parsed.effective_date:
+                result["query"]["requested_analysis_date"] = parsed.effective_date
+            return self._turn(result, context, message=message)
         if quantity is None and not stock:
             if needs_quantity and len(versions) == 1 and revision in (None, versions[0]["version"]):
                 return self._needs_quantity(context, canonical, versions[0]["version"])
@@ -125,7 +137,8 @@ class EnterpriseBookQueries:
         from agents.orchestrator import OrchestratedTurn
         data = result.get("data") or {}
         kind = "purchase_planning" if purchase else "inventory" if inventory else "production_capacity"
-        tool = "enterprise_book_inventory_query" if inventory else "enterprise_book_demand_analysis"
+        tool = ("enterprise_book_capacity_query" if data.get("capacity_query") else
+            "enterprise_book_inventory_query" if inventory else "enterprise_book_demand_analysis")
         record = EvidenceCollector().collect(tool, result["query"], result)
         saved = copy.deepcopy(context)
         if result["status"] == "ok":
@@ -153,10 +166,10 @@ class EnterpriseBookQueries:
                 reason="实际库存数量核对，不代表正式工单放行")
         response = dict(intent=kind, status=result["status"], answer=self.answer(result, purchase, reused),
             structured_data=structured, provenance=result["provenance"], warnings=result["warnings"])
-        if result["status"] == "ok" and re.search(r"来源|依据|为什么|判断", message):
+        if result["status"] == "ok" and re.search(r"来源|依据|来自哪里", message):
             summary = data["source_summary"]
-            response["answer"] += (f"核对依据：已发布BOM的原始单耗×本次生产数量；库存记录来自 {summary['source_file']} 的“{summary['sheet_name']}”。"
-                "BOM发布批次、来源校验值及库存物理行号保存在本次来源中；未使用其他库存工作表或虚构库存日期。")
+            response["answer"] = (f"{data.get('product')} / {data.get('revision') or ''}：BOM单耗来自已发布记录，库存数量来自 {summary['source_file']} 的“{summary['sheet_name']}”。"
+                "逐项来源可在来源详情查看。")
         if result["status"] == "ok" and re.search(r"未匹配|没.*记录", message) and data.get("no_record_materials"):
             response["answer"] += "无记录物料示例：" + "、".join(data["no_record_materials"][:5]) + "；完整列表见明细。"
         return OrchestratedTurn(response, saved, [record.reference()])
@@ -168,26 +181,38 @@ class EnterpriseBookQueries:
         data = result["data"]; rows = data["materials"]
         code = data["product"]
         prefix = "依据本会话已保存的账面证据（不是最新库存重查）：\n" if reused else ""
+        if data.get("capacity_query"):
+            maximum = data.get("verified_material_capacity")
+            if maximum is None:
+                return prefix + f"已找到{code} / {data['revision']}的BOM和库存明细，当前没有可比较的数量记录，未计算产量上限。"
+            text = prefix + f"按本次核验的Excel库存，已核算{code}的{data['verified_material_count']}项物料，已核算物料的产量上限为{maximum}{data['product_unit']}。"
+            if data["capacity_scope"] == "complete":
+                text += "已覆盖本次BOM全部物料。"
+            elif maximum == 0:
+                text += "其中必需物料不足1片用量，完整BOM也无法满足任何正整数数量的物料需求。"
+            else:
+                text += "该上限仅覆盖已核算物料，不代表完整BOM齐套。"
+            if data["limiting_materials"]:
+                text += "限制物料：" + "；".join(f"{r['material_code']}（库存{r['stock_qty']}，单耗{r['qty_per']}）" for r in data["limiting_materials"][:5]) + "。"
+            return text
         if "total_material_count" not in data:
             row = rows[0]
             unit = row["inventory_unit"] or "（单位未确认）"
             total = f"账面数量合计 {row['recorded_stock_qty']} {unit}。" if row["recorded_stock_qty"] is not None else "合计待核验，请查看原始记录。"
             return prefix + (f"{code} 在主库存表有 {row['record_count']} 条记录，{total}"
-                if row["record_found"] else f"{code} 在主库存表无记录；这不表示库存为零。") + "账面数量不等于权威可用量，不能据此批准生产。"
+                if row["record_found"] else f"{code} 在主库存表无记录。")
         count = data["total_material_count"]; matched = data["matched_material_count"]
         if data.get("stock_read_failed"):
             return prefix + f"本次生产{data['requested_quantity']}片{code}，已计算{sum(r['required_qty'] is not None for r in rows)}项BOM需求。BOM需求已保留；库存文件本次读取失败，请稍后重试。"
         scope = "推演库存覆盖" if data["source_summary"].get("review_scenario") else "主库存表匹配"
-        text = prefix + f"已核对 {code} / {data['revision']} 的 {count} 项物料，{scope} {matched} 项，{count-matched} 项无记录。"
+        text = prefix + f"{code} / {data['revision']}：{count}项物料，{scope}{matched}项。"
         if data["requested_quantity"] is not None:
             text += f"本次生产 {data['requested_quantity']} {data['product_unit'] or '单位待确认'}，已计算 {sum(r['required_qty'] is not None for r in rows)} 项BOM需求。"
         else:
-            text += "已展示库存记录，请提供生产数量后计算BOM需求。"
+            unit = (data["source_summary"].get("unit_confirmation") or {}).get("unit")
+            return text + (f"库存数量按{unit}展示。" if unit else "") + "库存数量及记录见物料明细。"
         if purchase:
             text += "企业评审入口提供BOM需求与库存记录查询，不提供正式采购数量建议；完整采购流程可在隔离合成Demo中体验。"
-        confirmed = data["source_summary"].get("unit_confirmation")
-        if confirmed:
-            text += f"当前主库存表数量单位已由业务方确认按{confirmed['unit']}展示。"
         if data.get("stock_read_failed"):
             return text + "BOM需求已保留；库存文件本次读取失败，请稍后重试。"
         if data.get("quantity_review"):

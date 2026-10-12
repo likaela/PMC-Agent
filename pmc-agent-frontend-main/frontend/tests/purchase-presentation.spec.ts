@@ -182,24 +182,25 @@ for (const sample of cases) {
     await onlinePurchase(page, responseWith(sample.row));
     const table = page.getByRole("region", { name: "物料明细表，可横向滚动" });
     const cells = table.locator("tbody tr").first().getByRole("cell");
-    await expect(cells.nth(2)).toHaveText(
-      sample.available == null ? "未知" : `${sample.available} pcs`,
-    );
-    await expect(cells.nth(3)).toHaveText("80.000 pcs");
-    await expect(cells.nth(4)).toHaveText("5.000 pcs");
-    await expect(cells.nth(5)).toHaveText(
-      sample.shortage == null ? "未提供" : `${sample.shortage} pcs`,
-    );
-    await expect(cells.nth(6)).toHaveText(
-      sample.suggested == null ? "未知" : `${sample.suggested} pcs`,
-    );
-    await expect(cells.nth(7)).toHaveText(
+    const headers = await table.locator("th").allTextContents();
+    async function value(label:string, expected:string|null) {
+      const index = headers.findIndex(h => h.trim() === label);
+      if (expected === null) expect(index).toBe(-1);
+      else { expect(index).toBeGreaterThanOrEqual(0); await expect(cells.nth(index)).toHaveText(expected); }
+    }
+    await value("可用库存", sample.available == null ? null : `${sample.available} pcs`);
+    await value("在库数量", "80.000 pcs");
+    await value("预留数量", "5.000 pcs");
+    await value("缺口数量", sample.shortage == null ? null : `${sample.shortage} pcs`);
+    await value("建议采购量", sample.suggested == null ? null : `${sample.suggested} pcs`);
+    await expect(cells.nth(headers.findIndex(h => h.trim() === "物料状态"))).toHaveText(
       sample.state === "shortage"
         ? "缺料"
         : sample.state === "sufficient"
           ? "满足需求"
           : "可用库存未知",
     );
+    await expect(table).not.toContainText("未提供");
     await expect(table).not.toContainText("待补充库存");
     if (sample.state !== "sufficient") {
       await page.getByLabel("筛选物料状态").selectOption(sample.state);

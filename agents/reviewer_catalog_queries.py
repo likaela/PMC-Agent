@@ -19,7 +19,7 @@ class ReviewerOverviewQueries:
 def catalog_kind(message):
     if not re.search(r"产品|目录|已发布.*BOM|正式.*BOM", message, re.I):
         return None
-    if not re.search(r"哪些|有哪些|目录|已发布|正式|可以使用|能查询", message, re.I):
+    if not re.search(r"哪些|有哪些|目录|已发布|正式|可以使用|能查询|能查什么", message, re.I):
         return None
     return "enterprise" if re.search(r"只.*(?:企业|正式)|正式企业|企业正式", message) else "synthetic" if re.search(r"哪些.*Demo", message, re.I) else "all"
 
@@ -46,4 +46,26 @@ def catalog_query(service, session_id, message, entries):
         response["scenario_id"] = scenario_id
     ref = EvidenceCollector().collect("published_product_search", output["query"], output).reference()
     response["turn_id"] = service.repository.append_turn(session, message, response, session["context"], [ref])
+    return response
+
+
+def overview_query(service, session_id, message, entry, scope):
+    """Read the bound published BOM, without invoking inventory/capacity tools."""
+    session = service.repository.get_session(session_id)
+    args = dict(parent_material_code=entry["product_code"], revision=entry["revision"])
+    output = service.orchestrator.registry.resolve("bom_query").invoke(args)
+    data = dict(product=entry["product_code"], revision=entry["revision"], unit=entry.get("unit"),
+        line_count=scope["line_count"], analysis_scope=scope["label"], capabilities=entry.get("capabilities", [])) if output["status"] == "ok" else None
+    response = dict(intent="fact_query", status=output["status"],
+        answer=f"{entry['product_code']} / {entry['revision']}，当前{scope['label']}包含{scope['line_count']}项物料。可继续查询BOM、库存记录或指定生产数量。" if data else "当前产品的已发布BOM暂不可读取。",
+        structured_data=dict(query_type="product_overview", data=data, query=args, completeness=output["completeness"],
+            completed_steps=[dict(operation="bom_query", status=output["status"])]),
+        provenance=output["provenance"], warnings=output["warnings"], session_id=session_id, conversation_id=session["conversation_id"])
+    if getattr(service, "presentation_binding", None):
+        response["structured_data"]["product_context"] = copy.deepcopy(service.presentation_binding)
+    scenario = session.get("scenario_id") or session["context"].get("scenario_id")
+    if scenario:
+        response["scenario_id"] = scenario
+    response["turn_id"] = service.repository.append_turn(session, message, response, session["context"],
+        [EvidenceCollector().collect("bom_query", args, output).reference()])
     return response

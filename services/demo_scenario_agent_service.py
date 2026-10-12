@@ -36,7 +36,7 @@ class DemoScenarioConversationRepository(AgentConversationRepository):
 def _presentation(response: dict) -> dict:
     response = {**response, "scenario_id": SCENARIO_ID}
     if response["intent"] == "production_capacity" and response["status"] == "ok":
-        data = response["structured_data"]["data"]
+        data = response["structured_data"].get("data") or (response["structured_data"].get("reused_result") or {}).get("data") or {}
         sufficient = data.get("inventory_sufficient_for_requested")
         quantity = data.get("requested_quantity")
         if quantity is not None and isinstance(sufficient, bool):

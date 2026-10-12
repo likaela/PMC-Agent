@@ -11,13 +11,17 @@ from services.slim_review_presentation import SlimReviewPresentation
 
 
 class SlimReviewQueries:
-    def __init__(self, service):
+    def __init__(self, service, presentation=None):
         self.service = service
         self.tools = build_book_inventory_tools(service)
-        self.presentation = SlimReviewPresentation(service.dataset)
+        self.presentation = presentation or SlimReviewPresentation(service.dataset)
 
     def run(self, message, context, history_loader):
         text = message.strip()
+        if self.service.dataset.get("current_business"):
+            from agents.business_language import conversational
+            if conversational(text):
+                return None  # Existing Orchestrator conversation path; no business calculation.
         try:
             if re.search(r"生产\s*(?:[-−]|负|\d+\.\d|\d+[eE][+-]?\d|\d+\s*/\s*\d+|[a-z]+\s*(?:片|个|件))", text, re.I):
                 raise ValueError("Invalid quantity")
@@ -26,9 +30,21 @@ class SlimReviewQueries:
             return EnterpriseBookQueries._invalid_quantity(context)
         dataset = self.service.dataset
         product = dataset["product"]
+        if dataset.get("current_business") and re.search(r"历史BOM|归档BOM|旧版BOM|原始66|完整追溯", text, re.I):
+            return OrchestratedTurn(dict(intent="clarification", status="data_unavailable",
+                answer="当前工作台仅提供当前BOM配置。旧版BOM已私有归档，不能用当前配置解释历史原件。",
+                structured_data=dict(data=None, completed_steps=[]), provenance=None, warnings=[]), copy.deepcopy(context), [])
+        if dataset.get("current_business") and re.search(r"(?<![A-Za-z0-9_-])V\d+(?:[-.][A-Za-z0-9]+)*(?![A-Za-z0-9_-])", text, re.I):
+            requested_version = re.search(r"(?<![A-Za-z0-9_-])V\d+(?:[-.][A-Za-z0-9]+)*(?![A-Za-z0-9_-])", text, re.I)[0]
+            if requested_version.upper() != dataset["revision"].upper():
+                return OrchestratedTurn(dict(intent="clarification", status="data_unavailable",
+                    answer=f"当前活动BOM版本为{dataset['revision']}。指定版本不在当前目录中，未替换历史版本。",
+                    structured_data=dict(data=None, completed_steps=[]), provenance=None, warnings=[]), copy.deepcopy(context), [])
         # Aliases are disclosure identifiers bound to THIS dataset, not new item master entries.
         aliases = self.presentation.aliases
         requested_alias = next((a for a in aliases.values() if re.search(r"(?<![A-Za-z0-9_-])" + re.escape(a) + r"(?![A-Za-z0-9_-])", text)), None)
+        if parsed.material_code in aliases:
+            requested_alias = aliases[parsed.material_code]
         # Explicit foreign products must not inherit the filtered product.
         if parsed.material_code and parsed.material_code not in (product, dataset.get("display_product_code")) and not requested_alias:
             return OrchestratedTurn(dict(intent="clarification", status="data_unavailable",
@@ -36,16 +52,19 @@ class SlimReviewQueries:
                 structured_data=dict(data=None, completed_steps=[]), provenance=None, warnings=[]), copy.deepcopy(context), [])
         quantity = parsed.quantity
         previous = context.get("slim_analysis", {})
+        if quantity is None and re.search(r"生产|做", text) and not re.search(r"最多|最大|上限|为什么|原因|限制|影响", text):
+            return self.service_needs_quantity(context, product, dataset["revision"])
         if re.search(r"再生产\s*\d+", text) and not re.search(r"再多生产", text):
             return OrchestratedTurn(dict(intent="clarification", status="needs_input", answer="请确认是重新核对该数量，还是在上次数量上追加；例如“生产1片”或“再多生产1片”。",
                 structured_data=dict(data=None, completed_steps=[]), provenance=None, warnings=[]), copy.deepcopy(context), [])
-        explanation = bool(re.search(r"为什么|原因|来源|哪里|哪些物料限制|哪些.*影响", text))
+        explanation = bool(re.search(r"为什么|原因|来源|哪里|哪些物料限制|哪些.*影响|哪些.*不足|限制在哪里", text))
         refresh = bool(re.search(r"重新计算|按最新|再查一次|重新查询", text))
         if explanation and previous and not refresh:
+            desired = quantity if quantity is not None else previous.get("quantity") if not re.search(r"来源|哪里", text) else None
             for turn in reversed(history_loader()):
                 for ref in turn["fact_references"]:
                     data = ref["result"].get("data") or {}
-                    if ref["tool_name"] == "enterprise_book_demand_analysis" and data.get("slim_review") and (quantity is None or data.get("requested_quantity") == quantity):
+                    if ref["tool_name"] == "enterprise_book_demand_analysis" and data.get("slim_review") and (desired is None or data.get("requested_quantity") == desired):
                         return self._turn(ref["result"], context, message, reused=turn["turn_id"])
         produce_max = bool(re.search(r"生产(?:到)?(?:最大|最多)数量|按最大|生产上限", text))
         capacity = bool(re.search(r"最多|最大|限制产量", text))
@@ -87,6 +106,9 @@ class SlimReviewQueries:
 
     def _turn(self, result, context, message, reused=None):
         data = result.get("data") or {}
+        from agents.query_presentation import maximum_requested
+        show_maximum = maximum_requested(message)
+        kind = "bom" if re.search(r"BOM|物料组成|参与计算|多少项物料|哪些物料参与|有哪些物料|全部.*物料", message, re.I) else "inventory" if re.search(r"库存|存量", message) and data.get("requested_quantity") is None else "production_capacity"
         saved = copy.deepcopy(context)
         if result["status"] == "ok":
             prior = saved.get("slim_analysis", {})
@@ -103,11 +125,12 @@ class SlimReviewQueries:
         result = self.presentation.result(result)
         data = result.get("data") or {}
         if result["status"] != "ok":
-            answer = "本次分析数据暂不可计算，请核对数据来源后重试。"
+            answer = "BOM需求已计算，库存数据暂不可核对，尚未生成物料满足结论。" if data.get("stock_read_failed") else "本次分析数据暂不可计算，请核对数据来源后重试。"
         else:
             maximum = data["theoretical_max_quantity"]
-            answer = (f"已完成 {data['product']} 本次生产需求核对。当前分析范围：{data['total_material_count']}项物料。"
-                f"当前范围最大满足数量为{maximum}片。")
+            answer = f"已完成 {data['product']} 本次{'BOM查询' if kind == 'bom' else '库存记录查询' if kind == 'inventory' else '生产需求核对'}。当前分析范围：{data['total_material_count']}项物料。"
+            if show_maximum:
+                answer += f"当前范围最大满足数量为{maximum}片。"
             if data["synthetic"]:
                 answer += "本次包含演示库存，仅用于数量模拟。"
             n = data["requested_quantity"]
@@ -115,21 +138,31 @@ class SlimReviewQueries:
                 answer += f"当前分析范围{'满足' if data['inventory_sufficient_for_requested'] else '不能满足'}生产{n}片对应的物料需求。"
                 if data["book_shortages"]:
                     answer += "不足物料：" + "；".join(f"{r['name'] or r['material_code']}（{r['material_code']}）缺{r['shortage_qty']}片" for r in data["book_shortages"][:5]) + "。"
-            if re.search(r"限制|最大|最多", message):
+            if show_maximum or re.search(r"限制", message):
                 answer += "限制产量的物料：" + "、".join(f"{r['name'] or r['material_code']}（{r['material_code']}）" for r in data["limiting_materials"][:5]) + "。"
             if re.search(r"来源|哪里", message):
-                answer += "BOM单耗来自已发布记录，库存数量来自已核验主库存记录；可在来源区查看本次依据。"
+                answer += "BOM单耗来自当前业务BOM文件，库存数量来自已核验业务库存文件；可在来源区查看本次依据。" if self.service.dataset.get("current_business") else "BOM单耗来自已发布记录，库存数量来自已核验主库存记录；可在来源区查看本次依据。"
                 if data["synthetic"]:
                     answer += "演示库存补充逐项单独记录，不是原主库存数量。"
             if reused:
                 answer = "依据本会话已有证据：" + answer
             answer += "结果仅适用于当前分析范围，不代表完整产品生产放行。"
-        structured = dict(query_type="production_capacity", query=result["query"], data=result["data"],
+        structured = dict(query_type=kind, query=result["query"], data=result["data"],
             completeness=result["completeness"], response_source="deterministic", analysis_level="slim_review",
+            presentation=dict(show_maximum=show_maximum),
             completed_steps=[] if reused else [dict(operation="enterprise_book_demand_analysis", status=result["status"])])
+        if self.service.dataset.get("current_business"):
+            structured["analysis_level"] = "current_business"
         if reused:
             structured.update(operation="explain", reused_from_turn_id=reused)
-        response = dict(intent="production_capacity", status=result["status"], answer=answer,
+        response = dict(intent=kind, status=result["status"], answer=answer,
             structured_data=structured, provenance=result["provenance"], warnings=result["warnings"])
         evidence = EvidenceCollector().collect("enterprise_book_demand_analysis", original["query"], original).reference()
         return OrchestratedTurn(response, saved, [evidence])
+
+    @staticmethod
+    def service_needs_quantity(context, product, revision):
+        return OrchestratedTurn(dict(intent="clarification", status="needs_input",
+            answer=f"已选择{product} / {revision}。请告诉我希望生产多少片，例如1片或50片。",
+            structured_data=dict(query_type="production_capacity", data=None, completed_steps=[], missing_parameters=["quantity"]),
+            provenance=None, warnings=[]), copy.deepcopy(context), [])

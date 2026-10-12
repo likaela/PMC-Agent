@@ -27,6 +27,7 @@ def create_trial_app(runtime_root: Path, proxy_secret: str) -> FastAPI:
         raise RuntimeError("Trial mode and a private proxy secret of at least 32 characters are required")
     service = build_demo_scenario_agent(runtime_root=runtime_root)
     service.enable_orchestrator()
+    service.intent_presentation = True
     repo = service.repository
     with repo.store.transaction(write_lock=True) as connection:
         connection.execute("CREATE TABLE IF NOT EXISTS trial_session_owners (session_id TEXT PRIMARY KEY, owner_hash TEXT NOT NULL)")

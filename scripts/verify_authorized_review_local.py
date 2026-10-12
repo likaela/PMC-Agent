@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import secrets
+import re
 import socket
 import subprocess
 import sys
@@ -36,13 +37,13 @@ def main():
         settings = dict(facts_path="data/facts/pmc_facts.db", inventory_path=units[0]["source_uri"],
             units_path="data/facts/confirmations/inventory_units.json",
             quantity_path="data/facts/confirmations/inventory_quantity_use.json",
-            slim_dataset_path=json.loads((ROOT / "data/facts/confirmations/review_slim.json").read_text(encoding="utf-8"))["kq_z112_review_slim"])
+            business_manifest_path=json.loads((ROOT / "data/facts/confirmations/current_business.json").read_text(encoding="utf-8"))["manifest_path"])
     if not CADDY.is_file() or not (ROOT / ".runtime/remote-review-web/index.html").is_file():
         raise RuntimeError("Build review frontend and prepare portable Caddy first")
     for port in (8020, 8090):
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", port))
-    paths = [(ROOT / settings[k]).resolve(strict=True) for k in ("facts_path", "inventory_path", "units_path", "quantity_path", "slim_dataset_path")]
+    paths = [(ROOT / settings[k]).resolve(strict=True) for k in ("facts_path", "inventory_path", "units_path", "quantity_path", "slim_dataset_path", "business_manifest_path") if settings.get(k)]
     before = [hashlib.sha256(p.read_bytes()).hexdigest() for p in paths]
     all_products = ["KQ-Z112", "KQ-BHX3588M", "DEMO-PMC-01"]
     settings["users"] = {"review-a": all_products, "review-b": all_products, "demo-only": ["DEMO-PMC-01"]}
@@ -57,8 +58,13 @@ def main():
         "PMC_REVIEW_SETTINGS": str(settings_path), "PMC_E2E_PASSWORD": password,
         "PMC_REVIEW_WEB_ROOT": str(ROOT / ".runtime/remote-review-web"),
         "XDG_CONFIG_HOME": str(runtime / "caddy-config"), "XDG_DATA_HOME": str(runtime / "caddy-data")}
+    if settings.get("business_manifest_path"):
+        env["PMC_CURRENT_DATASET_VERSION"] = json.loads((ROOT / settings["business_manifest_path"]).read_text(encoding="utf-8"))["dataset_version"]
     for key, user in (("A", "review-a"), ("B", "review-b"), ("C", "demo-only")):
         env["PMC_REVIEW_USER_" + key], env["PMC_REVIEW_HASH_" + key] = user, hashed
+        env["PMC_E2E_USER_" + key] = user
+        if key != "A":
+            env["PMC_E2E_PASSWORD_" + key] = password
     subprocess.run([str(CADDY), "validate", "--config", "deploy/review/Caddyfile", "--adapter", "caddyfile"],
         cwd=ROOT, env=env, check=True, stdout=subprocess.DEVNULL)
     processes = []
@@ -83,10 +89,29 @@ def main():
                 raise RuntimeError("Unauthenticated catalog must be rejected")
             except HTTPError as exc:
                 assert exc.code == 401
-            done = subprocess.run(["cmd.exe", "/c", "npm.cmd", "test", "--", "--config", "playwright.review.config.ts", "--grep-invert", "最新精简"],
-                cwd=ROOT / "pmc-agent-frontend-main/frontend", env=env)
-            if done.returncode:
-                raise RuntimeError("Authorized review HTTP/browser acceptance failed")
+            cases = []
+            for spec in ("review-tests/review.spec.ts", "review-tests/product-context.spec.ts"):
+                text = (ROOT / "pmc-agent-frontend-main/frontend" / spec).read_text(encoding="utf-8")
+                cases.extend((spec, name) for name in re.findall(r'test\(\s*"([^"]+)"', text))
+            for index, (spec, name) in enumerate(cases):
+                if index:
+                    processes[0].terminate()
+                    processes[0].wait(timeout=15)
+                    processes[0] = subprocess.Popen([sys.executable, "scripts/run_authorized_review.py"], cwd=ROOT, env=env, stdout=log, stderr=log)
+                    deadline = time.monotonic() + 30
+                    while True:
+                        try:
+                            urlopen(Request("http://127.0.0.1:8020/health", headers={"X-PMC-Proxy-Key":env["PMC_REVIEW_PROXY_SECRET"], "X-PMC-User":"review-a"}), timeout=1).close()
+                            break
+                        except Exception:
+                            if time.monotonic() >= deadline or processes[0].poll() is not None:
+                                raise RuntimeError("Independent acceptance restart failed")
+                            time.sleep(.2)
+                # Each independent case gets a new rate window; production limits are unchanged.
+                done = subprocess.run(["cmd.exe", "/c", "npm.cmd", "test", "--", "--config", "playwright.review.config.ts", spec, "--grep", re.escape(name)],
+                    cwd=ROOT / "pmc-agent-frontend-main/frontend", env={**env, "PMC_REVIEW_E2E_OUTPUT":str(runtime / f"current-phase-{index}")})
+                if done.returncode:
+                    raise RuntimeError("Authorized review HTTP/browser acceptance failed")
             headers = {"X-PMC-Proxy-Key": env["PMC_REVIEW_PROXY_SECRET"], "X-PMC-User": "review-a", "Content-Type": "application/json"}
             def call(path, body=None):
                 request = Request("http://127.0.0.1:8020" + path, headers=headers,

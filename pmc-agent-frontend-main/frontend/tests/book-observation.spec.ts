@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+test.beforeEach(async ({page})=>{await page.route("**/api/v1/agent/catalog",r=>r.fulfill({status:404,json:{}}));});
 import { adaptBackendResponse } from "../src/services/responseAdapter";
 import { envelope, session } from "./agentFixtures";
 
@@ -55,7 +56,8 @@ test("人工确认片仅作为显示单位，数量与available null均不改变
   expect(vm.materials[0].available).toBeNull();
   expect(vm.materials[1].recordedStock).toBeNull();
   expect(vm.metrics).toContainEqual({ label: "库存数量口径", value: "片" });
-  expect(vm.detailTable?.rows[0][4]).toBe("片");
+  expect(vm.detailTable?.rows[0][vm.detailTable.columns.indexOf("单位")]).toBe("片");
+  expect(vm.detailTable?.columns).not.toContain("库位");
   expect(vm.nextAction).not.toContain("库存计量单位");
 });
 

@@ -29,7 +29,7 @@ function reply(synthetic: boolean, quantity: number | null) {
 
 test("精简模型只展示后端范围、最大满足量和单耗，未知库存不补零",()=>{
   const r=reply(false,1),original=JSON.stringify(r);
-  const vm=adaptBackendResponse(r);
+  const vm=adaptBackendResponse(r,"最多能生产多少片？");
   expect(vm.slimReview).toBe(true);
   expect(vm.metrics?.find(m=>m.label==="最大满足数量")?.value).toBe("0片");
   expect(vm.answer).not.toContain("50片"); // Old prose cannot override returned maximum=0.
@@ -50,7 +50,7 @@ test("新版范围、脱敏编号和真实后端最大值不沿用40或50", () =
   data.materials[0].name = "评审物料001";
   data.materials[0].recorded_stock_qty = "14.00";
   data.materials[0].quantity_status = "sufficient";
-  const vm = adaptBackendResponse(r);
+  const vm = adaptBackendResponse(r,"最多能生产多少片？");
   expect(vm.metrics?.find(m => m.label === "物料数量")?.value).toBe("34");
   expect(vm.metrics?.some(m => /保留|排除|原完整/.test(m.label))).toBe(false);
   expect(data.excluded_material_count).toBe(32); // Audit data is preserved, not falsified.
@@ -76,7 +76,13 @@ test("旧版精简会话失效时不展示旧物料，新分析绑定新版", as
     return r.fulfill({json:response});
   });
   await page.goto("/#/workspace");
-  await page.locator("#data-space").selectOption(scenario);
+  await expect(page.locator(`#data-space option[value="${scenario}"]`)).toHaveCount(0);
+  // Exercise archived pointer compatibility through the test harness, not a removed user entry.
+  await page.evaluate(async (value) => {
+    const path = "/src/composables/useAgent.ts";
+    const module = await import(/* @vite-ignore */ path);
+    await module.useAgent().chooseDataSpace(value);
+  }, scenario);
   await expect(page.getByText(/当前会话属于旧数据版本/)).toBeVisible();
   await expect(page.locator(".materials-card tbody tr")).toHaveCount(0);
   await page.getByLabel("输入分析问题").fill("生产1片可以吗");
@@ -100,19 +106,31 @@ test("精简场景显式选择、边界结果、刷新与历史恢复不污染�
   });
   await page.goto("/#/workspace");
   await expect(page.locator("#data-space")).toHaveValue("");
-  await page.locator("#data-space").selectOption(scenario);
+  await expect(page.locator(`#data-space option[value="${scenario}"]`)).toHaveCount(0);
+  // Exercise archived pointer compatibility through the test harness, not a removed user entry.
+  await page.evaluate(async (value) => {
+    const path = "/src/composables/useAgent.ts";
+    const module = await import(/* @vite-ignore */ path);
+    await module.useAgent().chooseDataSpace(value);
+  }, scenario);
   for(const n of [50,51]){
     await page.getByLabel("输入分析问题").fill(`生产${n}片`);
     await page.getByRole("button",{name:"发送问题",exact:true}).click();
     await expect(page.locator("#analysis-result")).toContainText(`生产${n}片对应的物料需求`);
     await expect(page.locator(".materials-card")).toContainText("BOM单耗");
-    await expect(page.locator("#analysis-result")).toContainText("最大满足数量");
+    await expect(page.locator("#analysis-result")).not.toContainText("最大满足数量");
     await expect(page.locator(".mode-banner")).toContainText("演示库存");
     await expect(page.locator("#analysis-result")).not.toContainText("精简评审");
   }
   await page.reload();
   await expect(page.locator("#data-space")).toHaveValue("");
-  await page.locator("#data-space").selectOption(scenario);
+  await expect(page.locator(`#data-space option[value="${scenario}"]`)).toHaveCount(0);
+  // Exercise archived pointer compatibility through the test harness, not a removed user entry.
+  await page.evaluate(async (value) => {
+    const path = "/src/composables/useAgent.ts";
+    const module = await import(/* @vite-ignore */ path);
+    await module.useAgent().chooseDataSpace(value);
+  }, scenario);
   await expect(page.locator("#analysis-result")).toContainText("生产51片对应的物料需求");
   await page.locator(".assistant-message").first().click();
   await expect(page.locator("#analysis-result")).toContainText("生产50片对应的物料需求");

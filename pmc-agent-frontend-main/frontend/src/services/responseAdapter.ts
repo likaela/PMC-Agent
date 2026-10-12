@@ -85,8 +85,7 @@ export function validateBackendResponse(payload: unknown): BackendResponse {
   )
     fail();
   for (const key of ["session_id", "conversation_id", "turn_id"]) text(p[key]);
-  if (p.scenario_id != null && !isAllowedScenario(p.scenario_id))
-    fail();
+  if (p.scenario_id != null && !isAllowedScenario(p.scenario_id)) fail();
   return payload as BackendResponse;
 }
 
@@ -124,13 +123,22 @@ function sourcesFrom(value: unknown, synthetic: boolean): Source[] {
       v.import_batch_id != null
     ) {
       const file = text(v.source_file);
-      const syntheticSource = synthetic || v.synthetic === true || v.source_kind === "synthetic_review";
+      const syntheticSource =
+        synthetic ||
+        v.synthetic === true ||
+        v.source_kind === "synthetic_review";
       const source: Source = {
         id: "",
         title: file ? file.split(/[\\/]/).pop()! : "已发布来源记录",
-        kind: syntheticSource ? "合成演示事实" : v.source_kind === "excel_observation" ? "Excel账面记录" : v.source_kind === "human_business_confirmation" ? "人工业务确认" : "已发布事实",
+        kind: syntheticSource
+          ? "合成演示事实"
+          : v.source_kind === "excel_observation"
+            ? "Excel账面记录"
+            : v.source_kind === "human_business_confirmation"
+              ? "人工业务确认"
+              : "已发布事实",
         scope,
-        reference: file ? file.split(/[\\/]/).pop()! : "来源文件名称未提供",
+    reference: file ? file.split(/[\\/]/).pop()! : "已发布来源记录",
         version: text(context.bom_version ?? context.revision),
         publishedAt: text(v.published_at),
         snapshotAt: text(context.snapshot_at),
@@ -262,7 +270,7 @@ export function adaptBackendResponse(
         text(row.bom_line_id) ??
         `material-${vm.materials.length + 1}-${code ?? "unknown"}`,
       code: code ?? undefined,
-      name: text(child.name) ?? code ?? "名称未提供",
+      name: text(child.name) ?? code ?? "物料",
       spec: text(child.specification) ?? "",
       required: decimal(row.required_qty),
       available: decimal(row.available_qty),
@@ -282,37 +290,34 @@ export function adaptBackendResponse(
       sourceIds: sourceIds(code),
     };
   }
-  const metric = (label: string, value: string | null) =>
-    vm.metrics!.push({ label, value });
-  const completenessLabels: Record<string, string> = {
-    on_hand_qty: "在库数量",
-    available_qty: "可用数量",
-    reserved_qty: "预留数量",
-    bom: "BOM",
-    inventory: "库存",
-    units: "单位",
-    snapshot_coherent: "库存时点一致性",
-    quantity: "数量",
-    parameters: "采购参数",
-    cost: "成本",
-    price: "价格",
-    single_currency: "统一币种",
-    duplicate_free: "明细去重状态",
-    received_at: "收货日期",
-    expiry_date: "有效期",
-    quality_status: "质量状态",
-    in_transit_qty: "在途数量",
+  const presentation = object(structured.presentation);
+  if (Array.isArray(presentation.user_warnings))
+    vm.warnings = strings(presentation.user_warnings);
+  const showMaximum = typeof presentation.show_maximum === "boolean" ? presentation.show_maximum :
+    /最多|最大(?:可|能)?(?:生产|产能|产量|数量|满足)|生产上限|产能(?:上限)?|数量上限/.test(userMessage ?? "");
+  const metric = (label: string, value: string | null) => {
+    if (value !== null && value.trim() !== "") vm.metrics!.push({ label, value });
   };
-  const incomplete = Object.entries(completeness)
-    .filter(
-      ([field, value]) =>
-        value === false &&
-        completenessLabels[field] &&
-        (priceRelevant ||
-          !["price", "cost", "single_currency"].includes(field)),
-    )
-    .map(([field]) => completenessLabels[field]);
-    if (incomplete.length && data.quantity_review !== true && data.stock_read_failed !== true) metric("待核实事实", incomplete.join("、"));
+  function finish(): FrontendViewModel {
+    vm.metrics = vm.metrics?.filter((m) => m.value != null && m.value.trim() !== "");
+    if (vm.detailTable) {
+      const table = vm.detailTable;
+      const indices = table.columns.map((_, i) => i).filter((i) => table.rows.some((r) => r[i] != null && r[i] !== ""));
+      vm.detailTable = indices.length ? {columns: indices.map((i) => table.columns[i]), rows: table.rows.map((r) => indices.map((i) => r[i]))} : undefined;
+    }
+    // No production target can be inferred from stock/BOM/catalog or a unit probe.
+    if (showMaximum || ["bom", "inventory", "product_search", "fact_query", "product_overview"].includes(kind)) vm.quantity = null;
+    if (presentation.result_type === "source") {
+      vm.quantity = null;
+      vm.metrics = [];
+      vm.materials = [];
+      vm.detailTable = undefined;
+      vm.title = "本次查询来源";
+      vm.conclusion = "";
+      vm.nextAction = "可打开来源详情查看对应记录。";
+    }
+    return vm;
+  }
   if (structured.operation === "quantity_validation") {
     vm.validationError = true;
     vm.status = "clarification";
@@ -322,24 +327,34 @@ export function adaptBackendResponse(
     vm.metrics = [];
     return vm;
   }
-  if (data.calculation_scope === "excel_book_observation" && ["ok", "query_failed"].includes(backend.status)) {
+  if (
+    data.calculation_scope === "excel_book_observation" &&
+    (["ok", "query_failed"].includes(backend.status) || data.capacity_query === true)
+  ) {
     vm.bookObservation = true;
     vm.quantityReview = data.quantity_review === true;
     vm.status = kind === "purchase_planning" ? "purchase" : "inventory";
-    vm.title = "企业账面记录与BOM需求核对";
-    vm.conclusion = "部分数据分析，不是生产许可或正式采购计划";
-    vm.nextAction = "查看BOM需求、主库存记录和来源；有重复疑点的记录合计保持待核验。";
-      if (vm.quantityReview) {
-        vm.status = data.quantity_check_status === "sufficient" ? "ready" : data.quantity_check_status === "insufficient" ? "blocked" : "partial";
-        vm.title = object(data.source_summary).review_scenario ? "数量模拟核对（演示库存）" : "当前实际库存与生产需求核对";
-        vm.conclusion = "数量核对结果，不代表正式排程或工单下达";
-        vm.nextAction = "查看已计算的需求与缺口；无记录及未核验重复记录保持未知。";
-      }
-      if (data.stock_read_failed === true) {
-        vm.status = "partial";
-        vm.title = "BOM需求已计算，库存本次读取失败";
-        vm.nextAction = "可查看需求明细；稍后重试库存读取。";
-      }
+    vm.title = kind === "inventory" ? "物料库存记录" : "BOM需求与库存核对";
+    vm.conclusion = "";
+    vm.nextAction = "可查看物料明细及本次来源。";
+    if (vm.quantityReview) {
+      vm.status =
+        data.quantity_check_status === "sufficient"
+          ? "ready"
+          : data.quantity_check_status === "insufficient"
+            ? "blocked"
+            : "partial";
+      vm.title = object(data.source_summary).review_scenario
+        ? "数量模拟核对（演示库存）"
+        : "当前实际库存与生产需求核对";
+      vm.conclusion = "";
+      vm.nextAction = "可查看逐项需求、库存和缺口。";
+    }
+    if (data.stock_read_failed === true) {
+      vm.status = "partial";
+      vm.title = "BOM需求已计算，库存本次读取失败";
+      vm.nextAction = "可查看需求明细；稍后重试库存读取。";
+    }
     vm.materials = list(data.materials).map((row) => {
       const m = material(row);
       m.qtyPer = decimal(row.qty_per);
@@ -351,65 +366,165 @@ export function adaptBackendResponse(
       m.inventoryUnit = text(row.inventory_unit);
       m.comparisonStatus = text(row.comparison_status);
       // Only display status supplied by Python. Never subtract or infer readiness.
-        m.state = vm.quantityReview && row.quantity_status === "shortage" ? "shortage" : vm.quantityReview && row.quantity_status === "sufficient" ? "sufficient" : m.comparisonStatus === "comparable" ? "published" : "unknown";
+      m.state =
+        vm.quantityReview && row.quantity_status === "shortage"
+          ? "shortage"
+          : vm.quantityReview && row.quantity_status === "sufficient"
+            ? "sufficient"
+            : m.comparisonStatus === "comparable"
+              ? "published"
+              : "unknown";
       return m;
     });
     metric("BOM版本", text(data.revision));
     metric("物料数量", count(data.total_material_count));
-      metric(object(data.source_summary).review_scenario ? "推演库存覆盖项" : "主库存匹配项", count(data.matched_material_count));
-    metric("库存数量口径", text(object(object(data.source_summary).unit_confirmation).unit));
-    metric("主库存总记录数", count(object(data.source_summary).record_count));
-    metric("记录数量去重待核验", count(object(data.source_summary).duplicate_observation_count));
-      if (!vm.quantityReview && data.stock_read_failed !== true) metric("库存时点", null);
-      metric("生产数量", count(data.requested_quantity));
-      metric("可比较物料", count(data.comparable_material_count));
+    metric(
+      object(data.source_summary).review_scenario
+        ? "推演库存覆盖项"
+        : "主库存匹配项",
+      count(data.matched_material_count),
+    );
+    metric(
+      "库存数量口径",
+      text(object(object(data.source_summary).unit_confirmation).unit),
+    );
+    metric("生产数量", count(data.requested_quantity));
+    if (kind !== "inventory") metric("已核算物料数", count(data.capacity_query === true ? data.verified_material_count : data.comparable_material_count));
+    if (data.capacity_query === true) {
+      vm.quantity = null;
+      vm.status = backend.status !== "ok" ? "no-facts" : data.full_bom_capacity_determined === true && count(data.theoretical_max_quantity) === "0" ? "blocked" : data.capacity_scope === "verified_subset" ? "partial" : "result";
+      vm.title = "物料数量约束分析";
+      if (showMaximum) {
+        metric("已核算物料产量上限", count(data.verified_material_capacity));
+        if (data.full_bom_capacity_determined === true) metric("完整BOM最大满足数量", count(data.theoretical_max_quantity));
+      }
+    }
     vm.detailTable = {
-      columns: ["物料编码", "库位", "批次", "账面数量", "单位", "源行号", "重复观察待核验"],
-      rows: list(data.materials).flatMap((row) => list(row.details).map((detail) => [
-        text(detail.material_code), text(detail.location), text(detail.batch_no),
-        decimal(detail.recorded_stock_qty), text(detail.inventory_unit), count(object(detail.provenance).row_number),
-        bool(detail.duplicate_observation) === true ? "是" : "否",
-      ])),
+      columns: [
+        "物料编码",
+        "库位",
+        "批次",
+        "账面数量",
+        "单位",
+        "源行号",
+        "重复观察待核验",
+      ],
+      rows: list(data.materials).flatMap((row) =>
+        list(row.details).map((detail) => [
+          text(detail.material_code),
+          text(detail.location),
+          text(detail.batch_no),
+          decimal(detail.recorded_stock_qty),
+          text(detail.inventory_unit),
+          count(object(detail.provenance).row_number),
+          bool(detail.duplicate_observation) === true ? "是" : "否",
+        ]),
+      ),
     };
     if (data.slim_review === true) {
       vm.slimReview = true;
-      const range = data.synthetic === true ? "数量模拟范围" : "标准分析范围";
-      vm.title = `${vm.product ?? '当前产品'} · ${range}`;
+      const range = data.current_business === true ? "当前BOM" : data.synthetic === true ? "数量模拟范围" : "标准分析范围";
+      vm.title = `${vm.product ?? "当前产品"} · ${range}`;
       vm.conclusion = "仅适用于当前分析范围，不代表完整产品生产放行";
-      vm.nextAction = "可询问最多生产多少、生产最大数量、再多生产1片，以及查看限制物料和来源。";
+      vm.nextAction =
+        "可询问最多生产多少、生产最大数量、再多生产1片，以及查看限制物料和来源。";
       vm.metrics = [
         { label: "产品", value: text(data.product) },
         { label: "物料数量", value: count(data.total_material_count) },
         { label: "BOM版本", value: text(data.revision) },
-        { label: "数据集版本", value: text(data.dataset_version) ?? "历史版本未标注" },
-        { label: "生产目标数量", value: data.requested_quantity == null ? "本轮查询分析范围／最大数量" : count(data.requested_quantity) },
-        { label: "最大满足数量", value: data.theoretical_max_quantity == null ? null : count(data.theoretical_max_quantity) + "片" },
-        { label: "库存依据", value: data.synthetic === true ? "主库存记录与演示库存补充" : "已核验主库存记录" },
+        ...(data.current_business === true ? [] : [{
+          label: "数据集版本",
+          value: text(data.dataset_version) ?? "历史版本未标注",
+        }]),
+        ...(data.requested_quantity == null
+          ? []
+          : [{ label: "生产目标数量", value: count(data.requested_quantity) }]),
+        ...(showMaximum
+          ? [
+              {
+                label: "最大满足数量",
+                value:
+                  count(data.theoretical_max_quantity) == null
+                    ? null
+                    : count(data.theoretical_max_quantity) + "片",
+              },
+            ]
+          : []),
+        {
+          label: "库存依据",
+          value:
+            data.synthetic === true
+              ? "主库存记录与演示库存补充"
+              : "已核验主库存记录",
+        },
       ];
       // Re-render old and new replies from structured facts, never extract numbers
       // from answer prose. Keep the original response/Evidence untouched.
-      vm.answer = `${structured.reused_from_turn_id ? '依据本会话已有结果：' : ''}已完成 ${vm.product ?? '当前产品'} 本次生产需求核对。当前分析范围：${count(data.total_material_count) ?? '未知'}项物料。`;
+      vm.answer = `${structured.reused_from_turn_id ? "依据本会话已有结果：" : ""}已完成 ${vm.product ?? "当前产品"} 本次生产需求核对。当前分析范围：${count(data.total_material_count) ?? "未知"}项物料。`;
       const maximum = count(data.theoretical_max_quantity);
-      if (maximum !== null) vm.answer += `当前范围最大满足数量为${maximum}片。`;
+      if (
+        maximum !== null &&
+        showMaximum
+      )
+        vm.answer += `当前范围最大满足数量为${maximum}片。`;
       if (data.requested_quantity != null) {
         const sufficient = bool(data.inventory_sufficient_for_requested);
-        vm.answer += sufficient === null ? "本次数量是否满足尚无法确认。" : `当前分析范围${sufficient ? '满足' : '不能满足'}生产${count(data.requested_quantity)}片对应的物料需求。`;
+        vm.answer +=
+          sufficient === null
+            ? "本次数量是否满足尚无法确认。"
+            : `当前分析范围${sufficient ? "满足" : "不能满足"}生产${count(data.requested_quantity)}片对应的物料需求。`;
       }
       const shortages = list(data.book_shortages);
-      if (shortages.length) vm.answer += "不足物料：" + shortages.slice(0,5).map(r => `${text(r.material_code)}缺${decimal(r.shortage_qty)}片`).join("；") + "。";
+      if (shortages.length)
+        vm.answer +=
+          "不足物料：" +
+          shortages
+            .slice(0, 5)
+            .map(
+              (r) => `${text(r.material_code)}缺${decimal(r.shortage_qty)}片`,
+            )
+            .join("；") +
+          "。";
       const limiting = list(data.limiting_materials);
-      if (limiting.length) vm.answer += "限制数量的物料：" + limiting.slice(0,5).map(r => text(r.material_code)).join("、") + "。";
-      if (userMessage && /来源|哪里/.test(userMessage)) vm.answer += "BOM单耗来自已发布记录，库存数量来自已核验主库存记录；可在来源区查看本次依据。";
-      if (data.synthetic === true) vm.answer += "本次包含演示库存，仅用于数量模拟。";
-      if (vm.materials.length === 1 && userMessage?.includes(vm.materials[0].code ?? '\u0000')) {
-        const m = vm.materials[0];
-        vm.answer = `${m.code}：BOM单耗${m.qtyPer ?? '未知'}片，当前分析范围库存${m.recordedStock ?? '未知'}片。` + (data.synthetic === true ? "本次包含演示库存，仅用于数量模拟。" : "来源为已核验主库存记录。");
+      if (limiting.length && /限制|最多|最大/.test(userMessage ?? ""))
+        vm.answer +=
+          "限制数量的物料：" +
+          limiting
+            .slice(0, 5)
+            .map((r) => text(r.material_code))
+            .join("、") +
+          "。";
+      if (kind === "bom" || kind === "inventory") {
+        vm.status = kind === "bom" ? "bom" : "inventory";
+        vm.answer = backend.answer;
       }
-      vm.warnings = vm.warnings.filter(w => !w.startsWith("经过筛选及标识脱敏") && !w.startsWith("仅为精简物料集合"));
-      vm.materials.forEach(m => { m.name = m.name.replace(/^评审物料/, "物料"); });
+      if (userMessage && /来源|哪里/.test(userMessage))
+        vm.answer +=
+          "BOM单耗来自已发布记录，库存数量来自已核验主库存记录；可在来源区查看本次依据。";
+      if (data.synthetic === true)
+        vm.answer += "本次包含演示库存，仅用于数量模拟。";
+      if (
+        vm.materials.length === 1 &&
+        userMessage?.includes(vm.materials[0].code ?? "\u0000")
+      ) {
+        const m = vm.materials[0];
+        vm.answer =
+          `${m.code}：BOM单耗${m.qtyPer ?? "未知"}片，当前分析范围库存${m.recordedStock ?? "未知"}片。` +
+          (data.synthetic === true
+            ? "本次包含演示库存，仅用于数量模拟。"
+            : "来源为已核验主库存记录。");
+      }
+      vm.warnings = vm.warnings.filter(
+        (w) =>
+          !w.startsWith("经过筛选及标识脱敏") &&
+          !w.startsWith("仅为精简物料集合"),
+      );
+      vm.materials.forEach((m) => {
+        m.name = m.name.replace(/^评审物料/, "物料");
+      });
       vm.detailTable = undefined;
     }
-    return vm;
+    return finish();
   }
   if (kind === "inventory") {
     vm.status = "inventory";
@@ -441,9 +556,12 @@ export function adaptBackendResponse(
           ? "本次需求存在物料缺口"
           : "生产能力查询";
     vm.conclusion = "库存齐套分析，不是开工许可或交付承诺";
-    metric("理论最大生产数量", count(data.theoretical_max_quantity));
-    metric("物料种类齐套比例（0–1）", decimal(data.material_type_ready_rate));
-    metric("数量满足比例（0–1）", decimal(data.quantity_fulfillment_rate));
+    if (showMaximum)
+      metric("理论最大生产数量", count(data.theoretical_max_quantity));
+    if (!showMaximum) {
+      metric("物料种类齐套比例（0–1）", decimal(data.material_type_ready_rate));
+      metric("数量满足比例（0–1）", decimal(data.quantity_fulfillment_rate));
+    }
     vm.materials = list(data.materials).map((row) => {
       const m = material(row);
       const ready = bool(row.is_ready);
@@ -458,7 +576,16 @@ export function adaptBackendResponse(
     const limiting = list(data.limiting_materials)
       .map((row) => text(row.material_code))
       .filter(Boolean);
-    if (limiting.length) metric("限制产量的物料", limiting.join("、"));
+    if (limiting.length && /限制|最多|最大/.test(userMessage ?? ""))
+      metric("限制产量的物料", limiting.join("、"));
+  } else if (kind === "product_overview") {
+    vm.status = "result";
+    vm.title = "产品信息";
+    vm.quantity = null;
+    metric("产品", text(data.product));
+    metric("BOM版本", text(data.revision));
+    metric("物料数量", count(data.line_count));
+    metric("分析范围", text(data.analysis_scope));
   } else if (kind === "bom") {
     vm.status = "bom";
     vm.title = "已发布 BOM 明细";
@@ -487,7 +614,7 @@ export function adaptBackendResponse(
     vm.title = "已发布事实采购建议";
     vm.conclusion = "建议不代表已下单或已到货";
     vm.purchases = list(data.recommendations).map((row): PurchaseView => ({
-      material: text(row.material) ?? "物料未提供",
+      material: text(row.material) ?? "物料",
       unit: text(row.unit) ?? "",
       shortage: decimal(
         row.shortage_qty !== undefined ? row.shortage_qty : row.shortage,
@@ -504,7 +631,7 @@ export function adaptBackendResponse(
       risk:
         row.risk_level == null
           ? null
-          : (riskLabels[text(row.risk_level)!] ?? "未提供"),
+          : (riskLabels[text(row.risk_level)!] ?? null),
       reasons: strings(row.reason),
       missingFields: strings(row.missing_fields),
     }));
@@ -558,18 +685,37 @@ export function adaptBackendResponse(
         text(row.committed_date),
       ]),
     };
-  } else if (["fact_query", "product_search"].includes(kind) && Array.isArray(data.products)) {
-    const mixed = list(data.products).some(p => p.synthetic === true || p.published_bom_status === "synthetic");
+  } else if (
+    ["fact_query", "product_search"].includes(kind) &&
+    Array.isArray(data.products)
+  ) {
+    vm.product = null;
+    vm.quantity = null;
+    const mixed = list(data.products).some(
+      (p) => p.synthetic === true || p.published_bom_status === "synthetic",
+    );
     vm.title = mixed ? "可查询产品目录" : "已发布产品目录";
-    vm.conclusion = "已发布BOM不代表可以开工；不同产品与分析范围分别核对。";
-    vm.answer = "当前可查询产品：" + list(data.products).map(p => `${text(p.product_code)}${p.synthetic === true || p.published_bom_status === 'synthetic' ? '（演示产品）' : ''}`).join("、") + "。请选择产品并描述分析需求。";
+    vm.conclusion = "";
+    vm.answer =
+      "当前可查询产品：" +
+      list(data.products)
+        .map(
+          (p) =>
+            `${text(p.product_code)}${p.synthetic === true || p.published_bom_status === "synthetic" ? "（演示产品）" : ""}`,
+        )
+        .join("、") +
+      "。请选择产品并描述分析需求。";
     vm.nextAction = "选择产品编码并补充生产数量后，再核验齐套情况。";
     vm.detailTable = {
       columns: ["产品编码", "产品名称", "BOM状态", "已发布版本"],
       rows: list(data.products).map((row) => [
         text(row.product_code),
         text(row.product_name),
-        row.synthetic === true || row.published_bom_status === "synthetic" ? "演示产品" : row.published_bom_status === "published" ? "已发布" : "未知",
+        row.synthetic === true || row.published_bom_status === "synthetic"
+          ? "演示产品"
+          : row.published_bom_status === "published"
+            ? "已发布"
+            : "未知",
         list(row.revisions)
           .map((version) => text(version.revision))
           .filter(Boolean)
@@ -608,9 +754,7 @@ export function adaptBackendResponse(
     backend.status === "needs_input"
   ) {
     vm.status = "clarification";
-    vm.title = "需要补充查询信息";
-    const fields = strings(structured.missing_fields);
-    metric("待补充信息", fields.length ? fields.join("、") : null);
+    vm.title = "请明确本次查询";
   }
-  return vm;
+  return finish();
 }

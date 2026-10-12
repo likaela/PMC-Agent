@@ -165,6 +165,9 @@ class AgentPlanner:
                 missing_parameters=[], operation="product_search", search_term=term), "rule"
         try:
             local, _ = parse_enterprise_query(message, allow_llm=False)
+            # Manufacturing keywords are never item identifiers, including in Demo.
+            identified, _ = parse_enterprise_query(language.identifier_message(message), allow_llm=False)
+            local = local.model_copy(update={"material_code": identified.material_code})
             if self.enterprise_mode:
                 # Sanitize identifiers only, not intent keywords such as BOM/FIFO.
                 identified, _ = parse_enterprise_query(language.identifier_message(message), allow_llm=False)
@@ -178,7 +181,8 @@ class AgentPlanner:
                         context.get("active_domain") == "fact" and context.get("fact", {}).get("query_type") == "bom" and
                         re.search(r"单位是什么|什么单位|什么时候生效|何时生效", message)):
                     local = local.model_copy(update={"query_type": "bom"})
-            action = language.operation(message) if self.enterprise_mode else "query"
+            action = language.operation(message) if self.enterprise_mode else (
+                "explain" if language.operation(message) == "explain" else "query")
             if (self.enterprise_mode and local.query_type == "clarification" and local.material_code
                     and re.fullmatch(r"\s*(?:那\s*|换成\s*|切换到\s*)?" + re.escape(local.material_code) + r"\s*(?:呢)?[。！？?!\s]*", message)):
                 active = context.get(context.get("active_domain"), {})
@@ -197,6 +201,17 @@ class AgentPlanner:
                 # A new explicit task is not permission to reuse an older order's quantity.
                 inherited = inherited.model_copy(update={'quantity': None})
             entities = TaskEntities.model_validate(inherited.model_dump(exclude={"query_type"}))
+            relative_quantity = bool(re.search(r"再多生产|再增加|多生产", message))
+            if relative_quantity and local.quantity is not None:
+                previous = context.get("production", {})
+                baseline = previous.get("quantity")
+                if (context.get("active_domain") != "production" or not isinstance(baseline, int)
+                        or isinstance(baseline, bool) or baseline < 1
+                        or previous.get("material_code") != entities.material_code):
+                    return AgentPlan(intent="clarification", entities=TaskEntities(), required_tools=[],
+                        missing_parameters=["quantity"]), "rule_fallback"
+                # Normalize a relative user target, never calculate business facts.
+                entities = entities.model_copy(update={"quantity": baseline + local.quantity})
             request = InventoryRequest.model_validate(language.inventory_request(message) if self.enterprise_mode else {})
             requested_constraints = [UserConstraint.model_validate(row) for row in language.constraints(message)] if self.enterprise_mode else []
             tools = ([PRIMARY_TOOLS[inherited.query_type]] if inherited.query_type in PRIMARY_TOOLS else [])
@@ -211,6 +226,8 @@ class AgentPlanner:
             return AgentPlan(intent="clarification", entities=TaskEntities(), required_tools=[],
                              missing_parameters=["valid_parameters"]), "rule_fallback"
         rule.missing_parameters = self._missing(rule)
+        if relative_quantity:
+            return rule, "rule"
         if rule.intent == "inbound":
             return rule, "legacy"  # Existing inbound capability remains outside the five-tool registry.
         try:

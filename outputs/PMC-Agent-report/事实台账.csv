@@ -1,0 +1,30 @@
+﻿页码,陈述,来源,代码数据版本,是否复测,是否合成,限制
+1,项目定位为辅助数量核对和证据查询,README.md,95a526b + dirty工作区；SHA见version-manifest；Demo V01,静态源码交叉核对，非完整路径复测,方法适用多个入口，本次实跑合成Trial,固定场景，不能推断业务准确率或节省时间
+2,22页主文组织为四章节,README.md,95a526b + dirty工作区；SHA见version-manifest；Demo V01,静态源码交叉核对，非完整路径复测,方法适用多个入口，本次实跑合成Trial,固定场景，不能推断业务准确率或节省时间
+3,齐套判断依赖版本化BOM和权威可用库存,README.md ; services/published_planning_service.py,95a526b + dirty工作区；SHA见version-manifest；Demo V01,静态源码交叉核对，非完整路径复测,方法适用多个入口，本次实跑合成Trial,固定场景，不能推断业务准确率或节省时间
+4,不能从语言猜测缺失业务条件,agents/context_resolver.py ; services/published_planning_service.py ; agents/response_generator.py,95a526b + dirty工作区；SHA见version-manifest；Demo V01,静态源码交叉核对，非完整路径复测,方法适用多个入口，本次实跑合成Trial,固定场景，不能推断业务准确率或节省时间
+5,建立理解、计算和证据的职责边界,agents/orchestrator.py ; services/published_planning_service.py ; agents/response_generator.py,95a526b + dirty工作区；SHA见version-manifest；Demo V01,静态源码交叉核对，非完整路径复测,方法适用多个入口，本次实跑合成Trial,固定场景，不能推断业务准确率或节省时间
+6,Trial独立事实库与规则模式形成实测闭环,services/persistent_agent_service.py ; agents/orchestrator.py ; tools/demo_scenario_tools.py ; api/trial_app.py,95a526b + dirty工作区；SHA见version-manifest；Demo V01,静态源码交叉核对，非完整路径复测,方法适用多个入口，本次实跑合成Trial,固定场景，不能推断业务准确率或节省时间
+7,发布前存在校验与按条件人工确认,services/bom_import_service.py ; repositories/fact_repository.py,95a526b + dirty工作区；SHA见version-manifest；Demo V01,静态源码交叉核对，非完整路径复测,方法适用多个入口，本次实跑合成Trial,固定场景，不能推断业务准确率或节省时间
+8,区分企业目录解析和Trial固定产品上下文,agents/planner.py ; agents/context_resolver.py ; agents/product_resolver.py ; services/persistent_agent_service.py,95a526b + dirty工作区；SHA见version-manifest；Demo V01,静态源码交叉核对，非完整路径复测,方法适用多个入口，本次实跑合成Trial,固定场景，不能推断业务准确率或节省时间
+9,effective_date存在时实际进入多层PublishedPlanningService,services/published_planning_service.py ; services/production_feasibility_query_service.py ; tools/demo_scenario_tools.py,95a526b + dirty工作区；SHA见version-manifest；Demo V01,静态源码交叉核对，非完整路径复测,方法适用多个入口，本次实跑合成Trial,固定场景，不能推断业务准确率或节省时间
+10,模型仅受约束组织事实说明，失败回退业务模板,agents/orchestrator.py ; agents/evidence.py ; agents/response_generator.py ; services/persistent_agent_service.py,95a526b + dirty工作区；SHA见version-manifest；Demo V01,静态源码交叉核对，非完整路径复测,方法适用多个入口，本次实跑合成Trial,固定场景，不能推断业务准确率或节省时间
+11,实测原因追问复用100台turn，completed_steps为空,agents/orchestrator.py ; services/persistent_agent_service.py ; outputs/PMC-Agent-report/runtime-responses.json,95a526b + dirty工作区；SHA见version-manifest；Demo V01,静态源码交叉核对，非完整路径复测,方法适用多个入口，本次实跑合成Trial,固定场景，不能推断业务准确率或节省时间
+12,仅支持合成数据上的数量和采购案例,outputs/PMC-Agent-report/runtime-responses.json ; services/published_planning_service.py ; services/published_purchase_planning_service.py,95a526b + dirty工作区；SHA见version-manifest；Demo V01,是，HTTP或截图,是,固定场景，不能推断业务准确率或节省时间
+13,本地隔离合成Trial复测，非LLM效果实验,api/trial_app.py ; repositories/demo_scenario_repository.py ; outputs/PMC-Agent-report/runtime-responses.json,95a526b + dirty工作区；SHA见version-manifest；Demo V01,静态源码交叉核对，非完整路径复测,是,固定场景，不能推断业务准确率或节省时间
+14,min floor(库存/单位用量)=75，与实跑一致,services/published_planning_service.py ; outputs/PMC-Agent-report/runtime-responses.json ; data/demo/demo_scenario_50_vs_100/bom_facts.json ; data/demo/demo_scenario_50_vs_100/inventory_facts.json,95a526b + dirty工作区；SHA见version-manifest；Demo V01,是，HTTP或截图,是,固定场景，不能推断业务准确率或节省时间
+15,0台拒绝且无completed_steps；追问复用证据,agents/orchestrator.py ; outputs/PMC-Agent-report/runtime-responses.json ; tests/test_remote_trial.py,95a526b + dirty工作区；SHA见version-manifest；Demo V01,是，HTTP或截图,是,固定场景，不能推断业务准确率或节省时间
+16,仅报告案例与专项测试，不宣称胜过人工,outputs/PMC-Agent-report/runtime-responses.json ; tests/test_demo_scenario_50_100.py ; tests/test_demo_purchase_parameters.py ; tests/test_remote_trial.py,95a526b + dirty工作区；SHA见version-manifest；Demo V01,静态源码交叉核对，非完整路径复测,是,固定场景，不能推断业务准确率或节省时间
+17,实跑四项缺料，页面原始截图与响应一致,outputs/PMC-Agent-report/runtime-responses.json ; raw-screenshots/01-100.png,95a526b + dirty工作区；SHA见version-manifest；Demo V01,是，HTTP或截图,是,固定场景，不能推断业务准确率或节省时间
+18,追问说明证据复用，50台页面齐套,outputs/PMC-Agent-report/runtime-responses.json ; raw-screenshots/02-reason.png ; raw-screenshots/03-50.png,95a526b + dirty工作区；SHA见version-manifest；Demo V01,是，HTTP或截图,是,固定场景，不能推断业务准确率或节省时间
+19,实际来源展开含事实文件与快照信息,outputs/PMC-Agent-report/runtime-responses.json ; raw-screenshots/04-source.png,95a526b + dirty工作区；SHA见version-manifest；Demo V01,是，HTTP或截图,是,固定场景，不能推断业务准确率或节省时间
+20,只能支持数据条件下的辅助分析,README.md ; services/published_planning_service.py ; services/published_purchase_planning_service.py,95a526b + dirty工作区；SHA见version-manifest；Demo V01,静态源码交叉核对，非完整路径复测,是,固定场景，不能推断业务准确率或节省时间
+21,合成场景验证不能外推真实生产效果,README.md ; outputs/PMC-Agent-report/runtime-responses.json,95a526b + dirty工作区；SHA见version-manifest；Demo V01,静态源码交叉核对，非完整路径复测,方法适用多个入口，本次实跑合成Trial,固定场景，不能推断业务准确率或节省时间
+22,职责分工和固定场景闭环成立，效果泛化待验证,agents/orchestrator.py ; services/published_planning_service.py ; outputs/PMC-Agent-report/runtime-responses.json,95a526b + dirty工作区；SHA见version-manifest；Demo V01,静态源码交叉核对，非完整路径复测,方法适用多个入口，本次实跑合成Trial,固定场景，不能推断业务准确率或节省时间
+14,75台理论上限,库存75/300/150/600 件除以用量1/4/2/8 件/台，取向下整除最小值；HTTP capacity response,同上；快照2026-10-02T00:00:00+00:00,是,是，测试计数为软件指标,同一场景，非效果比较
+14,100台四项缺口25/100/50/200件,"max(100×用量−库存,0)；HTTP response",同上；快照2026-10-02T00:00:00+00:00,是,是，测试计数为软件指标,同一场景，非效果比较
+14,50/75满足，76/100不足,"runtime-responses.json results 0,2,3,4,5,6",同上；快照2026-10-02T00:00:00+00:00,是,是，测试计数为软件指标,同一场景，非效果比较
+12,采购数量30/100/50/200件与1560.00 CNY,results[7]，MOQ与倍数规则；30×20+100×2+50×15+200×0.05；purchase_parameters.json,同上；快照2026-10-02T00:00:00+00:00,是,是，测试计数为软件指标,同一场景，非效果比较
+15,0台needs_input且不执行工具,results[8].structured_data.completed_steps=[],同上；快照2026-10-02T00:00:00+00:00,是,是，测试计数为软件指标,同一场景，非效果比较
+11,追问复用100台证据,results[1].reused_from_turn_id=results[0].turn_id，completed_steps=[],同上；快照2026-10-02T00:00:00+00:00,是,是，测试计数为软件指标,同一场景，非效果比较
+16,37项专项软件测试通过,"本次pytest三个文件，37 passed,2 warnings；不等于业务准确率",同上；快照2026-10-02T00:00:00+00:00,是,是，测试计数为软件指标,同一场景，非效果比较

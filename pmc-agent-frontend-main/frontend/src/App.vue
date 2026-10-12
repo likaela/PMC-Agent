@@ -96,7 +96,7 @@ watch(
               <option value="" disabled>选择产品</option>
               <option v-for="p in productCatalog" :key="p.product_code" :value="p.product_code">{{p.product_code}}{{p.synthetic ? '（演示产品）' : ''}}</option>
             </select>
-            <template v-if="selectedProduct"><label for="local-review-scope">分析范围</label>
+            <template v-if="selectedProduct && (productCatalog.find(p => p.product_code === selectedProduct)?.modes.length ?? 0) > 1"><label for="local-review-scope">分析范围</label>
               <select id="local-review-scope" :disabled="pending" :value="productMode" @change="chooseProduct(selectedProduct!, ($event.target as HTMLSelectElement).value)">
                 <option v-for="s in productCatalog.find(p => p.product_code === selectedProduct)?.modes" :key="s.mode" :value="s.mode">{{s.label}} · {{s.line_count}}项</option>
               </select>
@@ -113,9 +113,9 @@ watch(
           >
             <option value="live">在线 Agent</option>
           </select>
-          <label v-if="mode === 'live'" for="data-space">数据空间</label>
+          <label v-if="mode === 'live' && !productCatalog.length" for="data-space">数据空间</label>
           <select
-            v-if="mode === 'live'"
+            v-if="mode === 'live' && !productCatalog.length"
             id="data-space"
             :value="scenario ?? ''"
             :disabled="pending"
@@ -126,11 +126,8 @@ watch(
               )
             "
           >
-            <option v-if="!trialMode" value="">完整追溯范围</option>
+            <option v-if="!trialMode" value="">业务查询</option>
             <option value="demo_scenario_50_vs_100">演示产品</option>
-            <option v-if="!trialMode" value="review_real_bom_simulation">数量模拟（演示库存）</option>
-            <option v-if="!trialMode" value="kq_z112_review_slim">KQ-Z112 标准分析范围</option>
-            <option v-if="!trialMode" value="kq_z112_review_slim_synthetic">KQ-Z112 数量模拟（演示库存）</option>
           </select>
         </div>
       </div>
@@ -146,7 +143,7 @@ watch(
           <Icon name="link" :size="16" /><span>{{
             scenario
               ? scenario === "kq_z112_review_slim" ? "标准分析范围 · 结果仅适用于当前范围" : scenario === "kq_z112_review_slim_synthetic" ? "数量模拟范围 · 包含演示库存，不用于业务放行" : scenario === "review_real_bom_simulation" ? "数量模拟范围 · 采用演示库存" : "演示产品 · 独立数据空间"
-              : "完整追溯范围 · 已发布BOM与库存记录"
+              : "业务查询 · 当前BOM与库存记录"
           }}</span
           ><small>后端查询与计算 · 未知不补零</small>
         </div>
@@ -184,7 +181,7 @@ watch(
           <strong>输入企业产品编码</strong>
           <p>
             点击“开始分析”或“新建分析”，选择产品及分析范围后输入问题。
-            KQ-Z112默认使用标准分析范围，可切换完整追溯范围。演示产品需主动选择，数据空间独立。
+            KQ-Z112统一使用当前34项业务BOM配置。演示产品需主动选择，数据空间独立。
           </p>
         </li>
         <li>
